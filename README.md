@@ -136,15 +136,14 @@ In Git Bash, run:
 
 ```bash
 git clone https://github.com/sishuiguozi/SAG-plus.git
-cd SAG-plus
-cd apps/desktop
+cd SAG-plus/apps/desktop
 npm run dev
 ```
 
 In Command Prompt (cmd), run:
 
 ```cmd
-cd /d SAG-plus\apps\desktop
+cd SAG-plus\apps\desktop
 npm run dev
 ```
 
