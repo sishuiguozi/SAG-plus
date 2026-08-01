@@ -401,6 +401,34 @@ async def test_local_reranker(
     }
 
 
+@router.get("/maintenance")
+async def get_lancedb_maintenance_status(
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """SAG-OPT-803：向量库自动维护状态（计划、上次/下次维护、各表碎片与占用）。"""
+    from sag_api.maintenance import scheduler
+
+    return scheduler.maintenance_status(settings)
+
+
+@router.post("/maintenance/trigger")
+async def trigger_lancedb_maintenance(
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """SAG-OPT-803：设置“立即维护”——写 pending 标记，下次启动时强制执行。
+
+    维护必须在写入器未运行（应用关闭/启动早期）时执行，因此不在此处直接跑。
+    """
+    from sag_api.maintenance import scheduler
+
+    path = scheduler.request_startup_maintenance(settings.data_dir)
+    return {
+        "requested": True,
+        "pending_file": str(path),
+        "hint": "restart_required",
+    }
+
+
 @router.get("/model-providers")
 async def get_model_providers(
     _user: User = Depends(get_current_user),

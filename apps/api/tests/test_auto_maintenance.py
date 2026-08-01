@@ -26,7 +26,7 @@ def _load_script_module(module_name: str, relative_path: str):
 
 
 def test_evaluate_triggers_by_fragments_and_ratio(tmp_path: Path):
-    auto = _load_script_module("auto_maintenance_test", "scripts/auto_maintenance.py")
+    auto = _load_script_module("auto_maintenance_test", "sag_api/maintenance/auto_maintenance.py")
     summary = {
         "tables": {
             "event_vectors": {"rows": 10, "fragments": 800, "latest_version": 100,
@@ -49,7 +49,7 @@ def test_evaluate_triggers_by_fragments_and_ratio(tmp_path: Path):
 
 
 def test_version_delta_uses_state_baseline():
-    auto = _load_script_module("auto_maintenance_test2", "scripts/auto_maintenance.py")
+    auto = _load_script_module("auto_maintenance_test2", "sag_api/maintenance/auto_maintenance.py")
     summary = {
         "tables": {
             "event_vectors": {"rows": 10, "fragments": 1, "latest_version": 1200,
@@ -70,7 +70,7 @@ def test_version_delta_uses_state_baseline():
 
 
 def test_queue_idle_detects_active_writes(tmp_path: Path):
-    auto = _load_script_module("auto_maintenance_test3", "scripts/auto_maintenance.py")
+    auto = _load_script_module("auto_maintenance_test3", "sag_api/maintenance/auto_maintenance.py")
     db = tmp_path / "meta.db"
     con = sqlite3.connect(db)
     con.executescript(

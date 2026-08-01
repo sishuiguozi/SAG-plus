@@ -87,6 +87,10 @@ _FIELDS = frozenset(
         "aux_vector_deferred_enabled",
         "source_chunk_vector_embedding_batch_size",
         "source_chunk_vector_index_batch_size",
+        # LanceDB 自动维护（SAG-OPT-803）
+        "lancedb_maintenance_enabled",
+        "lancedb_maintenance_interval_days",
+        "lancedb_maintenance_delete_unverified",
         # 磁盘分级保护（SAG-OPT-802）
         "disk_guard_enabled",
         "disk_warn_gb",
@@ -309,6 +313,10 @@ def effective_model_config() -> dict:
         "search_rerank_api_instruction": _settings.search_rerank_api_instruction,
         "search_rerank_api_timeout_ms": _settings.search_rerank_api_timeout_ms,
         "sag_language": _settings.sag_language,
+        # LanceDB 自动维护（SAG-OPT-803）
+        "lancedb_maintenance_enabled": _settings.lancedb_maintenance_enabled,
+        "lancedb_maintenance_interval_days": _settings.lancedb_maintenance_interval_days,
+        "lancedb_maintenance_delete_unverified": _settings.lancedb_maintenance_delete_unverified,
         # 向量索引与写入
         "lancedb_ann_enabled": _settings.lancedb_ann_enabled,
         "lancedb_search_refine_factor": _settings.lancedb_search_refine_factor,

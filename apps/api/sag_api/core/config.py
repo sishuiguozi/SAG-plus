@@ -92,6 +92,11 @@ class Settings(BaseSettings):
     lancedb_ann_enabled: bool = True  # SAG-OPT-302：检索走 ANN 索引（精确检索可回退）
     lancedb_search_refine_factor: int = Field(default=8, ge=0, le=100)  # SAG-OPT-302：ANN 精排因子，0=关闭
     lancedb_search_nprobes: int = Field(default=16, ge=0, le=1024)  # SAG-OPT-302：IVF 探测数，0=上游默认
+    # SAG-OPT-803：LanceDB 自动维护计划（应用启动早期检查，到期才执行；入库忙时自动跳过）
+    lancedb_maintenance_enabled: bool = True
+    lancedb_maintenance_interval_days: int = Field(default=7, ge=1, le=60)
+    # 确认已备份后才允许清理旧版本（清理不可逆）。
+    lancedb_maintenance_delete_unverified: bool = False
     # SAG-OPT-802：磁盘分级保护（GB）
     disk_guard_enabled: bool = True
     disk_warn_gb: float = 30.0

@@ -25,6 +25,7 @@ import type {
   ModelProviderSpec,
   ModelSetupStatus,
   KnowledgeMcpDescriptor,
+  LancedbMaintenanceStatus,
   Persona,
   SearchResponse,
   Source,
@@ -522,6 +523,15 @@ export const api = {
         method: "POST",
         body: b ? JSON.stringify(b) : undefined,
       },
+    ),
+
+  // LanceDB 自动维护（SAG-OPT-803）
+  getMaintenanceStatus: () =>
+    request<LancedbMaintenanceStatus>("/api/v1/system/maintenance"),
+  triggerMaintenance: () =>
+    request<{ requested: boolean; pending_file: string; hint: string }>(
+      "/api/v1/system/maintenance/trigger",
+      { method: "POST" },
     ),
 
   // 信源

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { RotateCcw, RotateCw, Save } from "lucide-react";
+import { Copy, RotateCcw, RotateCw, Save, Wrench } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
@@ -24,6 +24,7 @@ import { useApp } from "@/components/features/app-shell";
 import { api, ApiError } from "@/lib/api";
 import type {
   EnvOnlyConfig,
+  LancedbMaintenanceStatus,
   ModelConfig,
   ModelConfigPatch,
 } from "@/lib/types";
@@ -58,6 +59,18 @@ type SectionSpec = {
 };
 
 const SECTIONS: SectionSpec[] = [
+  {
+    sectionKey: "maintenance",
+    fields: [
+      { key: "lancedb_maintenance_enabled", kind: "bool" },
+      {
+        key: "lancedb_maintenance_interval_days",
+        kind: "enum",
+        options: ["1", "7", "14", "30"],
+      },
+      { key: "lancedb_maintenance_delete_unverified", kind: "bool" },
+    ],
+  },
   {
     sectionKey: "vector",
     fields: [
@@ -261,6 +274,161 @@ function RecommendedHint({
   );
 }
 
+function MaintenanceSection() {
+  const t = useTranslations("SystemConfig");
+  const [status, setStatus] = React.useState<LancedbMaintenanceStatus | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+
+  const load = React.useCallback(async () => {
+    try {
+      setStatus(await api.getMaintenanceStatus());
+    } catch {
+      setStatus(null);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function runNow() {
+    setBusy(true);
+    try {
+      await api.triggerMaintenance();
+      toast.success(t("maintenanceRunNowScheduled"));
+      await load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("maintenanceRunNowFailed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyCommand() {
+    if (!status) return;
+    try {
+      await navigator.clipboard.writeText(status.task_command);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error(t("maintenanceCopyFailed"));
+    }
+  }
+
+  const sizeLabel = (bytes: number): string => {
+    const gb = bytes / 1024 ** 3;
+    if (gb >= 1) return `${gb.toFixed(2)} GB`;
+    return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  };
+
+  return (
+    <SettingsSection
+      title={t("maintenanceStatusTitle")}
+      description={t("maintenanceStatusDescription")}
+    >
+      <div className="space-y-3 p-4 sm:p-5">
+        {!status ? (
+          <Skeleton className="h-20 w-full" />
+        ) : (
+          <>
+            <div className="grid gap-3 text-sm sm:grid-cols-2">
+              <div className="rounded-lg border p-3">
+                <div className="text-muted-foreground">{t("maintenanceLastRun")}</div>
+                <div className="mt-0.5 font-medium text-foreground">
+                  {status.last_success_at
+                    ? new Date(status.last_success_at).toLocaleString()
+                    : t("maintenanceNever")}
+                </div>
+              </div>
+              <div className="rounded-lg border p-3">
+                <div className="text-muted-foreground">{t("maintenanceNextDue")}</div>
+                <div className="mt-0.5 font-medium text-foreground">
+                  {status.next_due_at
+                    ? new Date(status.next_due_at).toLocaleString()
+                    : t("maintenancePendingFirstRun")}
+                </div>
+              </div>
+            </div>
+
+            {status.pending_restart && (
+              <Alert variant="default">
+                <AlertTitle>{t("maintenancePendingTitle")}</AlertTitle>
+                <AlertDescription>{t("maintenancePendingDescription")}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="rounded-lg border p-3">
+              <div className="mb-2 text-sm font-medium text-foreground">
+                {t("maintenanceTablesTitle")}
+              </div>
+              {Object.keys(status.tables).length === 0 ? (
+                <div className="text-sm text-muted-foreground">{t("maintenanceNoTables")}</div>
+              ) : (
+                <div className="grid gap-1.5 text-sm">
+                  {Object.entries(status.tables).map(([name, table]) => (
+                    <div
+                      key={name}
+                      className="flex flex-wrap items-center justify-between gap-2"
+                    >
+                      <span className="font-mono text-xs text-foreground">{name}</span>
+                      <span className="text-muted-foreground">
+                        {sizeLabel(table.directory_bytes)}
+                        {" · "}
+                        {table.fragments.toLocaleString()}
+                        {" "}
+                        {t("maintenanceFragments")}
+                        {table.reason !== "ok" && (
+                          <span className="ml-1 text-amber-600 dark:text-amber-400">
+                            {table.reason}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg border p-3">
+              <div className="mb-1 text-sm text-muted-foreground">{t("maintenanceBackupHint")}</div>
+              <div className="font-mono text-xs text-foreground">{status.backup_hint}</div>
+            </div>
+
+            <div className="rounded-lg border p-3">
+              <div className="mb-2 text-sm font-medium text-foreground">
+                {t("maintenanceTaskCommandTitle")}
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <code className="min-w-0 flex-1 break-all rounded-md bg-muted px-3 py-2 font-mono text-xs text-foreground">
+                  {status.task_command}
+                </code>
+                <Button type="button" variant="outline" size="sm" onClick={() => void copyCommand()}>
+                  <Copy />
+                  {copied ? t("maintenanceCopied") : t("maintenanceCopy")}
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void runNow()}
+                disabled={busy}
+              >
+                {busy ? <Spinner /> : <Wrench />}
+                {t("maintenanceRunNow")}
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </SettingsSection>
+  );
+}
+
 function DataRootSection() {
   const t = useTranslations("SystemConfig");
   const [info, setInfo] = React.useState<{
@@ -460,9 +628,11 @@ export function SystemConfigForm() {
           const value = values[spec.key];
           if (value === undefined) continue;
           patch[spec.key] =
-            spec.kind === "int" || spec.kind === "float"
-              ? clampNumber(value, spec)
-              : value;
+            spec.key === "lancedb_maintenance_interval_days"
+              ? Number(value)
+              : spec.kind === "int" || spec.kind === "float"
+                ? clampNumber(value, spec)
+                : value;
         }
       }
       const { config } = await api.saveModelConfig(patch as ModelConfigPatch);
@@ -614,6 +784,7 @@ export function SystemConfigForm() {
         );
       })}
 
+      <MaintenanceSection />
       <DataRootSection />
       {envOnly && <EnvOnlySection config={envOnly} />}
 
