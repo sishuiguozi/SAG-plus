@@ -1,6 +1,7 @@
 import asyncio
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -111,6 +112,51 @@ def test_deletes_partial_file_when_download_length_verification_fails(
         manager._download_sync(file_name)
 
     assert not (tmp_path / "embedding" / f"{file_name}.part").exists()
+
+
+def test_uses_catalog_sha256_instead_of_redirected_cdn_etag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    class CompleteResponse:
+        headers = {"Content-Length": "3", "ETag": "f" * 64}
+
+        def __init__(self) -> None:
+            self._read = False
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            return None
+
+        def read(self, _: int) -> bytes:
+            if self._read:
+                return b""
+            self._read = True
+            return b"abc"
+
+    class CatalogDigest:
+        def update(self, _: bytes) -> None:
+            return None
+
+        def hexdigest(self) -> str:
+            return "a" * 64
+
+    spec = SimpleNamespace(
+        file_name="test.gguf",
+        source_url="https://models.example/test.gguf",
+        relative_dir="reranker",
+        sha256="a" * 64,
+    )
+    manager = LocalModelManager(tmp_path)
+    manager._state[spec.file_name] = {}
+    monkeypatch.setattr("sag_api.sag.local_model_manager.get_model_spec", lambda _: spec)
+    monkeypatch.setattr("sag_api.sag.local_model_manager.urlopen", lambda *_args, **_kwargs: CompleteResponse())
+    monkeypatch.setattr("sag_api.sag.local_model_manager.hashlib.sha256", CatalogDigest)
+
+    manager._download_sync(spec.file_name)
+
+    assert (tmp_path / "reranker" / spec.file_name).read_bytes() == b"abc"
 
 
 @pytest.mark.asyncio

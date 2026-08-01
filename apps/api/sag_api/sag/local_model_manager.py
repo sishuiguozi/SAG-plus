@@ -259,7 +259,6 @@ class LocalModelManager:
         request = Request(f"{spec.source_url}?download=true", headers={"User-Agent": "SAG-plus"})
         with urlopen(request, timeout=30) as response, partial.open("wb") as output:  # noqa: S310
             total = int(response.headers.get("Content-Length") or 0) or None
-            etag = (response.headers.get("ETag") or "").strip('"')
             self._state[file_name]["total_bytes"] = total
             digest = hashlib.sha256()
             written = 0
@@ -274,7 +273,7 @@ class LocalModelManager:
         if total is not None and written != total:
             partial.unlink(missing_ok=True)
             raise RuntimeError("Model download size verification failed")
-        if len(etag) == 64 and digest.hexdigest() != etag:
+        if spec.sha256 and digest.hexdigest() != spec.sha256:
             partial.unlink(missing_ok=True)
             raise RuntimeError("Model download checksum verification failed")
         partial.replace(target)
