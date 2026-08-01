@@ -96,6 +96,19 @@ event ↔ entities → 一条潜在超边
 
 ### 启动桌面应用（开发模式）
 
+首次运行先获取代码：
+
+```bash
+git clone https://github.com/sishuiguozi/SAG-plus.git
+cd SAG-plus
+```
+
+之后更新代码：
+
+```bash
+git pull --ff-only
+```
+
 前提条件：
 
 - Node.js 20 或更高版本。
@@ -104,21 +117,21 @@ event ↔ entities → 一条潜在超边
 在 Git Bash 中运行：
 
 ```bash
-cd /e/SAG-plus/apps/desktop
+cd /<仓库路径>/apps/desktop
 npm run dev
 ```
 
 在命令提示符（cmd）中运行：
 
 ```cmd
-cd /d E:\SAG-plus\apps\desktop
+cd /d <仓库路径>\apps\desktop
 npm run dev
 ```
 
 在 PowerShell 中运行：
 
 ```powershell
-cd E:\SAG-plus\apps\desktop
+cd <仓库路径>\apps\desktop
 npm run dev
 ```
 
@@ -349,7 +362,7 @@ curl -s -X POST "$BASE/sources/$SOURCE_ID/search" \
 | --- | --- |
 | API 没有启动 | 确认 Python 3.11+ 可用，且 8000 端口未被无关进程占用；启动器会在需要时重建虚拟环境。 |
 | Web 没有启动 | 启动器会安装缺失的 Web 依赖；桌面启动器会使用 3000 或 3001 端口。 |
-| Electron 立即退出 | 确认命令在 `E:\SAG-plus\apps\desktop` 执行，并查看终端中最先失败的 API 或 Web 进程。 |
+| Electron 立即退出 | 确认命令在仓库的 `apps\desktop` 目录下执行，并查看终端中最先失败的 API 或 Web 进程。 |
 | 旧知识库没有显示 | Git 不会迁移本地数据；创建新索引前先确认实际使用的数据目录。 |
 | 本地嵌入不可用 | 在设置中安装 llama-cpp-python 后端、下载模型，选择对应文件并保存。 |
 | 本地重排未就绪 | 在「检索重排」中下载所选模型并安装原生重排运行时；若运行时或模型不可用，检索会保留融合排序。 |

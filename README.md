@@ -127,6 +127,19 @@ Detailed implementation records are in
 
 ### Start the desktop app (development mode)
 
+First, get the code:
+
+```bash
+git clone https://github.com/sishuiguozi/SAG-plus.git
+cd SAG-plus
+```
+
+To update later:
+
+```bash
+git pull --ff-only
+```
+
 Requirements:
 
 - Node.js 20 or later.
@@ -135,21 +148,21 @@ Requirements:
 In Git Bash, run:
 
 ```bash
-cd /e/SAG-plus/apps/desktop
+cd /<repo-path>/apps/desktop
 npm run dev
 ```
 
 In Command Prompt (cmd), run:
 
 ```cmd
-cd /d E:\SAG-plus\apps\desktop
+cd /d <repo-path>\apps\desktop
 npm run dev
 ```
 
 In PowerShell, run:
 
 ```powershell
-cd E:\SAG-plus\apps\desktop
+cd <repo-path>\apps\desktop
 npm run dev
 ```
 
@@ -457,7 +470,7 @@ with the matching `NEXT_PUBLIC_API_BASE`.
 | --- | --- |
 | API does not start | Confirm Python 3.11+ is available and port 8000 is not already occupied by an unrelated process. The launcher recreates its virtual environment when needed. |
 | Web does not start | The launcher installs missing Web dependencies; it can use port 3000 or 3001. |
-| Electron closes immediately | Run the command from `E:\SAG-plus\apps\desktop` and read the first failing API or Web process in the terminal. |
+| Electron closes immediately | Run the command from the repository's `apps\desktop` directory and read the first failing API or Web process in the terminal. |
 | Old knowledge is missing | Local data was not copied by Git. Verify the intended local data directory before creating a new index. |
 | Local embeddings are unavailable | In Settings, install the llama-cpp-python backend, download a selected model, choose that file, then save. |
 | Local reranking is unavailable | In **Retrieval reranking**, download the selected model and install the native reranker runtime. Retrieval keeps its fused order if either is unavailable. |
