@@ -361,7 +361,13 @@ function MaintenanceSection() {
     >
       <div className="space-y-3 p-4 sm:p-5">
         {!status ? (
-          <Skeleton className="h-20 w-full" />
+          <div className="space-y-3">
+            <Skeleton className="h-20 w-full" />
+            <Alert variant="default">
+              <AlertTitle>{t("maintenanceUnavailableTitle")}</AlertTitle>
+              <AlertDescription>{t("maintenanceUnavailableDescription")}</AlertDescription>
+            </Alert>
+          </div>
         ) : (
           <>
             <div className="grid gap-3 text-sm sm:grid-cols-2">
@@ -458,39 +464,40 @@ function MaintenanceSection() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                onClick={() => setConfirmClean(true)}
-                disabled={busy || cleaning}
-              >
-                {cleaning ? <Spinner /> : <Trash2 />}
-                {t("maintenanceCleanNow")}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void runNow()}
-                disabled={busy || cleaning}
-              >
-                {busy ? <Spinner /> : <Wrench />}
-                {t("maintenanceRunNow")}
-              </Button>
-            </div>
-
-            <ConfirmDialog
-              open={confirmClean}
-              onOpenChange={setConfirmClean}
-              title={t("maintenanceCleanNowConfirmTitle")}
-              description={t("maintenanceCleanNowConfirmDescription")}
-              confirmLabel={t("maintenanceCleanNow")}
-              onConfirm={() => runCleanNow()}
-            />
           </>
         )}
+
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            onClick={() => setConfirmClean(true)}
+            disabled={busy || cleaning || !status}
+          >
+            {cleaning ? <Spinner /> : <Trash2 />}
+            {t("maintenanceCleanNow")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void runNow()}
+            disabled={busy || cleaning || !status}
+          >
+            {busy ? <Spinner /> : <Wrench />}
+            {t("maintenanceRunNow")}
+          </Button>
+        </div>
+
+        <ConfirmDialog
+          open={confirmClean}
+          onOpenChange={setConfirmClean}
+          title={t("maintenanceCleanNowConfirmTitle")}
+          description={t("maintenanceCleanNowConfirmDescription")}
+          confirmLabel={t("maintenanceCleanNow")}
+          onConfirm={() => runCleanNow()}
+        />
       </div>
     </SettingsSection>
   );

@@ -1060,7 +1060,9 @@
     "maintenanceCleanNowFailed": "Failed to schedule cleanup",
     "maintenanceCopyFailed": "Failed to copy command",
     "maintenanceBlockedTitle": "Active API process detected",
-    "maintenanceBlockedDescription": "Maintenance was skipped to avoid file-lock conflicts. Close other running SAG API processes, then restart the app."
+    "maintenanceBlockedDescription": "Maintenance was skipped to avoid file-lock conflicts. Close other running SAG API processes, then restart the app.",
+    "maintenanceUnavailableTitle": "Waiting for the API",
+    "maintenanceUnavailableDescription": "If the app just restarted, maintenance cleanup may be running. Please wait — once it finishes, the status will appear and the buttons will be enabled."
   },
   "AgentSettings": {
     "saved": "Assistant settings saved",
