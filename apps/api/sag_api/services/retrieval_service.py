@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
 from sag_api.core.config import settings
+from sag_api.core.llm_call_context import llm_call_scope
 from sag_api.core.logging import get_logger
 from sag_api.sag import RetrievedSection, SearchOutcome
 
@@ -295,7 +296,8 @@ async def _llm_rerank(
         },
     ]
     try:
-        raw = await llm.complete(messages)
+        with llm_call_scope("rerank"):
+            raw = await llm.complete(messages)
     except Exception:  # noqa: BLE001 - LLM 重排失败回退原顺序
         return sections[:limit]
     if not raw:

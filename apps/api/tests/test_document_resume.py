@@ -250,8 +250,13 @@ async def test_extract_chunk_tracks_tokens_from_wrapped_llm_client(monkeypatch):
     from sag_api.sag import incremental_processor as processor_module
     from sag_api.sag.incremental_processor import IncrementalDocumentProcessor
 
+    seen = {}
+
     class FakeLeafClient:
         async def chat(self, messages, **kwargs):
+            from sag_api.core.llm_call_context import current_llm_call_scenario
+
+            seen["scenario"] = current_llm_call_scenario()
             return SimpleNamespace(
                 content='{"data": {"items": []}}',
                 usage=SimpleNamespace(total_tokens=321),
@@ -286,6 +291,7 @@ async def test_extract_chunk_tracks_tokens_from_wrapped_llm_client(monkeypatch):
 
     assert event_ids == ["event-1"]
     assert token_usage == 321
+    assert seen["scenario"] == "extract"
 
 
 @pytest.mark.asyncio

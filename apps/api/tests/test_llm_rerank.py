@@ -34,6 +34,23 @@ async def test_llm_rerank_reorders():
 
 
 @pytest.mark.asyncio
+async def test_llm_rerank_marks_only_the_completion_call():
+    from sag_api.core.llm_call_context import current_llm_call_scenario
+    from sag_api.services.retrieval_service import _llm_rerank
+
+    class ScopeLLM(_FakeLLM):
+        async def complete(self, messages):
+            self.scenario = current_llm_call_scenario()
+            return self.reply
+
+    llm = ScopeLLM("1,2")
+    assert current_llm_call_scenario() is None
+    await _llm_rerank("q", _sections(2), llm=llm, limit=2)
+    assert llm.scenario == "rerank"
+    assert current_llm_call_scenario() is None
+
+
+@pytest.mark.asyncio
 async def test_llm_rerank_fallback_on_error():
     from sag_api.services.retrieval_service import _llm_rerank
 

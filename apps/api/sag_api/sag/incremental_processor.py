@@ -20,6 +20,7 @@ from zleap.sag.modules.load.loader import DocumentLoader
 from zleap.sag.modules.load.parser import MarkdownParser
 
 from sag_api.core.config import settings
+from sag_api.core.llm_call_context import llm_call_scope
 from sag_api.core.logging import get_logger
 from sag_api.sag.dto import ProcessCheckpoint, ProcessOutcome
 
@@ -408,15 +409,16 @@ class IncrementalDocumentProcessor:
 
         chat_owner.chat = tracked_chat
         try:
-            events = await extractor.extract(
-                ExtractConfig(
-                    source_config_id=self._source_config_id,
-                    chunk_ids=[chunk_id],
-                    max_concurrency=1,
-                    custom_requirements=_KNOWLEDGE_EVENT_REQUIREMENTS,
-                    enable_strict_filtering=self._enable_strict_filtering,
+            with llm_call_scope("extract"):
+                events = await extractor.extract(
+                    ExtractConfig(
+                        source_config_id=self._source_config_id,
+                        chunk_ids=[chunk_id],
+                        max_concurrency=1,
+                        custom_requirements=_KNOWLEDGE_EVENT_REQUIREMENTS,
+                        enable_strict_filtering=self._enable_strict_filtering,
+                    )
                 )
-            )
             if chunk_failure is not None:
                 raise chunk_failure
         finally:
