@@ -7,7 +7,9 @@ import json
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
+from uuid import uuid4
 from typing import Protocol
 
 from sag_api.schemas.tree_sitter import TreeSitterResourceState, TreeSitterResourceStatus
@@ -32,6 +34,7 @@ class LanguagePackAdapter(Protocol):
 _SUBPROCESS_SCRIPT = """
 import json
 import sys
+import time
 import tree_sitter_language_pack as pack
 
 target, operation, language = sys.argv[1:4]
@@ -175,6 +178,14 @@ class TreeSitterResourceManager:
         async with self._operation_lock:
             if self._task is not None and not self._task.done():
                 return self.status()
+            # Clear stale in-memory failure once the on-disk active pack is complete.
+            manifest = set(self._manifest())
+            if manifest and self._installed(self.active_dir) == manifest:
+                self._state = "ready"
+                self._error = None
+                self.activate_if_ready()
+                self._cleanup_stale_trees()
+                return self.status()
             if self.status().state == "ready":
                 return self.status()
             self._pause_requested = False
@@ -193,6 +204,14 @@ class TreeSitterResourceManager:
     async def repair(self) -> TreeSitterResourceStatus:
         async with self._operation_lock:
             if self._task is not None and not self._task.done():
+                return self.status()
+            manifest = set(self._manifest())
+            if manifest and self._installed(self.active_dir) == manifest:
+                self._state = "ready"
+                self._error = None
+                self.activate_if_ready()
+                self._best_effort_rmtree(self.staging_dir)
+                self._cleanup_stale_trees()
                 return self.status()
             self.version_dir.mkdir(parents=True, exist_ok=True)
             if not self.staging_dir.exists() and self.active_dir.exists():
@@ -283,12 +302,86 @@ class TreeSitterResourceManager:
         }
         self._checkpoint_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
+    def _best_effort_rmtree(self, path: Path) -> None:
+        """Remove a directory tree; on Windows locked DLLs, rename aside first."""
+        if not path.exists():
+            return
+        try:
+            shutil.rmtree(path)
+            return
+        except OSError:
+            pass
+        trash = path.with_name(f"{path.name}.trash-{uuid4().hex}")
+        try:
+            path.rename(trash)
+        except OSError:
+            # Still locked and unrenamable; leave it for a later cleanup pass.
+            return
+        try:
+            shutil.rmtree(trash)
+        except OSError:
+            return
+
+    def _cleanup_stale_trees(self) -> None:
+        for child in self.version_dir.iterdir() if self.version_dir.exists() else []:
+            name = child.name
+            if name == "previous" or name.startswith("previous-") or ".trash-" in name:
+                self._best_effort_rmtree(child)
+
+    def _merge_tree(self, source: Path, destination: Path) -> None:
+        """Copy/replace files from source into destination without deleting locked roots."""
+        destination.mkdir(parents=True, exist_ok=True)
+        for item in source.rglob("*"):
+            rel = item.relative_to(source)
+            target = destination / rel
+            if item.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            tmp = target.with_name(f".{target.name}.tmp-{uuid4().hex}")
+            shutil.copy2(item, tmp)
+            tmp.replace(target)
+
     def _promote_staging(self) -> None:
-        backup_dir = self.version_dir / "previous"
-        if backup_dir.exists():
-            shutil.rmtree(backup_dir)
-        if self.active_dir.exists():
-            self.active_dir.replace(backup_dir)
-        self.staging_dir.replace(self.active_dir)
-        if backup_dir.exists():
-            shutil.rmtree(backup_dir)
+        """Make staging the active pack without failing on Windows file locks.
+
+        Language DLLs may stay mapped by the running API process. Deleting or
+        replacing the live ``active`` / ``previous`` trees can raise WinError 5.
+        If ``active`` is already complete we keep it; otherwise we rename with a
+        unique backup name or fall back to merging files into ``active``.
+        """
+        if not self.staging_dir.exists():
+            return
+
+        manifest = set(self._manifest())
+        staging_ok = self._installed(self.staging_dir) == manifest and bool(manifest)
+        if not staging_ok:
+            missing = sorted(manifest - self._installed(self.staging_dir))
+            raise RuntimeError(
+                "Parser verification failed before promote; missing: "
+                + ", ".join(missing[:8])
+            )
+
+        active_ok = self._installed(self.active_dir) == manifest
+        if active_ok:
+            # Current process may already hold active DLLs open. Staging is only
+            # a completed mirror, so keep active and drop staging best-effort.
+            self._best_effort_rmtree(self.staging_dir)
+            self._cleanup_stale_trees()
+            return
+
+        backup_dir = self.version_dir / f"previous-{time.time_ns()}-{uuid4().hex[:8]}"
+        try:
+            if self.active_dir.exists():
+                self.active_dir.replace(backup_dir)
+            self.staging_dir.replace(self.active_dir)
+        except OSError:
+            # Active tree is locked: copy staging contents over it instead.
+            self._merge_tree(self.staging_dir, self.active_dir)
+            if self._installed(self.active_dir) != manifest:
+                raise
+            self._best_effort_rmtree(self.staging_dir)
+        else:
+            self._best_effort_rmtree(backup_dir)
+
+        self._cleanup_stale_trees()

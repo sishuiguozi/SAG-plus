@@ -113,3 +113,55 @@ async def test_repair_downloads_only_missing_active_languages(tmp_path: Path):
 
     assert manager.status().state == "ready"
     assert adapter.download_calls == ["typescript"]
+
+@pytest.mark.asyncio
+async def test_promote_keeps_complete_active_when_cleanup_is_locked(tmp_path: Path, monkeypatch):
+    """Windows may lock previous/active DLLs; completed active pack should still become ready."""
+    from sag_api.code_ingest import resource_manager as rm
+
+    adapter = FakeLanguagePackAdapter()
+    manager = rm.TreeSitterResourceManager(tmp_path, adapter=adapter)
+
+    # First successful install
+    await manager.start_download()
+    await manager.wait()
+    assert manager.status().state == "ready"
+    assert manager.active_dir.is_dir()
+
+    # Simulate a second download finishing into staging while Windows locks cleanup.
+    manager.staging_dir.mkdir(parents=True, exist_ok=True)
+    for language in adapter.manifest_languages():
+        (manager.staging_dir / f"{language}.parser").write_bytes(language.encode())
+
+    def locked_rmtree(path):
+        raise PermissionError(5, "Access is denied", str(path))
+
+    monkeypatch.setattr(rm.shutil, "rmtree", locked_rmtree)
+
+    # Promote should not fail the whole install when active is already complete.
+    manager._promote_staging()
+    status = manager.status()
+    assert status.state == "ready"
+    assert status.installed_languages == 3
+    assert manager.active_dir.is_dir()
+
+
+@pytest.mark.asyncio
+async def test_repair_short_circuits_when_active_pack_is_already_complete(tmp_path: Path):
+    from sag_api.code_ingest.resource_manager import TreeSitterResourceManager
+
+    adapter = FakeLanguagePackAdapter()
+    manager = TreeSitterResourceManager(tmp_path, adapter=adapter)
+    manager.active_dir.mkdir(parents=True)
+    for language in adapter.manifest_languages():
+        (manager.active_dir / f"{language}.parser").write_bytes(language.encode())
+    manager._state = "failed"
+    manager._error = "stale lock error"
+
+    status = await manager.repair()
+    await manager.wait()
+
+    assert status.state == "ready"
+    assert manager.status().error is None
+    assert adapter.download_calls == []
+
