@@ -96,4 +96,3 @@ async def test_repair_downloads_only_missing_active_languages(tmp_path: Path):
 
     assert manager.status().state == "ready"
     assert adapter.download_calls == ["typescript"]
-
