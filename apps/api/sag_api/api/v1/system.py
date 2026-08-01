@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 from pathlib import Path
 from time import perf_counter
@@ -31,6 +32,7 @@ from sag_api.services import settings_service
 router = APIRouter(prefix="/system", tags=["system"])
 log = get_logger("system")
 _local_model_manager = None
+_local_embedding_test_lock = asyncio.Lock()
 
 
 def _get_local_model_manager():
@@ -42,6 +44,23 @@ def _get_local_model_manager():
     if _local_model_manager is None or _local_model_manager.model_dir != model_dir:
         _local_model_manager = LocalModelManager(model_dir)
     return _local_model_manager
+
+
+async def _generate_local_embedding_test(
+    model_path: str,
+    *,
+    n_ctx: int,
+    n_threads: int | None,
+) -> list[float]:
+    """Generate with a temporary local client, serializing model residency."""
+    from sag_api.sag.embedding_backend import LocalEmbeddingClient
+
+    async with _local_embedding_test_lock:
+        client = LocalEmbeddingClient(model_path, n_ctx=n_ctx, n_threads=n_threads)
+        try:
+            return await client.generate("SAG-plus local embedding health check")
+        finally:
+            await client.close()
 
 
 def _capabilities() -> dict:
@@ -275,16 +294,13 @@ async def test_local_embedding(
     if active_model["status"] != "ready":
         return {"ok": False, "message": "请先下载当前选择的本地模型"}
 
-    from sag_api.sag.embedding_backend import LocalEmbeddingClient
-
     started = perf_counter()
     try:
-        client = LocalEmbeddingClient(
+        vector = await _generate_local_embedding_test(
             active_model["model_path"],
             n_ctx=body.n_ctx,
             n_threads=body.n_threads or None,
         )
-        vector = await client.generate("SAG-plus local embedding health check")
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "message": str(exc)}
     return {

@@ -178,6 +178,9 @@ async def test_local_embedding_health_check_uses_unsaved_draft_values(monkeypatc
             assert text == "SAG-plus local embedding health check"
             return [0.1, 0.2, 0.3]
 
+        async def close(self) -> None:
+            return None
+
     monkeypatch.setattr(system, "_get_local_model_manager", lambda: ReadyModelManager())
     monkeypatch.setattr("sag_api.sag.embedding_backend.LocalEmbeddingClient", FakeLocalClient)
 
@@ -219,3 +222,65 @@ async def test_local_embedding_health_check_uses_unsaved_draft_values(monkeypatc
             "message": "Unsupported local embedding model",
         }
     }
+
+
+@pytest.mark.asyncio
+async def test_local_embedding_health_check_serializes_and_closes_temporary_clients(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from sag_api.api.v1 import system
+
+    first_started = asyncio.Event()
+    release_first = asyncio.Event()
+    second_started = asyncio.Event()
+    clients = []
+
+    class FakeLocalClient:
+        def __init__(self, _model_path: str, *, n_ctx: int, n_threads: int | None) -> None:
+            self.index = len(clients)
+            self.n_ctx = n_ctx
+            self.n_threads = n_threads
+            self.closed = False
+            clients.append(self)
+
+        async def generate(self, _text: str) -> list[float]:
+            if self.index == 0:
+                first_started.set()
+                await release_first.wait()
+                return [0.1, 0.2, 0.3]
+            if self.index == 1:
+                second_started.set()
+                return [0.4, 0.5, 0.6]
+            raise RuntimeError("simulated local inference failure")
+
+        async def close(self) -> None:
+            self.closed = True
+
+    monkeypatch.setattr("sag_api.sag.embedding_backend.LocalEmbeddingClient", FakeLocalClient)
+
+    first_request = asyncio.create_task(
+        system._generate_local_embedding_test("draft-q6.gguf", n_ctx=4096, n_threads=6)
+    )
+    await asyncio.wait_for(first_started.wait(), timeout=1)
+    second_request = asyncio.create_task(
+        system._generate_local_embedding_test("draft-q6.gguf", n_ctx=4096, n_threads=6)
+    )
+    try:
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(second_started.wait(), timeout=0.05)
+    finally:
+        release_first.set()
+
+    first_vector, second_vector = await asyncio.wait_for(
+        asyncio.gather(first_request, second_request), timeout=1
+    )
+    with pytest.raises(RuntimeError, match="simulated local inference failure"):
+        await asyncio.wait_for(
+            system._generate_local_embedding_test("draft-q6.gguf", n_ctx=512, n_threads=None),
+            timeout=1,
+        )
+
+    assert first_vector == [0.1, 0.2, 0.3]
+    assert second_vector == [0.4, 0.5, 0.6]
+    assert len(clients) == 3
+    assert all(client.closed for client in clients)
