@@ -11,6 +11,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from sag_api.code_ingest.file_policy import IngestContext, route_file
 from sag_api.core.config import Settings
 from sag_api.core.errors import (
     ApiError,
@@ -28,10 +29,14 @@ _PARSE_LOCKS: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValue
 @dataclass(frozen=True, slots=True)
 class PreparedDocument:
     path: str
-    provider: Literal["original", "markitdown", "mineru"]
+    provider: Literal["original", "markitdown", "mineru", "tree_sitter"]
     cached: bool = False
     fallback_from: Literal["mineru"] | None = None
     fallback_error: str | None = None
+    relative_path: str | None = None
+    content_sha256: str | None = None
+    code_language: str | None = None
+    ingest_context: IngestContext = "single"
 
 
 async def prepare_document(
@@ -40,13 +45,32 @@ async def prepare_document(
     *,
     state: dict[str, Any] | None = None,
     on_state: ParseStateCallback | None = None,
+    ingest_context: IngestContext = "single",
+    relative_path: str | None = None,
 ) -> PreparedDocument:
     """返回可直接交给 zleap-sag 的 Markdown 路径，保留原始上传文件。"""
-    suffix = os.path.splitext(path)[1].lower()
-    if suffix in {".md", ".markdown"}:
-        return PreparedDocument(path=path, provider="original")
+    sample = await asyncio.to_thread(_read_sample, path)
+    decision = route_file(
+        relative_path or os.path.basename(path),
+        context=ingest_context,
+        content_sample=sample,
+        effective_document_parser=settings.effective_document_parser,
+    )
+    if decision.route == "skip":
+        raise ValidationError(f"文件不适合入库：{decision.reason}")
+    if decision.route == "tree_sitter":
+        return PreparedDocument(
+            path=path,
+            provider="tree_sitter",
+            relative_path=relative_path or decision.normalized_path,
+            content_sha256=await asyncio.to_thread(_sha256_file, path),
+            code_language=decision.language,
+            ingest_context=ingest_context,
+        )
+    if decision.route == "markdown":
+        return PreparedDocument(path=path, provider="original", ingest_context=ingest_context)
 
-    use_mineru = suffix == ".pdf" and settings.effective_document_parser == "mineru"
+    use_mineru = decision.route == "mineru"
     provider: Literal["markitdown", "mineru"] = "mineru" if use_mineru else "markitdown"
     signature = _signature(provider, settings)
     cache_path = f"{path}.parsed.{signature}.md"
@@ -71,6 +95,7 @@ async def prepare_document(
             settings,
             state=state,
             on_state=on_state,
+            force_text=decision.route == "text",
         )
 
 
@@ -83,6 +108,7 @@ async def _prepare_and_cache(
     *,
     state: dict[str, Any] | None,
     on_state: ParseStateCallback | None,
+    force_text: bool = False,
 ) -> PreparedDocument:
     parser_state = _compatible_state(state, provider, signature, settings)
     current_state = dict(parser_state)
@@ -148,7 +174,7 @@ async def _prepare_and_cache(
     else:
         markdown = (
             await asyncio.to_thread(_convert_plain_text, path)
-            if is_plain_text_path(path)
+            if force_text or is_plain_text_path(path)
             else await _convert_with_markitdown(path)
         )
 
@@ -387,7 +413,9 @@ def _convert_plain_text(path: str) -> str:
         decoded = read_text_file(path)
     except TextDecodingError as exc:
         raise ValidationError(f"文本编码识别失败：{exc}") from exc
-    text = decoded.text.strip()
+    # Normalize before writing through Windows text mode; otherwise CRLF can
+    # become CRCRLF and read back as doubled blank lines.
+    text = decoded.text.replace("\r\n", "\n").replace("\r", "\n").strip()
     if not _is_meaningful_markdown(text):
         raise ValidationError("文本文件中没有可解析的有效内容")
     return text + "\n"
@@ -432,3 +460,16 @@ def _write_markdown(path: str, markdown: str) -> None:
         except OSError:
             pass
         raise
+
+
+def _read_sample(path: str) -> bytes:
+    with open(path, "rb") as source:
+        return source.read(8192)
+
+
+def _sha256_file(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()

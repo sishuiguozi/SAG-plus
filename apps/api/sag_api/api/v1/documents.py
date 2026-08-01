@@ -5,11 +5,12 @@ import asyncio
 from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sag_api.code_ingest.file_policy import route_file
 from sag_api.core.config import settings
 from sag_api.core.db import get_session
 from sag_api.core.deps import get_current_user, get_engine_manager, get_job_queue
-from sag_api.core.security import verify_password
 from sag_api.core.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
+from sag_api.core.security import verify_password
 from sag_api.db.models import User
 from sag_api.enums import DocumentStatus
 from sag_api.jobs import JobQueue
@@ -35,8 +36,8 @@ from sag_api.services.document_service import (
     ingest_content,
     list_documents,
     pause_document,
-    reprocess_document,
     rename_document,
+    reprocess_document,
     resume_document,
 )
 from sag_api.services.source_service import get_source
@@ -44,13 +45,17 @@ from sag_api.services.source_service import get_source
 router = APIRouter(prefix="/sources/{source_id}/documents", tags=["documents"])
 
 
-def _check_extension(filename: str | None) -> None:
+def _check_extension(filename: str | None, data: bytes) -> None:
     """按白名单校验上传扩展名（空白名单 = 不限制）。"""
+    decision = route_file(filename or "upload", context="single", content_sample=data[:8192])
+    if decision.route == "skip":
+        raise ValidationError(f"不支持此文件：{decision.reason}")
     allowed = settings.allowed_upload_exts
     if not allowed:
         return
     name = (filename or "").lower()
-    if "." not in name or ("." + name.rsplit(".", 1)[1]) not in allowed:
+    extension_allowed = "." in name and ("." + name.rsplit(".", 1)[1]) in allowed
+    if not extension_allowed and decision.route not in {"tree_sitter", "text"}:
         pretty = "、".join(sorted(e.lstrip(".") for e in allowed))
         raise ValidationError(f"不支持的文件类型。可上传：{pretty}")
 
@@ -83,12 +88,12 @@ async def upload(
     job_queue: JobQueue = Depends(get_job_queue),
 ) -> DocumentOut:
     source = await get_source(session, source_id)
-    _check_extension(file.filename)
     data = await file.read()
     if not data:
         raise ValidationError("文件内容为空")
     if len(data) > settings.max_upload_mb * 1024 * 1024:
         raise ValidationError(f"文件超过 {settings.max_upload_mb}MB 上限")
+    _check_extension(file.filename, data)
     document, _job = await create_document_from_upload(
         session,
         source,
