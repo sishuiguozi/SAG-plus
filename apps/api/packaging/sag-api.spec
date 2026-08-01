@@ -23,6 +23,7 @@ def is_runtime_submodule(name):
 
 
 for package in (
+    "lance",  # pylance（原生 lance 绑定，cleanup_old_versions 需要）
     "lancedb",
     "magika",
     "markitdown",
@@ -69,6 +70,7 @@ for package in (
     "sag-api",
     "zleap-sag",
     "lancedb",
+    "pylance",
     "litellm",
     "markitdown",
     "mcp",

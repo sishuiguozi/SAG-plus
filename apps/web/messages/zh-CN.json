@@ -1052,9 +1052,17 @@
     "maintenanceRunNow": "立即维护（重启后执行）",
     "maintenanceRunNowScheduled": "已安排：下次启动应用时执行维护",
     "maintenanceRunNowFailed": "安排维护失败",
+    "maintenanceCleanNow": "立即维护清理（重启后清理旧版本）",
+    "maintenanceCleanNowConfirmTitle": "立即维护清理？",
+    "maintenanceCleanNowConfirmDescription": "将开启「清理旧版本」并重启应用，启动时执行碎片压缩与旧版本清理。请先确认已备份数据（清理不可逆）。",
+    "maintenanceCleanNowRestarting": "正在重启应用，启动时将执行维护清理",
+    "maintenanceCleanNowScheduled": "已安排：下次启动应用时执行维护清理",
+    "maintenanceCleanNowFailed": "安排维护清理失败",
     "maintenanceCopyFailed": "复制命令失败",
     "maintenanceBlockedTitle": "检测到活动 API 进程",
-    "maintenanceBlockedDescription": "为避免文件占用冲突，维护已被跳过。请关闭其它正在运行的 SAG API 进程后重启应用。"
+    "maintenanceBlockedDescription": "为避免文件占用冲突，维护已被跳过。请关闭其它正在运行的 SAG API 进程后重启应用。",
+    "maintenanceUnavailableTitle": "正在等待 API 就绪",
+    "maintenanceUnavailableDescription": "如果应用刚重启，可能正在执行维护清理，请稍候。维护完成后这里会显示状态，按钮即可使用。"
   },
   "AgentSettings": {
     "saved": "助手设定已保存",

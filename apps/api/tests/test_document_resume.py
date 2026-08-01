@@ -287,6 +287,11 @@ async def test_extract_chunk_tracks_tokens_from_wrapped_llm_client(monkeypatch):
     engine = SimpleNamespace(_extractor=SimpleNamespace(prompt_manager=object(), model_config={}))
     processor = IncrementalDocumentProcessor(engine, "source-config", max_concurrency=1)
 
+    async def fake_load_source_chunk(_chunk_id):
+        return SimpleNamespace(extra_data={})
+
+    monkeypatch.setattr(processor, "_load_source_chunk", fake_load_source_chunk)
+
     event_ids, token_usage = await processor._extract_chunk("chunk-1")
 
     assert event_ids == ["event-1"]
@@ -351,6 +356,11 @@ async def test_extract_chunk_normalizes_unambiguous_entity_type_alias(monkeypatc
     monkeypatch.setattr(processor_module, "EventExtractor", FakeExtractor)
     engine = SimpleNamespace(_extractor=SimpleNamespace(prompt_manager=object(), model_config={}))
     processor = IncrementalDocumentProcessor(engine, "source-config", max_concurrency=1)
+
+    async def fake_load_source_chunk(_chunk_id):
+        return SimpleNamespace(extra_data={})
+
+    monkeypatch.setattr(processor, "_load_source_chunk", fake_load_source_chunk)
 
     event_ids, token_usage = await processor._extract_chunk("chunk-1")
 
@@ -445,6 +455,11 @@ async def test_extract_chunk_raises_when_sag_swallows_chunk_failure(monkeypatch)
     monkeypatch.setattr(processor_module, "EventExtractor", SwallowingExtractor)
     engine = SimpleNamespace(_extractor=SimpleNamespace(prompt_manager=object(), model_config={}))
     processor = IncrementalDocumentProcessor(engine, "source-config", max_concurrency=1)
+
+    async def fake_load_source_chunk(_chunk_id):
+        return SimpleNamespace(extra_data={})
+
+    monkeypatch.setattr(processor, "_load_source_chunk", fake_load_source_chunk)
 
     with pytest.raises(RuntimeError, match="response schema is invalid"):
         await processor._extract_chunk("chunk-1")
@@ -698,6 +713,7 @@ async def test_reprocess_ready_document_replaces_all_previous_derived_data():
             document.id,
             job_queue=queue,
             engine_manager=engine,
+            allow_ready=True,
         )
 
         assert set(engine.deleted) == {"engine-old", "engine-latest"}

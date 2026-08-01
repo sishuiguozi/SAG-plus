@@ -27,6 +27,7 @@ dependencies = [
     "mcp>=1.28,<2",
     "tzdata>=2024.1",
     "tantivy>=0.26",  # LanceDB FTS（BM25 稀疏召回）
+    "pylance>=0.36,<10",  # LanceDB 旧版本清理需要原生 lance 绑定（cleanup_old_versions）
     "tree-sitter-language-pack==1.13.7",
 ]
 

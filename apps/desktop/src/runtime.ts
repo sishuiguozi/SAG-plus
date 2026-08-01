@@ -276,7 +276,7 @@ export async function startPackagedRuntime(): Promise<ManagedRuntime> {
       waitForHttp(webHealthUrl, desktopConfig.startupTimeoutMs),
       waitForHttp(
         `${apiUrl}/api/v1/system/ready`,
-        desktopConfig.startupTimeoutMs,
+        desktopConfig.apiStartupTimeoutMs,
       ),
     ]);
   } catch (error) {

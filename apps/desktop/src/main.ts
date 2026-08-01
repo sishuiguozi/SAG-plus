@@ -10,7 +10,7 @@ import {
 } from "electron";
 import log from "electron-log/main";
 
-import { DESKTOP_CHANNELS } from "./channels";
+import { DESKTOP_CHANNELS, type MaintenanceRestartResult } from "./channels";
 import {
   describeDataRoot,
   saveDataRoot,
@@ -85,6 +85,24 @@ function showStartupError(error: unknown): void {
   void splashWindow?.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 }
 
+// 开发模式：dev.mjs 控制端口。收到请求后 dev.mjs 会先停掉旧 API、等端口释放，
+// 再重启 API；新 API 启动早期会执行 pending 的维护清理。
+const DEV_RESTART_CONTROL_PORT = 43827;
+const DEV_RESTART_ENDPOINT = `http://127.0.0.1:${DEV_RESTART_CONTROL_PORT}/__sag_restart__`;
+
+async function requestDevRestart(): Promise<boolean> {
+  try {
+    const response = await fetch(DEV_RESTART_ENDPOINT, {
+      method: "POST",
+      signal: AbortSignal.timeout(8000),
+    });
+    return response.ok;
+  } catch (error) {
+    log.warn("Dev restart request failed", error);
+    return false;
+  }
+}
+
 function isTrustedSender(event: IpcMainInvokeEvent): boolean {
   try {
     return new URL(event.senderFrame?.url ?? "").origin === trustedOrigin;
@@ -99,6 +117,7 @@ function registerIpc(): void {
   ipcMain.removeHandler(DESKTOP_CHANNELS.getDataRoot);
   ipcMain.removeHandler(DESKTOP_CHANNELS.setDataRoot);
   ipcMain.removeHandler(DESKTOP_CHANNELS.chooseDataRoot);
+  ipcMain.removeHandler(DESKTOP_CHANNELS.restartForMaintenance);
   ipcMain.handle(DESKTOP_CHANNELS.appInfo, (event) => {
     if (!isTrustedSender(event)) throw new Error("Untrusted IPC sender");
     return { version: app.getVersion(), platform: process.platform, arch: process.arch };
@@ -132,6 +151,28 @@ function registerIpc(): void {
     const dataRoot = saveDataRoot(app.getPath("userData"), result.filePaths[0]);
     return { canceled: false as const, dataRoot };
   });
+  ipcMain.handle(
+    DESKTOP_CHANNELS.restartForMaintenance,
+    async (event): Promise<MaintenanceRestartResult> => {
+      if (!isTrustedSender(event)) throw new Error("Untrusted IPC sender");
+      const devMode = Boolean(process.env.SAG_DESKTOP_DEV_WEB_URL);
+      if (devMode) {
+        const ok = await requestDevRestart();
+        return ok
+          ? { ok: true, mode: "dev" }
+          : { ok: false, message: "Dev runner did not accept the restart request" };
+      }
+      // 打包模式：先停掉受管运行时（API/Web），再重启整个应用。
+      quitting = true;
+      updater?.dispose();
+      updater = null;
+      runtime?.stop();
+      runtime = null;
+      app.relaunch();
+      app.exit(0);
+      return { ok: true, mode: "packaged" };
+    },
+  );
 }
 
 function installNavigationPolicy(window: BrowserWindow): void {

@@ -17,6 +17,7 @@ export interface SagDesktopBridge {
   getDataRoot(): Promise<SagDesktopDataRootInfo>;
   setDataRoot(root: string): Promise<SagDesktopDataRootInfo>;
   chooseDataRoot(): Promise<{ canceled: boolean; dataRoot: SagDesktopDataRootInfo }>;
+  restartForMaintenance(): Promise<{ ok: boolean; mode?: "packaged" | "dev"; message?: string }>;
 }
 
 declare global {
