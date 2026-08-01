@@ -65,11 +65,19 @@ class TreeSitterCodeParser:
     ) -> ParsedCodeDocument:
         result = self._process(source, language)
         native_structure = tuple(getattr(result, "structure", ()) or ())
-        ast_root = self._ast_root(source, language)
-        if ast_root is not None:
-            ast_structure = _extract_ast_items(ast_root, source.encode("utf-8"))
-            if ast_structure:
-                native_structure = ast_structure
+        # AST walking via tree-sitter Node APIs has segfaulted on some Windows
+        # C/C++ trees (0xC0000005) and takes down the whole API process. Prefer
+        # the stable process() structure and only attempt AST enrichment when an
+        # explicit test/provider hook is supplied.
+        if self._ast_root_fn is not None:
+            try:
+                ast_root = self._ast_root_fn(source, language)
+                if ast_root is not None:
+                    ast_structure = _extract_ast_items(ast_root, source.encode("utf-8"))
+                    if ast_structure:
+                        native_structure = ast_structure
+            except Exception:
+                pass
         diagnostics = tuple(
             str(getattr(diagnostic, "message", "Tree-sitter parse error"))
             for diagnostic in (getattr(result, "diagnostics", ()) or ())
@@ -94,18 +102,22 @@ class TreeSitterCodeParser:
         docstrings = tuple(getattr(result, "docstrings", ()) or ())
         source_bytes = source.encode("utf-8")
         symbols = tuple(
-            self._normalize_symbol(
-                item,
-                source_id=source_id,
-                relative_path=relative_path,
-                source_bytes=source_bytes,
-                comments=comments,
-                docstrings=docstrings,
-                parent_names=(),
-                parent_kind=None,
+            symbol
+            for symbol in (
+                self._normalize_symbol(
+                    item,
+                    source_id=source_id,
+                    relative_path=relative_path,
+                    source_bytes=source_bytes,
+                    comments=comments,
+                    docstrings=docstrings,
+                    parent_names=(),
+                    parent_kind=None,
+                )
+                for item in native_structure
+                if getattr(item, "span", None) is not None
             )
-            for item in native_structure
-            if getattr(item, "span", None) is not None and getattr(item, "name", None)
+            if symbol is not None
         )
         syntax_chunks = tuple(
             SyntaxChunk(
@@ -151,13 +163,20 @@ class TreeSitterCodeParser:
         return (self._process_fn or pack.process)(source, config)
 
     def _ast_root(self, source: str, language: str):
+        _tree, root = self._ast_tree_and_root(source, language)
+        return root
+
+    def _ast_tree_and_root(self, source: str, language: str):
+        """Return (tree, root_node). Caller must keep tree alive while using root."""
         if self._ast_root_fn is not None:
-            return self._ast_root_fn(source, language)
+            root = self._ast_root_fn(source, language)
+            return None, root
         if self._process_fn is not None:
-            return None
+            return None, None
         import tree_sitter_language_pack as pack
 
-        return pack.get_parser(language).parse(source.encode("utf-8")).root_node
+        tree = pack.get_parser(language).parse(source.encode("utf-8"))
+        return tree, tree.root_node
 
     def _normalize_symbol(
         self,
@@ -170,13 +189,17 @@ class TreeSitterCodeParser:
         docstrings: tuple[Any, ...],
         parent_names: tuple[str, ...],
         parent_kind: str | None,
-    ) -> CodeSymbol:
-        name = str(item.name)
+    ) -> CodeSymbol | None:
+        span = _normalize_span(item.span)
+        source_slice = source_bytes[span.start_byte : span.end_byte].decode("utf-8", errors="replace")
+        name = str(getattr(item, "name", "") or "").strip()
+        if not name:
+            name = _guess_symbol_name(source_slice)
+        if not name:
+            return None
         raw_kind = _enum_name(getattr(item, "kind", "symbol"))
         kind = _normalize_kind(raw_kind, parent_kind)
         qualified_name = ".".join((*parent_names, name))
-        span = _normalize_span(item.span)
-        source_slice = source_bytes[span.start_byte : span.end_byte].decode("utf-8", errors="replace")
         signature = str(getattr(item, "signature", "") or "").strip() or _first_code_line(source_slice)
         symbol_comments = tuple(
             comment.text
@@ -189,18 +212,22 @@ class TreeSitterCodeParser:
             doc_comment = _matching_docstring(docstrings, name, span)
         child_parent_names = (*parent_names, name)
         children = tuple(
-            self._normalize_symbol(
-                child,
-                source_id=source_id,
-                relative_path=relative_path,
-                source_bytes=source_bytes,
-                comments=comments,
-                docstrings=docstrings,
-                parent_names=child_parent_names,
-                parent_kind=kind,
+            child_symbol
+            for child_symbol in (
+                self._normalize_symbol(
+                    child,
+                    source_id=source_id,
+                    relative_path=relative_path,
+                    source_bytes=source_bytes,
+                    comments=comments,
+                    docstrings=docstrings,
+                    parent_names=child_parent_names,
+                    parent_kind=kind,
+                )
+                for child in (getattr(item, "children", ()) or ())
+                if getattr(child, "span", None) is not None
             )
-            for child in (getattr(item, "children", ()) or ())
-            if getattr(child, "span", None) is not None and getattr(child, "name", None)
+            if child_symbol is not None
         )
         return CodeSymbol(
             identity=f"{source_id}:{relative_path}:{kind}:{qualified_name}",
@@ -263,6 +290,31 @@ def _first_code_line(source_slice: str) -> str:
     return ""
 
 
+def _guess_symbol_name(source_slice: str) -> str | None:
+    """Recover a display name when process() structure omits item.name."""
+    import re
+
+    text = (source_slice or "").strip()
+    if not text:
+        return None
+    patterns = (
+        r"\b(?:class|struct|enum|namespace|union)\s+([A-Za-z_][A-Za-z0-9_]*)",
+        r"\b([A-Za-z_~][A-Za-z0-9_:]*)\s*\(",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if not match:
+            continue
+        name = match.group(1).strip()
+        if name and name not in {"if", "for", "while", "switch", "return", "sizeof", "catch"}:
+            return name.split("::")[-1]
+    line = _first_code_line(text)
+    token = re.split(r"[\s(<{{]", line, maxsplit=1)[0].strip(":~")
+    if token and token not in {"{", "}", "#include", "#define"}:
+        return token
+    return None
+
+
 def _matching_docstring(docstrings: tuple[Any, ...], name: str, span: CodeSpan) -> str | None:
     for docstring in docstrings:
         text = str(getattr(docstring, "text", "") or "").strip()
@@ -277,10 +329,34 @@ def _matching_docstring(docstrings: tuple[Any, ...], name: str, span: CodeSpan) 
     return None
 
 
+def _iter_named_children(node):
+    """Safely iterate named children.
+
+    On some Windows tree-sitter builds, ``named_children`` / ``named_child`` can
+    segfault on large C/C++ trees. Always walk with ``child(i)`` and filter
+    named nodes. Test doubles may still expose ``named_children`` lists.
+    """
+    count = getattr(node, "child_count", None)
+    child_at = getattr(node, "child", None)
+    if count is not None and callable(child_at):
+        for index in range(int(count or 0)):
+            child = child_at(index)
+            if child is None:
+                continue
+            is_named = getattr(child, "is_named", None)
+            if is_named is None or bool(is_named):
+                yield child
+        return
+
+    # Test doubles / simplified nodes.
+    for child in getattr(node, "named_children", ()) or ():
+        yield child
+
+
 def _extract_ast_items(root, source_bytes: bytes) -> tuple[_AstItem, ...]:
     def walk(node) -> list[_AstItem]:
         items: list[_AstItem] = []
-        for child in getattr(node, "named_children", ()) or ():
+        for child in _iter_named_children(node):
             kind = _classify_ast_node(str(getattr(child, "type", "")))
             if kind:
                 name = _ast_node_name(child, source_bytes)
@@ -360,7 +436,7 @@ def _find_identifier(node):
             found = _find_identifier(child)
             if found is not None:
                 return found
-    for child in getattr(node, "named_children", ()) or ():
+    for child in _iter_named_children(node):
         found = _find_identifier(child)
         if found is not None:
             return found
