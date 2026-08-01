@@ -756,6 +756,10 @@
       "universe": {
         "title": "知识宇宙预算",
         "description": "服务端统一下发的图谱景深门与场景预算。"
+      },
+      "maintenance": {
+        "title": "向量库自动维护",
+        "description": "定期压缩碎片并清理旧版本，控制磁盘占用；应用启动时按计划执行，入库期间自动跳过。"
       }
     },
     "fields": {
@@ -974,6 +978,18 @@
       "universe_planet_radius_scale": {
         "label": "半径缩放系数",
         "description": "按实体数量缩放半径的系数。"
+      },
+      "lancedb_maintenance_enabled": {
+        "label": "启用自动维护",
+        "description": "应用每次启动时检查，距上次成功维护达到间隔才执行。"
+      },
+      "lancedb_maintenance_interval_days": {
+        "label": "维护频率",
+        "description": "距上次成功维护多少天后再执行下一次维护。"
+      },
+      "lancedb_maintenance_delete_unverified": {
+        "label": "已备份，允许清理旧版本",
+        "description": "开启后维护会真正删除旧版本释放空间（不可逆）。请先完成备份再开启。"
       }
     },
     "enums": {
@@ -992,6 +1008,12 @@
         "auto": "自动",
         "txt": "纯文本",
         "ocr": "OCR 识别"
+      },
+      "lancedb_maintenance_interval_days": {
+        "1": "每天",
+        "7": "每周（推荐）",
+        "14": "每两周",
+        "30": "每月"
       }
     },
     "recommendedPrefix": "推荐值：",
@@ -1011,7 +1033,28 @@
     "dataRootSaveFailed": "保存数据位置失败",
     "dataRootRequired": "请填写数据根目录",
     "dataRootCurrent": "当前",
-    "dataRootRestartHint": "不会自动搬迁旧数据。若要沿用现有知识库，请先把旧目录内容复制到新位置，再重启。"
+    "dataRootRestartHint": "不会自动搬迁旧数据。若要沿用现有知识库，请先把旧目录内容复制到新位置，再重启。",
+    "maintenanceStatusTitle": "维护状态",
+    "maintenanceStatusDescription": "上次维护、下次到期与各表碎片/占用情况。",
+    "maintenanceLastRun": "上次成功维护",
+    "maintenanceNextDue": "下次维护",
+    "maintenanceNever": "尚未执行过",
+    "maintenancePendingFirstRun": "待首次执行",
+    "maintenancePendingTitle": "已安排在下次启动时执行",
+    "maintenancePendingDescription": "关闭并重新打开应用后会自动执行维护（入库任务进行中会自动跳过）。",
+    "maintenanceTablesTitle": "向量表占用（目录 / 碎片）",
+    "maintenanceNoTables": "暂无向量数据",
+    "maintenanceFragments": "个碎片",
+    "maintenanceBackupHint": "备份目录（清理前请确认已备份）",
+    "maintenanceTaskCommandTitle": "Windows 任务计划命令（应用关闭时手动执行）",
+    "maintenanceCopy": "复制",
+    "maintenanceCopied": "已复制",
+    "maintenanceRunNow": "立即维护（重启后执行）",
+    "maintenanceRunNowScheduled": "已安排：下次启动应用时执行维护",
+    "maintenanceRunNowFailed": "安排维护失败",
+    "maintenanceCopyFailed": "复制命令失败",
+    "maintenanceBlockedTitle": "检测到活动 API 进程",
+    "maintenanceBlockedDescription": "为避免文件占用冲突，维护已被跳过。请关闭其它正在运行的 SAG API 进程后重启应用。"
   },
   "AgentSettings": {
     "saved": "助手设定已保存",

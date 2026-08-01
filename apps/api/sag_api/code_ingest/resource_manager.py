@@ -9,8 +9,8 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from uuid import uuid4
 from typing import Protocol
+from uuid import uuid4
 
 from sag_api.schemas.tree_sitter import TreeSitterResourceState, TreeSitterResourceStatus
 
@@ -327,7 +327,10 @@ class TreeSitterResourceManager:
                 if self._installed(self.staging_dir) != manifest_set:
                     # Ensure staging mirrors the complete set before promote.
                     self._seed_staging_from_active()
-                if self._installed(self.staging_dir) != manifest_set and self._installed(self.active_dir) == manifest_set:
+                if (
+                    self._installed(self.staging_dir) != manifest_set
+                    and self._installed(self.active_dir) == manifest_set
+                ):
                     self._state = "ready"
                     self._error = None
                     self.activate_if_ready()
@@ -366,7 +369,11 @@ class TreeSitterResourceManager:
             self._seed_staging_from_active()
             verified = self._installed(self.staging_dir)
             combined = verified | self._installed(self.active_dir)
-            if verified != set(manifest) and combined == set(manifest) and self._installed(self.active_dir) == set(manifest):
+            if (
+                verified != set(manifest)
+                and combined == set(manifest)
+                and self._installed(self.active_dir) == set(manifest)
+            ):
                 self._state = "ready"
                 self._error = None
                 self._best_effort_rmtree(self.staging_dir)

@@ -1,27 +1,27 @@
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from types import SimpleNamespace
 
 from sag_api.db.models.vector_write import VectorWriteItem, VectorWriteJob
 from sag_api.sag.vector_write_queue import (
     ACTIVE_JOB_STATUSES,
     INFLIGHT_JOB_STATUSES,
     PENDING_JOB_STATUSES,
-    enqueue_event_vector_sync,
-    enqueue_source_chunk_vector_sync,
-    _merge_tail_payload,
+    VectorWriteQueue,
     _aux_vector_sync_enabled,
     _filter_unscheduled_event_ids,
     _is_retryable_error,
     _lease_expires_at,
+    _merge_tail_payload,
     _plan_pending_event_deduplication,
     _retry_delay_with_jitter,
     _split_event_ids,
     _split_retry_batches,
-    VectorWriteQueue,
+    enqueue_event_vector_sync,
+    enqueue_source_chunk_vector_sync,
 )
 
 

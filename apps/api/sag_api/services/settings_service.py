@@ -87,6 +87,10 @@ _FIELDS = frozenset(
         "aux_vector_deferred_enabled",
         "source_chunk_vector_embedding_batch_size",
         "source_chunk_vector_index_batch_size",
+        # LanceDB 自动维护（SAG-OPT-803）
+        "lancedb_maintenance_enabled",
+        "lancedb_maintenance_interval_days",
+        "lancedb_maintenance_delete_unverified",
         # 磁盘分级保护（SAG-OPT-802）
         "disk_guard_enabled",
         "disk_warn_gb",
@@ -140,7 +144,15 @@ _FIELDS = frozenset(
     }
 )
 _SECRET_FIELDS = frozenset({"llm_api_key", "embedding_api_key", "mineru_api_key", "search_rerank_api_key"})
-_NULLABLE_FIELDS = frozenset({"llm_base_url", "embedding_base_url", "embedding_dimensions", "mineru_base_url", "search_rerank_api_url"})
+_NULLABLE_FIELDS = frozenset(
+    {
+        "llm_base_url",
+        "embedding_base_url",
+        "embedding_dimensions",
+        "mineru_base_url",
+        "search_rerank_api_url",
+    }
+)
 
 _OPENAI_COMPATIBLE = get_model_provider("openai")
 
@@ -309,6 +321,10 @@ def effective_model_config() -> dict:
         "search_rerank_api_instruction": _settings.search_rerank_api_instruction,
         "search_rerank_api_timeout_ms": _settings.search_rerank_api_timeout_ms,
         "sag_language": _settings.sag_language,
+        # LanceDB 自动维护（SAG-OPT-803）
+        "lancedb_maintenance_enabled": _settings.lancedb_maintenance_enabled,
+        "lancedb_maintenance_interval_days": _settings.lancedb_maintenance_interval_days,
+        "lancedb_maintenance_delete_unverified": _settings.lancedb_maintenance_delete_unverified,
         # 向量索引与写入
         "lancedb_ann_enabled": _settings.lancedb_ann_enabled,
         "lancedb_search_refine_factor": _settings.lancedb_search_refine_factor,
@@ -387,8 +403,16 @@ def env_only_config() -> dict:
                     {"key": "app_name", "env": "SAG_APP_NAME", "value": _settings.app_name},
                     {"key": "environment", "env": "SAG_ENVIRONMENT", "value": _settings.environment},
                     {"key": "debug", "env": "SAG_DEBUG", "value": _settings.debug},
-                    {"key": "access_token_expire_minutes", "env": "SAG_ACCESS_TOKEN_EXPIRE_MINUTES", "value": _settings.access_token_expire_minutes},
-                    {"key": "allow_registration", "env": "SAG_ALLOW_REGISTRATION", "value": _settings.allow_registration},
+                    {
+                        "key": "access_token_expire_minutes",
+                        "env": "SAG_ACCESS_TOKEN_EXPIRE_MINUTES",
+                        "value": _settings.access_token_expire_minutes,
+                    },
+                    {
+                        "key": "allow_registration",
+                        "env": "SAG_ALLOW_REGISTRATION",
+                        "value": _settings.allow_registration,
+                    },
                     {"key": "cors_origins", "env": "SAG_CORS_ORIGINS", "value": ",".join(_settings.cors_origins)},
                 ],
             },
@@ -396,11 +420,31 @@ def env_only_config() -> dict:
                 "key": "database",
                 "items": [
                     {"key": "database_url", "env": "SAG_DATABASE_URL", "value": _settings.database_url},
-                    {"key": "database_pool_size", "env": "SAG_DATABASE_POOL_SIZE", "value": _settings.database_pool_size},
-                    {"key": "database_max_overflow", "env": "SAG_DATABASE_MAX_OVERFLOW", "value": _settings.database_max_overflow},
-                    {"key": "database_pool_timeout", "env": "SAG_DATABASE_POOL_TIMEOUT", "value": _settings.database_pool_timeout},
-                    {"key": "database_sqlite_pool_size", "env": "SAG_DATABASE_SQLITE_POOL_SIZE", "value": _settings.database_sqlite_pool_size},
-                    {"key": "database_sqlite_max_overflow", "env": "SAG_DATABASE_SQLITE_MAX_OVERFLOW", "value": _settings.database_sqlite_max_overflow},
+                    {
+                        "key": "database_pool_size",
+                        "env": "SAG_DATABASE_POOL_SIZE",
+                        "value": _settings.database_pool_size,
+                    },
+                    {
+                        "key": "database_max_overflow",
+                        "env": "SAG_DATABASE_MAX_OVERFLOW",
+                        "value": _settings.database_max_overflow,
+                    },
+                    {
+                        "key": "database_pool_timeout",
+                        "env": "SAG_DATABASE_POOL_TIMEOUT",
+                        "value": _settings.database_pool_timeout,
+                    },
+                    {
+                        "key": "database_sqlite_pool_size",
+                        "env": "SAG_DATABASE_SQLITE_POOL_SIZE",
+                        "value": _settings.database_sqlite_pool_size,
+                    },
+                    {
+                        "key": "database_sqlite_max_overflow",
+                        "env": "SAG_DATABASE_SQLITE_MAX_OVERFLOW",
+                        "value": _settings.database_sqlite_max_overflow,
+                    },
                 ],
             },
             {
@@ -411,14 +455,26 @@ def env_only_config() -> dict:
                     {"key": "data_dir", "env": "SAG_DATA_DIR", "value": _settings.data_dir},
                     {"key": "upload_dir", "env": "SAG_UPLOAD_DIR", "value": _settings.upload_dir},
                     {"key": "max_upload_mb", "env": "SAG_MAX_UPLOAD_MB", "value": _settings.max_upload_mb},
-                    {"key": "allowed_upload_exts", "env": "SAG_ALLOWED_UPLOAD_EXTS", "value": " ".join(sorted(_settings.allowed_upload_exts))},
+                    {
+                        "key": "allowed_upload_exts",
+                        "env": "SAG_ALLOWED_UPLOAD_EXTS",
+                        "value": " ".join(sorted(_settings.allowed_upload_exts)),
+                    },
                 ],
             },
             {
                 "key": "zleap",
                 "items": [
-                    {"key": "sag_vector_provider", "env": "SAG_VECTOR_PROVIDER", "value": _settings.sag_vector_provider},
-                    {"key": "sag_relational_provider", "env": "SAG_RELATIONAL_PROVIDER", "value": _settings.sag_relational_provider},
+                    {
+                        "key": "sag_vector_provider",
+                        "env": "SAG_VECTOR_PROVIDER",
+                        "value": _settings.sag_vector_provider,
+                    },
+                    {
+                        "key": "sag_relational_provider",
+                        "env": "SAG_RELATIONAL_PROVIDER",
+                        "value": _settings.sag_relational_provider,
+                    },
                     {"key": "sag_pg_host", "env": "SAG_PG_HOST", "value": _settings.sag_pg_host},
                     {"key": "sag_pg_port", "env": "SAG_PG_PORT", "value": _settings.sag_pg_port},
                     {"key": "sag_pg_user", "env": "SAG_PG_USER", "value": _settings.sag_pg_user},
@@ -428,7 +484,15 @@ def env_only_config() -> dict:
             {
                 "key": "llm",
                 "items": [
-                    {"key": "llm_extra_body", "env": "SAG_LLM_EXTRA_BODY", "value": json.dumps(_settings.llm_extra_body, ensure_ascii=False) if _settings.llm_extra_body is not None else None},
+                    {
+                        "key": "llm_extra_body",
+                        "env": "SAG_LLM_EXTRA_BODY",
+                        "value": (
+                            json.dumps(_settings.llm_extra_body, ensure_ascii=False)
+                            if _settings.llm_extra_body is not None
+                            else None
+                        ),
+                    },
                 ],
             },
         ],

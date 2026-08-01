@@ -12,9 +12,7 @@ zleap-sag 的 MarkdownBlockParser 只按标题拆 TEXT block，代码块与表�
 from __future__ import annotations
 
 import re
-from typing import List, Tuple
 
-from sag_api.core.logging import get_logger
 from zleap.sag.modules.load.chunking.chunker.markdown import MarkdownTextChunker
 from zleap.sag.modules.load.chunking.parser.markdown import MarkdownBlockParser
 from zleap.sag.modules.load.chunking.types import (
@@ -24,6 +22,8 @@ from zleap.sag.modules.load.chunking.types import (
     SectionDraft,
     StructuredBlock,
 )
+
+from sag_api.core.logging import get_logger
 
 log = get_logger("sag.chunking_structural")
 
@@ -41,7 +41,7 @@ class StructuralMarkdownBlockParser(MarkdownBlockParser):
     TABLE_ROW_RE = re.compile(r"^\s*\|.*\|\s*$")
     TABLE_SEP_RE = re.compile(r"^\s*\|?[\s:|-]+\|?\s*$")
 
-    def parse_blocks(self, doc: InputDocument) -> List[StructuredBlock]:
+    def parse_blocks(self, doc: InputDocument) -> list[StructuredBlock]:
         # A6：正则自定义分块（document_chunk_regex 非空时按正则切段）
         from sag_api.core.config import settings
 
@@ -51,7 +51,7 @@ class StructuralMarkdownBlockParser(MarkdownBlockParser):
         text = doc.content or ""
         protected = self._find_protected_spans(text)
         headings = self._heading_positions(text, [])
-        blocks: List[StructuredBlock] = []
+        blocks: list[StructuredBlock] = []
         cursor = 0
         counter = 0
 
@@ -92,12 +92,12 @@ class StructuralMarkdownBlockParser(MarkdownBlockParser):
         self,
         doc: InputDocument,
         regex_pattern: str,
-    ) -> List[StructuredBlock]:
+    ) -> list[StructuredBlock]:
         """按用户自定义正则切分段落（保护代码块/表格不被切开）。"""
         text = doc.content or ""
         protected = self._find_protected_spans(text)
         headings = self._heading_positions(text, [])
-        blocks: List[StructuredBlock] = []
+        blocks: list[StructuredBlock] = []
         cursor = 0
         counter = 0
 
@@ -148,10 +148,9 @@ class StructuralMarkdownBlockParser(MarkdownBlockParser):
             _emit_text(cursor, len(text))
         return [b for b in blocks if b.raw_content.strip() != ""]
 
-    def _find_protected_spans(self, text: str) -> List[Tuple[int, int, BlockType]]:
-        spans: List[Tuple[int, int, BlockType]] = []
+    def _find_protected_spans(self, text: str) -> list[tuple[int, int, BlockType]]:
+        spans: list[tuple[int, int, BlockType]] = []
         for m in self.FENCE_START_RE.finditer(text):
-            fence = m.group(2)
             close = self.FENCE_CLOSE_RE.search(text[m.end():])
             if close:
                 spans.append((m.start(), m.end() + close.end(), BlockType.CODE))
@@ -161,11 +160,11 @@ class StructuralMarkdownBlockParser(MarkdownBlockParser):
         lines = text.splitlines(keepends=True)
         line_starts = self._line_starts(text)
         i = 0
-        table_spans: List[Tuple[int, int, BlockType]] = []
+        table_spans: list[tuple[int, int, BlockType]] = []
         while i < len(lines):
             if self.TABLE_ROW_RE.match(lines[i]):
                 j = i
-                rows: List[str] = []
+                rows: list[str] = []
                 while j < len(lines) and self.TABLE_ROW_RE.match(lines[j]):
                     rows.append(lines[j])
                     j += 1
@@ -183,10 +182,10 @@ class StructuralMarkdownBlockParser(MarkdownBlockParser):
         return self._dedupe_spans(sorted(spans, key=lambda s: s[0]))
 
     @staticmethod
-    def _dedupe_spans(spans: List[Tuple[int, int, BlockType]]) -> List[Tuple[int, int, BlockType]]:
+    def _dedupe_spans(spans: list[tuple[int, int, BlockType]]) -> list[tuple[int, int, BlockType]]:
         """去掉重叠区间（保留先识别到的；代码块优先于表格）。"""
         spans = sorted(spans, key=lambda s: (s[0], -(s[1] - s[0])))
-        result: List[Tuple[int, int, BlockType]] = []
+        result: list[tuple[int, int, BlockType]] = []
         for start, end, btype in spans:
             if result and start < result[-1][1]:
                 continue
@@ -194,7 +193,7 @@ class StructuralMarkdownBlockParser(MarkdownBlockParser):
         return result
 
     @staticmethod
-    def _line_starts(text: str) -> List[int]:
+    def _line_starts(text: str) -> list[int]:
         starts = [0]
         for m in re.finditer("\n", text):
             starts.append(m.end())
@@ -210,7 +209,7 @@ class StructuralMarkdownTextChunker(MarkdownTextChunker):
         block: StructuredBlock,
         order_start: int,
         render_group_index: int,
-    ) -> List[SectionDraft]:
+    ) -> list[SectionDraft]:
         if block.block_type in (BlockType.CODE, BlockType.TABLE):
             return [
                 SectionDraft(
@@ -232,14 +231,14 @@ class StructuralMarkdownTextChunker(MarkdownTextChunker):
 
 
 # ───────────────────────── 3. 结构感知 Chunk 组装 ─────────────────────────
-def _structural_split_large_section(self, section: SectionDraft) -> List[SectionDraft]:
+def _structural_split_large_section(self, section: SectionDraft) -> list[SectionDraft]:
     """CODE / TABLE 大 section 按行切分（保持每行完整），其余按段落切。"""
     if section.section_type in (BlockType.CODE.value, BlockType.TABLE.value):
         return _split_by_lines(self, section)
     return _original["split_large_section"](self, section)
 
 
-def _split_by_lines(self, section: SectionDraft) -> List[SectionDraft]:
+def _split_by_lines(self, section: SectionDraft) -> list[SectionDraft]:
     from zleap.sag.modules.load.chunking.assembler.generic import PolicyBasedSourceChunkAssembler
 
     content = section.content.strip()
@@ -247,8 +246,8 @@ def _split_by_lines(self, section: SectionDraft) -> List[SectionDraft]:
         return [section]
 
     lines = content.splitlines()
-    units: List[SectionDraft] = []
-    current_lines: List[str] = []
+    units: list[SectionDraft] = []
+    current_lines: list[str] = []
     current_tokens = 0
     max_tokens = self.source_chunk_max_tokens
 
@@ -278,7 +277,7 @@ def _split_by_lines(self, section: SectionDraft) -> List[SectionDraft]:
     return units if units else [section]
 
 
-def _structural_build_chunk(self, sections: List[SectionDraft]) -> ChunkDraft:
+def _structural_build_chunk(self, sections: list[SectionDraft]) -> ChunkDraft:
     """CODE / TABLE chunk 保留原始缩进与结构（不 strip 各行）。"""
     if not sections or sections[0].section_type not in (BlockType.CODE.value, BlockType.TABLE.value):
         return _original["build_chunk"](self, sections)
@@ -305,7 +304,7 @@ def _structural_build_chunk(self, sections: List[SectionDraft]) -> ChunkDraft:
     )
 
 
-def _structural_assemble_chunks(self, doc: InputDocument, sections: List[SectionDraft]):
+def _structural_assemble_chunks(self, doc: InputDocument, sections: list[SectionDraft]):
     """结构感知组装：CODE / TABLE section 强制独立成 chunk（不与其他 section 聚合）。"""
     # A4：父子分块（增量启用）——仅当 document_chunk_mode == "parent_child" 时切换。
     from sag_api.core.config import settings
@@ -313,8 +312,8 @@ def _structural_assemble_chunks(self, doc: InputDocument, sections: List[Section
     if getattr(settings, "document_chunk_mode", None) == "parent_child":
         return _parent_child_assemble_chunks(self, doc, sections)
 
-    chunks: List[ChunkDraft] = []
-    current: List[SectionDraft] = []
+    chunks: list[ChunkDraft] = []
+    current: list[SectionDraft] = []
     current_tokens = 0
     structural_types = (BlockType.CODE.value, BlockType.TABLE.value)
 
@@ -370,7 +369,7 @@ def _structural_assemble_chunks(self, doc: InputDocument, sections: List[Section
 
 
 # ───────────────────────── A4 父子分块 ─────────────────────────
-def _split_by_lines_cap(self, section: SectionDraft, max_tokens: int) -> List[SectionDraft]:
+def _split_by_lines_cap(self, section: SectionDraft, max_tokens: int) -> list[SectionDraft]:
     """按行切分（保持每行完整），以 max_tokens 为上限（父块分组用）。"""
     from zleap.sag.modules.load.chunking.assembler.generic import PolicyBasedSourceChunkAssembler
 
@@ -378,8 +377,8 @@ def _split_by_lines_cap(self, section: SectionDraft, max_tokens: int) -> List[Se
     if not content:
         return [section]
     lines = content.splitlines()
-    units: List[SectionDraft] = []
-    current_lines: List[str] = []
+    units: list[SectionDraft] = []
+    current_lines: list[str] = []
     current_tokens = 0
     for line in lines:
         line_tokens = self.token_estimator.estimate_tokens(line)
@@ -411,9 +410,9 @@ def _split_by_lines_cap(self, section: SectionDraft, max_tokens: int) -> List[Se
     return units if units else [section]
 
 
-def _parent_child_split_group(self, group: List[SectionDraft], group_index: int) -> List[ChunkDraft]:
+def _parent_child_split_group(self, group: list[SectionDraft], group_index: int) -> list[ChunkDraft]:
     """父组内按 source_chunk_max_tokens 切子块；结构块（CODE/TABLE）按行切。"""
-    child_chunks: List[ChunkDraft] = []
+    child_chunks: list[ChunkDraft] = []
     structural_types = (BlockType.CODE.value, BlockType.TABLE.value)
     is_structural = bool(group) and group[0].section_type in structural_types
     if is_structural:
@@ -424,7 +423,7 @@ def _parent_child_split_group(self, group: List[SectionDraft], group_index: int)
             else:
                 child_chunks.append(_structural_build_chunk(self, [section]))
     else:
-        current: List[SectionDraft] = []
+        current: list[SectionDraft] = []
         current_tokens = 0
         for section in group:
             section_tokens = self._section_tokens(section)
@@ -451,8 +450,8 @@ def _parent_child_split_group(self, group: List[SectionDraft], group_index: int)
 
 
 def _parent_child_assemble_chunks(
-    self, doc: InputDocument, sections: List[SectionDraft]
-) -> List[ChunkDraft]:
+    self, doc: InputDocument, sections: list[SectionDraft]
+) -> list[ChunkDraft]:
     """父子分块（A4，增量启用）：父块提供上下文，子块负责精确检索。
 
     - 父块：按 parent_chunk_max_tokens 聚合段落，metadata.chunk_type="parent"；
@@ -463,9 +462,9 @@ def _parent_child_assemble_chunks(
     from sag_api.core.config import settings
 
     parent_max = int(getattr(settings, "parent_chunk_max_tokens", 1024) or 1024)
-    chunks: List[ChunkDraft] = []
-    parent_groups: List[List[SectionDraft]] = []
-    current: List[SectionDraft] = []
+    chunks: list[ChunkDraft] = []
+    parent_groups: list[list[SectionDraft]] = []
+    current: list[SectionDraft] = []
     current_tokens = 0
     structural_types = (BlockType.CODE.value, BlockType.TABLE.value)
 

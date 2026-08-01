@@ -70,6 +70,15 @@ async def lifespan(app: FastAPI):
 
     await apply_startup_overrides(SessionLocal)
 
+    # SAG-OPT-803：启动早期按计划执行 LanceDB 自动维护（到期才跑；
+    # 入库队列忙/磁盘不足时由维护脚本自身拒绝，失败不影响 API 启动）。
+    from sag_api.maintenance import scheduler
+
+    try:
+        await asyncio.to_thread(scheduler.run_startup_maintenance_if_due, settings)
+    except Exception as error:  # noqa: BLE001 - 维护调度失败绝不影响启动
+        log.warning("启动维护调度失败：%s", error)
+
     # 播种默认 agent（开箱即用的主对话入口；幂等）
     from sag_api.services.agent_domain import get_default_agent
 

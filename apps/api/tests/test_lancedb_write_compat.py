@@ -12,7 +12,6 @@
 from types import SimpleNamespace
 
 import pytest
-
 from zleap.sag.core.storage.lancedb_store import LanceDBStore
 
 from sag_api.sag import lancedb_write_compat as compat

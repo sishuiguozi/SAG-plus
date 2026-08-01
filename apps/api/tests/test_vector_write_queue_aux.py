@@ -14,13 +14,13 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sag_api.db.models.vector_write import VectorWriteItem, VectorWriteJob
 from sag_api.sag.vector_write_queue import (
     VectorWriteQueue,
+    _extract_assoc_ids,
+    _extract_entity_ids,
+    _merge_tail_payload,
     enqueue_entity_vector_sync,
     enqueue_event_entity_vector_sync,
     enqueue_event_vector_sync,
     install_event_vector_queue_patch,
-    _extract_assoc_ids,
-    _extract_entity_ids,
-    _merge_tail_payload,
 )
 
 

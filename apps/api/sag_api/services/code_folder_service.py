@@ -15,7 +15,6 @@ from sag_api.core.errors import ConflictError, ValidationError
 from sag_api.db.models import Document, Source
 from sag_api.jobs import JobQueue
 from sag_api.schemas.code_folder import (
-    CodeFolderPlanItemIn,
     CodeFolderPlanItemOut,
     CodeFolderPlanRequest,
     CodeFolderPlanResponse,
@@ -25,7 +24,6 @@ from sag_api.services.document_service import (
     find_document_by_relative_path,
     stage_code_document_upload,
 )
-
 
 _MAX_PLAN_ITEMS = 20_000
 _MAX_PATH_LEN = 1024

@@ -175,7 +175,6 @@ async def create_upgrade_checkpoint(request: Request) -> dict:
     校验 ``X-SAG-INTERNAL`` 头等于运行密钥，防止局域网内其它进程滥用。
     """
     import json
-    import shutil
     import sqlite3
     from datetime import UTC, datetime
 
@@ -213,7 +212,14 @@ async def create_upgrade_checkpoint(request: Request) -> dict:
             log.info("更新检查点：%s -> %s（%.1f MB）", label, dest, dest.stat().st_size / 1e6)
         except Exception as e:  # noqa: BLE001
             log.error("更新检查点失败：%s 备份异常：%s", label, e)
-            files.append({"label": label, "name": dest.name if dest.exists() else label, "size_bytes": 0, "error": str(e)})
+            files.append(
+                {
+                    "label": label,
+                    "name": dest.name if dest.exists() else label,
+                    "size_bytes": 0,
+                    "error": str(e),
+                }
+            )
 
     lancedb_dir = data_dir / "lancedb"
     lancedb_bytes = 0
@@ -398,6 +404,34 @@ async def test_local_reranker(
         "model_file": body.model_file,
         "score_count": len(scores),
         "elapsed_ms": round((perf_counter() - started) * 1000),
+    }
+
+
+@router.get("/maintenance")
+async def get_lancedb_maintenance_status(
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """SAG-OPT-803：向量库自动维护状态（计划、上次/下次维护、各表碎片与占用）。"""
+    from sag_api.maintenance import scheduler
+
+    return scheduler.maintenance_status(settings)
+
+
+@router.post("/maintenance/trigger")
+async def trigger_lancedb_maintenance(
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """SAG-OPT-803：设置“立即维护”——写 pending 标记，下次启动时强制执行。
+
+    维护必须在写入器未运行（应用关闭/启动早期）时执行，因此不在此处直接跑。
+    """
+    from sag_api.maintenance import scheduler
+
+    path = scheduler.request_startup_maintenance(settings.data_dir)
+    return {
+        "requested": True,
+        "pending_file": str(path),
+        "hint": "restart_required",
     }
 
 

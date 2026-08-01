@@ -756,6 +756,10 @@
       "universe": {
         "title": "Knowledge universe budget",
         "description": "Server-side graph depth gates and scene budgets."
+      },
+      "maintenance": {
+        "title": "Vector store auto maintenance",
+        "description": "Periodically compact fragments and clean old versions. Runs on app startup when due; skips while ingestion is busy."
       }
     },
     "fields": {
@@ -974,6 +978,18 @@
       "universe_planet_radius_scale": {
         "label": "Radius scale factor",
         "description": "Scaling factor for radius by entity count."
+      },
+      "lancedb_maintenance_enabled": {
+        "label": "Enable auto maintenance",
+        "description": "Checks on every app startup; runs only when the interval since the last successful maintenance has elapsed."
+      },
+      "lancedb_maintenance_interval_days": {
+        "label": "Maintenance frequency",
+        "description": "Days between successful maintenance runs."
+      },
+      "lancedb_maintenance_delete_unverified": {
+        "label": "Backup verified, allow old-version cleanup",
+        "description": "When enabled, maintenance actually deletes old versions to free space (irreversible). Back up first."
       }
     },
     "enums": {
@@ -992,6 +1008,12 @@
         "auto": "Auto",
         "txt": "Text",
         "ocr": "OCR"
+      },
+      "lancedb_maintenance_interval_days": {
+        "1": "Daily",
+        "7": "Weekly (recommended)",
+        "14": "Every 2 weeks",
+        "30": "Monthly"
       }
     },
     "recommendedPrefix": "Recommended: ",
@@ -1011,7 +1033,28 @@
     "dataRootSaveFailed": "Failed to save data location",
     "dataRootRequired": "Enter a data root folder",
     "dataRootCurrent": "Current",
-    "dataRootRestartHint": "Existing data is not moved automatically. Copy the old folder to the new location first if you want to keep your knowledge base, then restart."
+    "dataRootRestartHint": "Existing data is not moved automatically. Copy the old folder to the new location first if you want to keep your knowledge base, then restart.",
+    "maintenanceStatusTitle": "Maintenance status",
+    "maintenanceStatusDescription": "Last run, next due, and per-table fragmentation / footprint.",
+    "maintenanceLastRun": "Last successful run",
+    "maintenanceNextDue": "Next maintenance",
+    "maintenanceNever": "Never run",
+    "maintenancePendingFirstRun": "First run pending",
+    "maintenancePendingTitle": "Scheduled for next app startup",
+    "maintenancePendingDescription": "Maintenance runs automatically after you close and reopen the app (skips while ingestion is busy).",
+    "maintenanceTablesTitle": "Vector tables (directory / fragments)",
+    "maintenanceNoTables": "No vector data yet",
+    "maintenanceFragments": "fragments",
+    "maintenanceBackupHint": "Backup directory (confirm a backup before cleanup)",
+    "maintenanceTaskCommandTitle": "Windows Task Scheduler command (run while app is closed)",
+    "maintenanceCopy": "Copy",
+    "maintenanceCopied": "Copied",
+    "maintenanceRunNow": "Run now (on next startup)",
+    "maintenanceRunNowScheduled": "Scheduled: maintenance will run on next app startup",
+    "maintenanceRunNowFailed": "Failed to schedule maintenance",
+    "maintenanceCopyFailed": "Failed to copy command",
+    "maintenanceBlockedTitle": "Active API process detected",
+    "maintenanceBlockedDescription": "Maintenance was skipped to avoid file-lock conflicts. Close other running SAG API processes, then restart the app."
   },
   "AgentSettings": {
     "saved": "Assistant settings saved",

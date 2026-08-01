@@ -90,7 +90,8 @@ def test_recover_vector_write_jobs_moves_writing_and_running_to_retry(tmp_path: 
         con.executemany(
             """
             insert into vector_write_jobs
-                (id, source_config_id, status, payload_json, attempts, created_at, started_at, updated_at, next_run_at, error)
+                (id, source_config_id, status, payload_json, attempts, created_at, started_at, updated_at,
+                 next_run_at, error)
             values (?, 'source-a', ?, '{"event_ids":["e1"]}', 1, '2026-07-30 00:00:00', '2026-07-30 00:00:00',
                     '2026-07-30 00:00:00', null, null)
             """,

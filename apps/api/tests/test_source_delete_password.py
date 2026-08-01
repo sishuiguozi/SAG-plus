@@ -15,7 +15,7 @@ async def _register(c):
 
 @pytest.mark.asyncio
 async def test_delete_source_requires_password():
-    from sqlalchemy import delete, select
+    from sqlalchemy import delete
 
     from sag_api.core.db import SessionLocal
     from sag_api.db.models import Source, User

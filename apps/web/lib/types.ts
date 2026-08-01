@@ -278,6 +278,10 @@ export interface ModelConfig {
   aux_vector_deferred_enabled: boolean;
   source_chunk_vector_embedding_batch_size: number;
   source_chunk_vector_index_batch_size: number;
+  // LanceDB 自动维护
+  lancedb_maintenance_enabled: boolean;
+  lancedb_maintenance_interval_days: number;
+  lancedb_maintenance_delete_unverified: boolean;
   // 磁盘分级保护
   disk_guard_enabled: boolean;
   disk_warn_gb: number;
@@ -387,6 +391,9 @@ export type ModelConfigPatch = Partial<{
   aux_vector_deferred_enabled: boolean;
   source_chunk_vector_embedding_batch_size: number;
   source_chunk_vector_index_batch_size: number;
+  lancedb_maintenance_enabled: boolean;
+  lancedb_maintenance_interval_days: number;
+  lancedb_maintenance_delete_unverified: boolean;
   disk_guard_enabled: boolean;
   disk_warn_gb: number;
   disk_pause_aux_gb: number;
@@ -1018,4 +1025,34 @@ export interface TreeSitterResourceStatus {
   error?: string | null;
   disk_bytes?: number | null;
   disk_free_gb?: number | null;
+}
+
+export interface LancedbMaintenanceTable {
+  rows: number | null;
+  fragments: number;
+  directory_bytes: number;
+  active_bytes: number;
+  ratio: number;
+  latest_version: number | null;
+  reason: string;
+}
+
+export interface LancedbMaintenanceStatus {
+  enabled: boolean;
+  interval_days: number;
+  delete_unverified: boolean;
+  last_success_at: string | null;
+  next_due_at: string | null;
+  due_now: boolean;
+  pending_restart: boolean;
+  active_processes: {
+    pid: number;
+    name: string;
+    command_line: string;
+  }[];
+  lancedb_dir: string;
+  tables: Record<string, LancedbMaintenanceTable>;
+  triggered_tables: string[];
+  backup_hint: string;
+  task_command: string;
 }

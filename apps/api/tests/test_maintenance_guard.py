@@ -80,7 +80,11 @@ def test_maintenance_guard_can_allow_verified_stale_running_queue(tmp_path: Path
         con.close()
 
 
-def test_find_sag_runtime_processes_detects_api_and_ignores_maintenance_script():
+def test_find_sag_runtime_processes_detects_api_and_ignores_maintenance_script(monkeypatch):
+    monkeypatch.setattr(
+        "sag_api.maintenance.sag_maintenance_guard._listening_pids",
+        lambda: {10},
+    )
     matches = find_sag_runtime_processes(
         [
             {
@@ -101,6 +105,45 @@ def test_find_sag_runtime_processes_detects_api_and_ignores_maintenance_script()
     assert [item["pid"] for item in matches] == [10]
 
 
+def test_find_sag_runtime_processes_ignores_zombie_not_listening(monkeypatch):
+    """命令行像 API 但未监听任何端口（僵死残留）→ 不拦截。"""
+    monkeypatch.setattr(
+        "sag_api.maintenance.sag_maintenance_guard._listening_pids",
+        lambda: {999},
+    )
+    matches = find_sag_runtime_processes(
+        [
+            {
+                "pid": 10,
+                "command_line": "python -m uvicorn sag_api.main:app --host 127.0.0.1",
+            },
+            {
+                "pid": 999,
+                "command_line": "python -m uvicorn sag_api.main:app --host 127.0.0.1",
+            },
+        ]
+    )
+    assert [item["pid"] for item in matches] == [999]
+
+
+def test_find_sag_runtime_processes_ignores_shell_wrapper(monkeypatch):
+    """cmd/pwsh 壳进程命令行含 uvicorn 字样 → 不误报。"""
+    monkeypatch.setattr(
+        "sag_api.maintenance.sag_maintenance_guard._listening_pids",
+        lambda: {10},
+    )
+    matches = find_sag_runtime_processes(
+        [
+            {
+                "pid": 10,
+                "name": "cmd.exe",
+                "command_line": 'cmd /c "python -m uvicorn sag_api.main:app"',
+            },
+        ]
+    )
+    assert matches == []
+
+
 def test_maintenance_guard_refuses_live_runtime_process(tmp_path: Path, monkeypatch):
     db_path = tmp_path / "sag.db"
     con = sqlite3.connect(db_path)
@@ -111,7 +154,7 @@ def test_maintenance_guard_refuses_live_runtime_process(tmp_path: Path, monkeypa
         con.close()
 
     monkeypatch.setattr(
-        "sag_maintenance_guard.find_sag_runtime_processes",
+        "sag_api.maintenance.sag_maintenance_guard.find_sag_runtime_processes",
         lambda: [{"pid": 10, "command_line": "python -m uvicorn sag_api.main:app"}],
     )
 

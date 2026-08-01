@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import heapq
 import hashlib
+import heapq
 import hmac
 import json
 import math
@@ -49,6 +49,7 @@ from sag_api.sag.incremental_processor import IncrementalDocumentProcessor
 
 if TYPE_CHECKING:
     from sag_api.db.models import Source
+    from sag_api.parsing.service import PreparedDocument
 
 log = get_logger("sag")
 
@@ -337,7 +338,7 @@ class EngineManager:
         self._cache_size = max(1, settings.engine_cache_size)
         self._universe_indexes_ready = False
         # 检索结果 TTL 缓存（A1：重复查询秒回，避免重复 embedding + ANN）
-        self._search_cache: dict[str, tuple[float, "SearchOutcome"]] = {}
+        self._search_cache: dict[str, tuple[float, SearchOutcome]] = {}
         self._search_cache_limit = 256
 
     async def _ensure_universe_query_indexes(self) -> None:
@@ -738,7 +739,7 @@ class EngineManager:
         should_pause: PauseCheck | None = None,
         max_concurrency: int | None = None,
         document_title: str | None = None,
-        prepared_document: "PreparedDocument | None" = None,
+        prepared_document: PreparedDocument | None = None,
         code_llm_extraction_mode: str | None = None,
     ) -> ProcessOutcome:
         """独立处理一篇文档；同源文档可并行，chunk 完成即保存断点。"""
@@ -801,7 +802,7 @@ class EngineManager:
         """检索缓存 key：scope + 归一化后的关键参数。"""
         return "|".join([scope, *[str(p) for p in parts]])
 
-    def _search_cache_get(self, key: str) -> "SearchOutcome | None":
+    def _search_cache_get(self, key: str) -> SearchOutcome | None:
         if self._settings.search_cache_ttl_seconds <= 0:
             return None
         entry = self._search_cache.get(key)
@@ -829,7 +830,7 @@ class EngineManager:
         except Exception:  # noqa: BLE001 - 指标记录失败不影响检索
             pass
 
-    def _search_cache_put(self, key: str, outcome: "SearchOutcome") -> None:
+    def _search_cache_put(self, key: str, outcome: SearchOutcome) -> None:
         if self._settings.search_cache_ttl_seconds <= 0:
             return
         if len(self._search_cache) >= self._search_cache_limit:
@@ -842,10 +843,10 @@ class EngineManager:
 
     async def _enrich_outcome(
         self,
-        outcome: "SearchOutcome",
+        outcome: SearchOutcome,
         *,
-        source: "Source | None" = None,
-    ) -> "SearchOutcome":
+        source: Source | None = None,
+    ) -> SearchOutcome:
         """Code revision filter + code parent prefix + generic parent enrichment."""
         if not outcome.sections:
             return outcome

@@ -9,8 +9,9 @@ audit trail survives retries, splits and superseded batches.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import UTC, datetime
-from typing import Any, Iterable
+from typing import Any
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession

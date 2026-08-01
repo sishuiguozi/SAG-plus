@@ -1,6 +1,5 @@
 """A3 LLM 重排：按模型输出顺序重排候选；失败/禁用回退原顺序。"""
 
-import asyncio
 
 import pytest
 
@@ -144,7 +143,6 @@ async def test_retrieve_uses_llm_rerank_when_enabled(monkeypatch):
 
     monkeypatch.setattr(rs, "query_terms", lambda q: ["t"])
     # 直接调用 retrieve_relevant_sections 需要 engine_manager；改为直接验证开关分支
-    from sag_api.sag.dto import SearchOutcome
     from sag_api.services.retrieval_service import rerank_sections
 
     sections = _sections(3)

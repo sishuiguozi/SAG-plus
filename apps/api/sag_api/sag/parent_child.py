@@ -43,7 +43,7 @@ async def _backfill_parent_ids(chunk_ids: list[str], chunking_result: Any) -> No
         return
 
     parent_ids: dict[Any, str] = {}
-    for chunk_id, draft in zip(chunk_ids, drafts):
+    for chunk_id, draft in zip(chunk_ids, drafts, strict=True):
         meta = draft.metadata or {}
         if meta.get("chunk_type") in _PARENT_CHUNK_TYPES and meta.get("parent_group") is not None:
             parent_ids[meta["parent_group"]] = chunk_id
@@ -51,7 +51,7 @@ async def _backfill_parent_ids(chunk_ids: list[str], chunking_result: Any) -> No
         return
 
     updates: list[tuple[str, str]] = []
-    for chunk_id, draft in zip(chunk_ids, drafts):
+    for chunk_id, draft in zip(chunk_ids, drafts, strict=True):
         meta = draft.metadata or {}
         if meta.get("chunk_type") not in _CHILD_CHUNK_TYPES:
             continue
@@ -240,7 +240,7 @@ def install_parent_child_loader_patch() -> None:
             patched_save_to_database._sag_api_parent_child = True  # type: ignore[attr-defined]
             return patched_save_to_database
 
-        setattr(owner, "_save_to_database", wrap_save(current_save))
+        owner._save_to_database = wrap_save(current_save)
 
     index_current = getattr(BaseLoader, "_batch_index_chunks", None)
     if callable(index_current) and not getattr(index_current, "_sag_api_parent_child_filter", False):
@@ -265,8 +265,6 @@ def uninstall_parent_child_loader_patch() -> None:
     global _patch_installed
     if not _patch_installed:
         return
-    from zleap.sag.modules.load.loader import BaseLoader
-
     from zleap.sag.modules.load.loader import BaseLoader, DocumentLoader
 
     for owner in (DocumentLoader, BaseLoader):

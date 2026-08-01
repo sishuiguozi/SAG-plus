@@ -125,6 +125,12 @@ class ModelConfigUpdate(BaseModel):
     source_chunk_vector_embedding_batch_size: int | None = Field(default=None, ge=1, le=100)
     source_chunk_vector_index_batch_size: int | None = Field(default=None, ge=1, le=200)
 
+    # ── LanceDB 自动维护（SAG-OPT-803；下次应用启动时按计划执行）──
+    lancedb_maintenance_enabled: bool | None = None
+    lancedb_maintenance_interval_days: int | None = Field(default=None, ge=1, le=60)
+    # 确认已备份后才允许清理旧版本（清理不可逆）。
+    lancedb_maintenance_delete_unverified: bool | None = None
+
     # ── 磁盘分级保护（SAG-OPT-802，保存后下一个检查周期生效）──
     disk_guard_enabled: bool | None = None
     disk_warn_gb: float | None = Field(default=None, gt=0, le=1_000_000)

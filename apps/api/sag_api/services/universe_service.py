@@ -31,10 +31,10 @@ from sag_api.db.models import (
     Job,
     Source,
     UniverseDirtySource,
+    UniverseGraphCache,
     UniverseOverview,
     UniversePartition,
     User,
-    UniverseGraphCache,
 )
 from sag_api.enums import DocumentStatus, JobStatus, JobType
 from sag_api.jobs import JobQueue
