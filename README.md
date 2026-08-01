@@ -56,9 +56,10 @@ Detailed implementation records are in
    Local embedding**, click **Download inference backend**, select one or more
    bge-m3 GGUF variants, then download them. Weights are never downloaded
    automatically; select a completed model and save the configuration. Click
-   **Test local model** to generate one temporary vector and see its model,
-   dimensions, and latency; this does not upload text or write to the knowledge
-   base.
+   **Test local model** to test the model currently selected in the dropdown
+   against the current context or thread draft—no save is required. It generates
+   one temporary vector and shows its model, dimensions, and latency; it does
+   not change saved configuration, the knowledge base, or remote services.
 
 ## Troubleshooting
 
