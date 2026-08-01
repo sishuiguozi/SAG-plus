@@ -32,6 +32,7 @@ import {
   toggleLocalModelSelection,
   type LocalModelAction,
 } from "@/lib/local-model-manager";
+import { isLlmToolChoiceStrategy } from "@/lib/tool-choice-strategy";
 import type {
   ModelConfig,
   ModelConfigPatch,
@@ -89,6 +90,9 @@ export function ModelConfigForm() {
   const [maxTokens, setMaxTokens] = React.useState(20_000);
   const [timeoutMs, setTimeoutMs] = React.useState(60_000);
   const [maxRetries, setMaxRetries] = React.useState(2);
+  const [toolChoiceStrategy, setToolChoiceStrategy] = React.useState<
+    ModelConfig["llm_tool_choice_strategy"]
+  >("forced_no_thinking");
   const [ctxWindow, setCtxWindow] = React.useState(128000);
   const [embProvider, setEmbProvider] = React.useState<"api" | "local">("api");
   const [embLocalModelFile, setEmbLocalModelFile] = React.useState("bge-m3-Q8_0.gguf");
@@ -152,6 +156,7 @@ export function ModelConfigForm() {
     setMaxTokens(config.llm_max_tokens);
     setTimeoutMs(config.llm_timeout_ms ?? 60_000);
     setMaxRetries(config.llm_max_retries ?? 2);
+    setToolChoiceStrategy(config.llm_tool_choice_strategy);
     setCtxWindow(config.llm_context_window ?? 128000);
     setEmbProvider(config.embedding_provider);
     setEmbLocalModelFile(config.embedding_local_model_file);
@@ -229,6 +234,7 @@ export function ModelConfigForm() {
       llm_max_tokens: maxTokens,
       llm_timeout_ms: timeoutMs,
       llm_max_retries: maxRetries,
+      llm_tool_choice_strategy: toolChoiceStrategy,
       llm_context_window: ctxWindow,
       embedding_provider: embProvider,
       embedding_local_model_file: embLocalModelFile.trim(),
@@ -292,6 +298,9 @@ export function ModelConfigForm() {
     if (typeof rec.llm_max_tokens === "number") setMaxTokens(rec.llm_max_tokens);
     if (typeof rec.llm_timeout_ms === "number") setTimeoutMs(rec.llm_timeout_ms);
     if (typeof rec.llm_max_retries === "number") setMaxRetries(rec.llm_max_retries);
+    if (isLlmToolChoiceStrategy(rec.llm_tool_choice_strategy)) {
+      setToolChoiceStrategy(rec.llm_tool_choice_strategy);
+    }
     if (typeof rec.llm_context_window === "number") setCtxWindow(rec.llm_context_window);
     if (rec.embedding_provider === "api" || rec.embedding_provider === "local") {
       setEmbProvider(rec.embedding_provider);
@@ -711,6 +720,37 @@ export function ModelConfigForm() {
                 }
               />
               <FieldDescription>{t("retriesDescription")}</FieldDescription>
+            </Field>
+            <Field className="sm:col-span-2">
+              <FieldLabel htmlFor="llm-tool-choice-strategy">
+                {t("toolChoiceStrategy")}
+                <RecommendedBadge t={translate} value={recommended.llm_tool_choice_strategy} />
+              </FieldLabel>
+              <Select
+                value={toolChoiceStrategy}
+                onValueChange={(value) =>
+                  setToolChoiceStrategy(value as ModelConfig["llm_tool_choice_strategy"])
+                }
+              >
+                <SelectTrigger id="llm-tool-choice-strategy">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="forced_no_thinking">
+                    {t("toolStrategyForcedNoThinking")}
+                  </SelectItem>
+                  <SelectItem value="forced_with_thinking">
+                    {t("toolStrategyForcedWithThinking")}
+                  </SelectItem>
+                  <SelectItem value="auto">{t("toolStrategyAuto")}</SelectItem>
+                  <SelectItem value="all_no_thinking">
+                    {t("toolStrategyAllNoThinking")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                {t(`toolStrategyDescription.${toolChoiceStrategy}`)}
+              </FieldDescription>
             </Field>
           </div>
         </SettingsRow>

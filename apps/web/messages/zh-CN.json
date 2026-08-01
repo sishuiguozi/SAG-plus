@@ -555,6 +555,17 @@
     "timeoutDescription": "单次模型请求的等待上限。",
     "retries": "重试次数",
     "retriesDescription": "请求失败后自动重试的次数。",
+    "toolChoiceStrategy": "工具调用策略",
+    "toolStrategyForcedNoThinking": "工具轮关闭思考（推荐）",
+    "toolStrategyForcedWithThinking": "全程保留思考",
+    "toolStrategyAuto": "自动工具选择",
+    "toolStrategyAllNoThinking": "全程关闭思考",
+    "toolStrategyDescription": {
+      "forced_no_thinking": "普通回答保留思考；指定工具轮关闭思考；工具后的回答恢复思考。",
+      "forced_with_thinking": "普通回答、工具调用和工具后的回答都保留模型原有思考设置。",
+      "auto": "将指定工具和 required 改为 auto，由模型决定是否调用工具，不改变思考设置。",
+      "all_no_thinking": "普通回答、工具调用和工具后的回答全部关闭思考。"
+    },
     "embeddingDescription": "用于文档向量化和语义检索。",
     "modelAndConnection": "模型与连接",
     "embeddingConnectionDescription": "端点或密钥留空时复用生成模型配置。",

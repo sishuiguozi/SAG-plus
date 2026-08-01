@@ -1,4 +1,5 @@
 import type { SearchStrategy } from "./retrieval-config";
+import type { LlmToolChoiceStrategy } from "./tool-choice-strategy";
 
 export interface User {
   id: string;
@@ -223,6 +224,7 @@ export interface ModelConfig {
   llm_max_tokens: number;
   llm_timeout_ms: number;
   llm_max_retries: number;
+  llm_tool_choice_strategy: LlmToolChoiceStrategy;
   llm_api_key_set: boolean;
   embedding_provider: "api" | "local";
   embedding_local_model_file: string;
@@ -334,6 +336,7 @@ export type ModelConfigPatch = Partial<{
   llm_max_tokens: number;
   llm_timeout_ms: number;
   llm_max_retries: number;
+  llm_tool_choice_strategy: ModelConfig["llm_tool_choice_strategy"];
   embedding_provider: "api" | "local";
   embedding_local_model_file: string;
   embedding_local_n_ctx: number;

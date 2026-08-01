@@ -555,6 +555,17 @@
     "timeoutDescription": "Maximum wait time for a single model request.",
     "retries": "Retry attempts",
     "retriesDescription": "Automatic retry attempts after a failed request.",
+    "toolChoiceStrategy": "Tool calling strategy",
+    "toolStrategyForcedNoThinking": "Disable reasoning for forced tools (recommended)",
+    "toolStrategyForcedWithThinking": "Keep reasoning throughout",
+    "toolStrategyAuto": "Automatic tool choice",
+    "toolStrategyAllNoThinking": "Disable reasoning throughout",
+    "toolStrategyDescription": {
+      "forced_no_thinking": "Keep reasoning for normal answers, disable it for forced tool selection, then restore it for the answer after the tool.",
+      "forced_with_thinking": "Preserve the model's reasoning settings for normal answers, tool calls, and post-tool answers.",
+      "auto": "Convert named and required tool choices to auto so the model decides whether to call a tool; reasoning settings stay unchanged.",
+      "all_no_thinking": "Disable reasoning for normal answers, tool calls, and post-tool answers."
+    },
     "embeddingDescription": "Used for document embeddings and semantic retrieval.",
     "modelAndConnection": "Model and connection",
     "embeddingConnectionDescription": "Leave the endpoint or key blank to reuse the generation model settings.",
