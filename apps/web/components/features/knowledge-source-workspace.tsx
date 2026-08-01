@@ -119,9 +119,9 @@ export function KnowledgeSourceWorkspace({
           <>
             <Button
               type="button"
-              variant="ghost"
-              size="icon"
-              className="size-7"
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 px-2 text-[11px]"
               onClick={() => setScreen("add")}
               disabled={!source}
               aria-label={isFileSource ? t("addDocument") : t("syncSource")}
@@ -132,6 +132,7 @@ export function KnowledgeSourceWorkspace({
               ) : (
                 <RefreshCw className="size-3.5" />
               )}
+              {isFileSource ? "添加内容" : t("syncSource")}
             </Button>
             <Button
               type="button"
@@ -189,7 +190,6 @@ export function KnowledgeSourceWorkspace({
                   <CodeFolderImport
                     sourceId={sourceId}
                     onImported={() => void finishMutation()}
-                    compact
                   />
                   <SourceCodeConfigCard sourceId={sourceId} />
                 </div>
@@ -252,6 +252,30 @@ export function KnowledgeSourceWorkspace({
                   <IngestActivityPanel sourceId={sourceId} active={active} />
                 </div>
                 <div className="min-h-0 flex-1">
+                  <div className="shrink-0 space-y-3 border-b px-2 pb-3 pt-2">
+
+                    {isFileSource ? (
+
+                      <>
+
+                        <SourceCodeConfigCard sourceId={sourceId} />
+
+                        <CodeFolderImport
+
+                          sourceId={sourceId}
+
+                          onImported={() => void handleDocumentsChanged()}
+
+                        />
+
+                      </>
+
+                    ) : null}
+
+                  </div>
+
+                  <div className="min-h-0 flex-1 overflow-hidden">
+
                   <DocumentList
                     sourceId={sourceId}
                     source={source}
@@ -260,6 +284,8 @@ export function KnowledgeSourceWorkspace({
                     variant="compact"
                     onOpenDocument={(document) => setDocumentId(document.id)}
                   />
+
+                  </div>
                 </div>
               </>
             )}
