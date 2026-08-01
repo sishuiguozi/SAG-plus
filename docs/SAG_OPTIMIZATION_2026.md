@@ -1,6 +1,8 @@
 # SAG 全面优化分析 v2（2026-08，基于全量代码扫描）
 
 > 运行入口：本分析不是部署或启动指南；启动 SAG-plus 请在 `apps/desktop` 运行 `npm run dev`。
+>
+> 2026-08-01 增量：Tree-sitter 代码入库、符号级父子分块、代码文件夹增量同步、三档代码抽取与检索版本过滤已落地。详见 `docs/guides/CODE_FOLDER_INGESTION.md`。
 
 > 分析范围：apps/api/sag_api 全部 107 个 .py + apps/web 全部 182 个非测试 .ts/.tsx + apps/desktop + zleap-sag 依赖。
 > `SAG-plus` 维护说明：本文记录本分支的实现状态；性能数字来自当时的本地基线，迁移到其他数据目录前必须重新评估。

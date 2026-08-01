@@ -44,6 +44,14 @@ Detailed implementation records are in
 [the 2026 optimization status](docs/SAG_OPTIMIZATION_2026.md) and
 [architecture patches](docs/ARCHITECTURE_PATCHES.md).
 
+## Code folder ingestion
+
+- Use **Import code folder** in a knowledge source to scan a local directory and upload only new/changed files.
+- Missing local files are never deleted automatically.
+- Per-source code extraction modes: off / comments (default) / all child chunks.
+- Manage Tree-sitter language packs under **Settings → Knowledge** (reserve about 500MB).
+- Details: [Code folder ingestion guide](docs/guides/CODE_FOLDER_INGESTION.md).
+
 ## Daily use
 
 1. Start the desktop app with `npm run dev`.

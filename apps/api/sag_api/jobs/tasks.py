@@ -129,7 +129,7 @@ async def process_document(
                 on_state=on_parser_state,
                 relative_path=(
                     replacement.get("relative_path")
-                    or document.relative_path
+                    or getattr(document, "relative_path", None)
                     or Path(document.filename).name
                 ),
             )
@@ -161,8 +161,8 @@ async def process_document(
                 job.payload = payload
                 await session.commit()
         elif (
-            (document.code_language or (replacement.get("new_code_language") if replacement else None))
-            and (document.content_sha256 or (replacement.get("new_content_sha256") if replacement else None))
+            (getattr(document, "code_language", None) or (replacement.get("new_code_language") if replacement else None))
+            and (getattr(document, "content_sha256", None) or (replacement.get("new_content_sha256") if replacement else None))
             and process_storage_path
         ):
             from sag_api.parsing.service import PreparedDocument
@@ -172,16 +172,16 @@ async def process_document(
                 provider="tree_sitter",
                 relative_path=(
                     (replacement.get("relative_path") if replacement else None)
-                    or document.relative_path
+                    or getattr(document, "relative_path", None)
                     or Path(document.filename).name
                 ),
                 content_sha256=(
                     (replacement.get("new_content_sha256") if replacement else None)
-                    or document.content_sha256
+                    or getattr(document, "content_sha256", None)
                 ),
                 code_language=(
                     (replacement.get("new_code_language") if replacement else None)
-                    or document.code_language
+                    or getattr(document, "code_language", None)
                 ),
             )
         code_kwargs = (
@@ -189,7 +189,10 @@ async def process_document(
             if prepared is not None and prepared.provider == "tree_sitter"
             else {}
         )
-        code_kwargs["code_llm_extraction_mode"] = _read_source_code_config(source).llm_extraction_mode
+        try:
+            code_kwargs["code_llm_extraction_mode"] = _read_source_code_config(source).llm_extraction_mode
+        except Exception:
+            code_kwargs["code_llm_extraction_mode"] = "comments"
         process_path = None
         if prepared is not None:
             process_path = str(prepared.path)

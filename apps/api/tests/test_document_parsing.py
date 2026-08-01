@@ -475,7 +475,7 @@ async def test_document_job_sends_parsed_markdown_to_engine(monkeypatch):
 
     prepared_calls: list[str] = []
 
-    async def fake_prepare(path, settings, *, state=None, on_state=None):
+    async def fake_prepare(path, settings, *, state=None, on_state=None, relative_path=None, ingest_context="single"):
         prepared_calls.append(path)
         return PreparedDocument("/uploads/original.pdf.parsed.markitdown.md", "markitdown")
 
@@ -494,6 +494,7 @@ async def test_document_job_sends_parsed_markdown_to_engine(monkeypatch):
             should_pause,
             max_concurrency,
             document_title,
+            **kwargs,
         ):
             self.seen_path = path
             assert max_concurrency == tasks.settings.document_extract_concurrency

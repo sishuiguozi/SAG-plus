@@ -44,3 +44,17 @@
 - 每个补丁必须有对应回归测试（上表最后一列）
 - 升级 zleap-sag / litellm 前先跑全部补丁回归测试
 - 发现上游已修复的补丁及时移除并更新本表
+
+
+## Tree-sitter code ingestion (2026-08-01)
+
+| Area | Location | Notes |
+| --- | --- | --- |
+| File policy | `sag_api/code_ingest/file_policy.py` | single vs code_folder routing + safety rejects |
+| Resources | `sag_api/code_ingest/resource_manager.py` + `/api/v1/tree-sitter` | offline-safe download/pause/resume/repair |
+| Parse/chunk | `parser.py` / `chunk_builder.py` / `loader.py` | symbol tree → precomputed parent/child chunks |
+| Extraction | `incremental_processor.py` | off/comments/all per source |
+| Revisions | `document_service.py` + `CLEANUP_DOCUMENT_REVISION` | pending publish + old revision cleanup |
+| Retrieval | `code_context.py` | hash filter + compact parent prefix + exact child |
+| Folder API | `/sources/{id}/code-folder/plan|upload` | incremental local sync |
+| Web | `code-folder-import`, source config card, resource card | desktop-only UX |

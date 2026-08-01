@@ -313,7 +313,8 @@ async def get_source(session: AsyncSession, source_id: str) -> Source:
 
 
 def _read_source_code_config(source: Source) -> SourceCodeConfig:
-    raw = source.config if isinstance(source.config, dict) else {}
+    raw = getattr(source, "config", None)
+    raw = raw if isinstance(raw, dict) else {}
     code_ingest = raw.get("code_ingest")
     if not isinstance(code_ingest, dict):
         return SourceCodeConfig()

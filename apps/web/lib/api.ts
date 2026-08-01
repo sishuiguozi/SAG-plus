@@ -588,21 +588,21 @@ export const api = {
     );
   },
   getTreeSitterStatus: () =>
-    request<import("./types").TreeSitterResourceStatus>("/api/v1/tree-sitter"),
+    request<import("./types").TreeSitterResourceStatus>("/api/v1/system/tree-sitter"),
   downloadTreeSitter: () =>
-    request<import("./types").TreeSitterResourceStatus>("/api/v1/tree-sitter/download", {
+    request<import("./types").TreeSitterResourceStatus>("/api/v1/system/tree-sitter/download", {
       method: "POST",
     }),
   pauseTreeSitter: () =>
-    request<import("./types").TreeSitterResourceStatus>("/api/v1/tree-sitter/pause", {
+    request<import("./types").TreeSitterResourceStatus>("/api/v1/system/tree-sitter/pause", {
       method: "POST",
     }),
   resumeTreeSitter: () =>
-    request<import("./types").TreeSitterResourceStatus>("/api/v1/tree-sitter/resume", {
+    request<import("./types").TreeSitterResourceStatus>("/api/v1/system/tree-sitter/resume", {
       method: "POST",
     }),
   repairTreeSitter: () =>
-    request<import("./types").TreeSitterResourceStatus>("/api/v1/tree-sitter/repair", {
+    request<import("./types").TreeSitterResourceStatus>("/api/v1/system/tree-sitter/repair", {
       method: "POST",
     }),
 
