@@ -687,6 +687,10 @@
         "label": "ANN vector index",
         "description": "Use approximate nearest-neighbor index; disable to fall back to exact scan."
       },
+      "lancedb_fts_enabled": {
+        "label": "BM25 full-text search (FTS)",
+        "description": "Independent lexical recall via LanceDB FTS (names/IDs/code symbols), falls back to grep on failure."
+      },
       "lancedb_search_refine_factor": {
         "label": "ANN refine factor",
         "description": "Candidate multiplier for exact re-ranking after coarse recall; 0 disables re-ranking."
@@ -921,9 +925,7 @@
     },
     "resetDefault": "Restore defaults",
     "resetApplied": "Recommended values applied; click save to apply",
-    "resetUnavailable": "Recommended values unavailable; restart the API and retry",
-    "lancedb_fts_enabled": "BM25 full-text search (FTS)",
-    "lancedb_fts_enabled_description": "Independent lexical recall via LanceDB FTS (names/IDs/code symbols), falls back to grep on failure."
+    "resetUnavailable": "Recommended values unavailable; restart the API and retry"
   },
   "AgentSettings": {
     "saved": "Assistant settings saved",
