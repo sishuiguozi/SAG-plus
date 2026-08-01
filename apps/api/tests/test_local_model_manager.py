@@ -8,21 +8,34 @@ import pytest
 from sag_api.sag.local_model_manager import LocalModelManager, MODEL_CATALOG
 
 
-def test_model_catalog_exposes_the_five_supported_variants():
+def test_model_catalog_exposes_the_three_supported_embedding_variants():
     assert tuple(MODEL_CATALOG) == (
-        "bge-m3-Q4_K_M.gguf",
-        "bge-m3-Q5_K_M.gguf",
-        "bge-m3-Q6_K.gguf",
         "bge-m3-Q8_0.gguf",
-        "bge-m3-FP16.gguf",
+        "Qwen3-Embedding-0.6B-Q8_0.gguf",
+        "Qwen3-Embedding-4B-Q8_0.gguf",
     )
+
+
+def test_status_groups_embedding_and_reranker_models(tmp_path: Path):
+    manager = LocalModelManager(tmp_path)
+
+    status = manager.status()
+
+    assert [row["file_name"] for row in status["embedding"]["models"]] == list(MODEL_CATALOG)
+    assert [row["file_name"] for row in status["reranker"]["models"]] == [
+        "bge-reranker-v2-m3-q8_0.gguf",
+        "qwen3-reranker-0.6b-q8_0.gguf",
+        "Qwen3-Reranker-4B-Q8_0.gguf",
+    ]
 
 
 def test_status_ignores_partial_downloads(tmp_path: Path):
     manager = LocalModelManager(tmp_path)
-    (tmp_path / "bge-m3-Q8_0.gguf.part").write_bytes(b"partial")
+    partial = tmp_path / "embedding" / "bge-m3-Q8_0.gguf.part"
+    partial.parent.mkdir()
+    partial.write_bytes(b"partial")
 
-    row = manager.status()["models"][3]
+    row = manager.status()["embedding"]["models"][0]
 
     assert row["file_name"] == "bge-m3-Q8_0.gguf"
     assert row["status"] == "missing"
@@ -32,7 +45,7 @@ def test_status_ignores_partial_downloads(tmp_path: Path):
 async def test_rejects_unknown_model_files(tmp_path: Path):
     manager = LocalModelManager(tmp_path)
 
-    with pytest.raises(ValueError, match="Unsupported local embedding model"):
+    with pytest.raises(ValueError, match="Unsupported local model"):
         await manager.download(["unknown.gguf"])
 
 
@@ -85,7 +98,7 @@ def test_deletes_partial_file_when_download_length_verification_fails(
     with pytest.raises(RuntimeError, match="size verification"):
         manager._download_sync(file_name)
 
-    assert not (tmp_path / f"{file_name}.part").exists()
+    assert not (tmp_path / "embedding" / f"{file_name}.part").exists()
 
 
 @pytest.mark.asyncio
@@ -135,7 +148,7 @@ async def test_local_model_endpoints_require_auth_and_return_catalog(tmp_path: P
 
             status = await client.get("/api/v1/system/local-models", headers=headers)
             assert status.status_code == 200
-            assert status.json()["models"][3]["file_name"] == "bge-m3-Q8_0.gguf"
+            assert status.json()["embedding"]["models"][0]["file_name"] == "bge-m3-Q8_0.gguf"
 
             unsupported = await client.post(
                 "/api/v1/system/local-models/download",
@@ -156,7 +169,7 @@ async def test_local_embedding_health_check_uses_unsaved_draft_values(monkeypatc
                 "backend": {"status": "ready", "error": None},
                 "models": [
                     {
-                        "file_name": "bge-m3-Q6_K.gguf",
+                        "file_name": "bge-m3-Q8_0.gguf",
                         "status": "ready",
                         "model_path": "draft-q6.gguf",
                     },
@@ -188,7 +201,7 @@ async def test_local_embedding_health_check_uses_unsaved_draft_values(monkeypatc
     async with app.router.lifespan_context(app):
         async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
             request_body = {
-                "model_file": "bge-m3-Q6_K.gguf",
+                "model_file": "bge-m3-Q8_0.gguf",
                 "n_ctx": 4096,
                 "n_threads": 6,
             }
@@ -212,7 +225,7 @@ async def test_local_embedding_health_check_uses_unsaved_draft_values(monkeypatc
 
     assert response.status_code == 200
     assert response.json()["ok"] is True
-    assert response.json()["model_file"] == "bge-m3-Q6_K.gguf"
+    assert response.json()["model_file"] == "bge-m3-Q8_0.gguf"
     assert response.json()["dimensions"] == 3
     assert response.json()["elapsed_ms"] >= 0
     assert unsupported.status_code == 422

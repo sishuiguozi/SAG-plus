@@ -11,14 +11,10 @@ from pathlib import Path
 from typing import Any
 from urllib.request import Request, urlopen
 
-MODEL_REPOSITORY = "https://huggingface.co/gpustack/bge-m3-GGUF/resolve/main/"
-MODEL_CATALOG = {
-    "bge-m3-Q4_K_M.gguf": "Low memory",
-    "bge-m3-Q5_K_M.gguf": "Balanced",
-    "bge-m3-Q6_K.gguf": "Higher precision",
-    "bge-m3-Q8_0.gguf": "Recommended",
-    "bge-m3-FP16.gguf": "Highest precision",
-}
+from sag_api.sag.local_model_catalog import ModelKind, ModelSpec, get_model_spec, specs_for
+
+# Kept for callers that previously rendered the embedding picker directly.
+MODEL_CATALOG = {spec.file_name: spec.label for spec in specs_for(ModelKind.EMBEDDING)}
 
 
 class LocalModelManager:
@@ -29,28 +25,45 @@ class LocalModelManager:
         self._backend_task: asyncio.Task[None] | None = None
         self._backend_state: dict[str, Any] = {"status": "missing", "error": None}
 
-    def status(self) -> dict[str, Any]:
-        models = []
-        for file_name, label in MODEL_CATALOG.items():
-            path = self.model_dir / file_name
-            state = self._state.get(file_name, {})
-            exists = path.is_file()
-            models.append({
-                "file_name": file_name,
-                "label": label,
+    def _model_path(self, spec: ModelSpec) -> Path:
+        return self.model_dir / spec.relative_dir / spec.file_name
+
+    def _model_status(self, spec: ModelSpec) -> dict[str, Any]:
+        path = self._model_path(spec)
+        state = self._state.get(spec.file_name, {})
+        exists = path.is_file()
+        return {
+                "file_name": spec.file_name,
+                "label": spec.label,
+                "kind": spec.kind,
+                "runtime": spec.runtime,
+                "dimensions": spec.dimensions,
+                "size_mb": spec.size_mb,
                 "status": "ready" if exists else state.get("status", "missing"),
                 "downloaded_bytes": path.stat().st_size if exists else state.get("downloaded_bytes", 0),
                 "total_bytes": path.stat().st_size if exists else state.get("total_bytes"),
                 "progress": 100 if exists else state.get("progress", 0),
                 "error": state.get("error"),
                 "model_path": str(path),
-            })
+            }
+
+    def status(self) -> dict[str, Any]:
+        embedding_models = [self._model_status(spec) for spec in specs_for(ModelKind.EMBEDDING)]
+        reranker_models = [self._model_status(spec) for spec in specs_for(ModelKind.RERANKER)]
         backend_installed = importlib.util.find_spec("llama_cpp") is not None
         backend = {
             "status": "ready" if backend_installed else self._backend_state["status"],
             "error": None if backend_installed else self._backend_state["error"],
         }
-        return {"backend_installed": backend_installed, "backend": backend, "models": models}
+        crispembed = {"status": "missing", "error": "CrispEmbed runtime is not installed"}
+        return {
+            "embedding": {"backend": backend, "models": embedding_models},
+            "reranker": {"backends": {"llama_cpp": backend, "crispembed": crispembed}, "models": reranker_models},
+            # Legacy shape retained for the existing local-embedding endpoint/UI.
+            "backend_installed": backend_installed,
+            "backend": backend,
+            "models": embedding_models,
+        }
 
     async def install_backend(self) -> dict[str, Any]:
         """Install llama-cpp-python into the Python environment running the API."""
@@ -90,11 +103,13 @@ class LocalModelManager:
         )
 
     async def download(self, files: list[str]) -> dict[str, Any]:
-        unknown = [name for name in files if name not in MODEL_CATALOG]
+        unknown = [name for name in files if get_model_spec(name) is None]
         if unknown:
-            raise ValueError(f"Unsupported local embedding model: {unknown[0]}")
+            raise ValueError(f"Unsupported local model: {unknown[0]}")
         for name in dict.fromkeys(files):
-            if (self.model_dir / name).is_file() or name in self._tasks:
+            spec = get_model_spec(name)
+            assert spec is not None
+            if self._model_path(spec).is_file() or name in self._tasks:
                 continue
             self._state[name] = {"status": "downloading", "downloaded_bytes": 0, "total_bytes": None, "progress": 0, "error": None}
             self._tasks[name] = asyncio.create_task(self._download(name))
@@ -109,10 +124,13 @@ class LocalModelManager:
             self._tasks.pop(file_name, None)
 
     def _download_sync(self, file_name: str) -> None:
-        self.model_dir.mkdir(parents=True, exist_ok=True)
-        target = self.model_dir / file_name
+        spec = get_model_spec(file_name)
+        if spec is None:
+            raise ValueError(f"Unsupported local model: {file_name}")
+        target = self._model_path(spec)
+        target.parent.mkdir(parents=True, exist_ok=True)
         partial = target.with_suffix(f"{target.suffix}.part")
-        request = Request(f"{MODEL_REPOSITORY}{file_name}?download=true", headers={"User-Agent": "SAG-plus"})
+        request = Request(f"{spec.source_url}?download=true", headers={"User-Agent": "SAG-plus"})
         with urlopen(request, timeout=30) as response, partial.open("wb") as output:  # noqa: S310
             total = int(response.headers.get("Content-Length") or 0) or None
             etag = (response.headers.get("ETag") or "").strip('"')
