@@ -49,7 +49,7 @@ Detailed implementation records are in
 - Use **Import code folder** in a knowledge source to scan a local directory and upload only new/changed files.
 - Missing local files are never deleted automatically.
 - Per-source code extraction modes: off / comments (default) / all child chunks.
-- Manage Tree-sitter language packs under **Settings → Knowledge** (reserve about 500MB).
+- Manage Tree-sitter language packs under **Settings → Model → Parser model** (reserve about 500MB). Once ready, Download/Repair are no-ops.
 - Details: [Code folder ingestion guide](docs/guides/CODE_FOLDER_INGESTION.md).
 
 ## Daily use

@@ -48,6 +48,8 @@
 
 ## Tree-sitter code ingestion (2026-08-01)
 
+Maintenance (2026-08-02): resource UI under Settings → Model → Parser model; promote tolerates Windows DLL locks; download/repair no-op when 306/306 ready; extract path supports configurable `llm_json_schema_compat` for Console Go.
+
 | Area | Location | Notes |
 | --- | --- | --- |
 | File policy | `sag_api/code_ingest/file_policy.py` | single vs code_folder routing + safety rejects |

@@ -2,7 +2,8 @@
 
 > 运行入口：本分析不是部署或启动指南；启动 SAG-plus 请在 `apps/desktop` 运行 `npm run dev`。
 >
-> 2026-08-01 增量：Tree-sitter 代码入库、符号级父子分块、代码文件夹增量同步、三档代码抽取与检索版本过滤已落地。详见 `docs/guides/CODE_FOLDER_INGESTION.md`。
+> 2026-08-01 增量：Tree-sitter 代码入库、符号级父子分块、代码文件夹增量同步、三档代码抽取与检索版本过滤已落地。
+> 2026-08-02 复核：资源卡并入“解析模型”；ready 后下载/修复 no-op；Windows DLL 锁 promote 修复；Console Go `json_schema` 兼容可配置。详见 `docs/guides/CODE_FOLDER_INGESTION.md`。
 
 > 分析范围：apps/api/sag_api 全部 107 个 .py + apps/web 全部 182 个非测试 .ts/.tsx + apps/desktop + zleap-sag 依赖。
 > `SAG-plus` 维护说明：本文记录本分支的实现状态；性能数字来自当时的本地基线，迁移到其他数据目录前必须重新评估。

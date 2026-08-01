@@ -3,7 +3,7 @@
 ## 状态
 
 - 日期：2026-08-01
-- 状态：设计已批准，等待书面规格复核
+- 状态：已实现并复核完成（2026-08-02）
 - 目标仓库：SAG-plus
 
 ## 背景
@@ -444,3 +444,11 @@ Tree-sitter，普通上传继续原路由。已有知识库缺少代码抽取配
 - [Tree-sitter Language Pack 支持语言与扩展名](https://docs.tree-sitter-language-pack.xberg.io/languages/)
 - [解析器下载、全量安装与缓存说明](https://docs.tree-sitter-language-pack.xberg.io/getting-started/quickstart/)
 - [v1.13.7 官方发布资源](https://github.com/xberg-io/tree-sitter-language-pack/releases/tag/v1.13.7)
+
+
+## 实现复核（2026-08-02）
+
+- 核心管线、资源管理、代码文件夹增量同步、三档抽取、版本安全发布均已合入 `main`。
+- Tree-sitter 资源 UI 位于 **设置 → 模型 → 解析模型**（不再放在知识库设置页，避免与“解析模型”分离）。
+- 稳定性修复：Windows DLL 锁、ready 后下载/修复 no-op、Console Go `json_schema` 兼容（可配置）。
+- 已知非阻塞项：全量后端/前端 CI 套件在本地一次性跑通耗时较长；相关 code/tree-sitter 聚焦测试已通过。
