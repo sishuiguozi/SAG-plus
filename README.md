@@ -143,6 +143,7 @@ npm run dev
 In Command Prompt (cmd), run:
 
 ```cmd
+git clone https://github.com/sishuiguozi/SAG-plus.git
 cd SAG-plus\apps\desktop
 npm run dev
 ```
@@ -150,6 +151,7 @@ npm run dev
 In PowerShell, run:
 
 ```powershell
+git clone https://github.com/sishuiguozi/SAG-plus.git
 cd SAG-plus\apps\desktop
 npm run dev
 ```

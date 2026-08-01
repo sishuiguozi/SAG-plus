@@ -112,6 +112,7 @@ npm run dev
 在命令提示符（cmd）中运行：
 
 ```cmd
+git clone https://github.com/sishuiguozi/SAG-plus.git
 cd SAG-plus\apps\desktop
 npm run dev
 ```
@@ -119,6 +120,7 @@ npm run dev
 在 PowerShell 中运行：
 
 ```powershell
+git clone https://github.com/sishuiguozi/SAG-plus.git
 cd SAG-plus\apps\desktop
 npm run dev
 ```
