@@ -840,19 +840,35 @@ class EngineManager:
             outcome.model_copy(deep=True),  # 存副本，隔离调用方修改
         )
 
-    async def _enrich_outcome(self, outcome: "SearchOutcome") -> "SearchOutcome":
-        """A4：命中子块时用父块内容替换（增量安全，无标记数据原样返回）。"""
+    async def _enrich_outcome(
+        self,
+        outcome: "SearchOutcome",
+        *,
+        source: "Source | None" = None,
+    ) -> "SearchOutcome":
+        """Code revision filter + code parent prefix + generic parent enrichment."""
         if not outcome.sections:
             return outcome
+        sections = list(outcome.sections)
+        try:
+            from sag_api.sag.code_context import apply_code_retrieval_pipeline
+
+            app_source_id = source.id if source is not None else None
+            sections = await apply_code_retrieval_pipeline(
+                sections,
+                app_source_id=app_source_id,
+            )
+        except Exception:  # noqa: BLE001 - enrich failure must not break search
+            sections = list(outcome.sections)
         try:
             from sag_api.sag.parent_child import enrich_parent_context
 
-            sections = await enrich_parent_context(outcome.sections)
-            if sections is outcome.sections:
-                return outcome
-            return outcome.model_copy(update={"sections": sections})
-        except Exception:  # noqa: BLE001 - enrich 失败不影响检索
+            sections = await enrich_parent_context(sections)
+        except Exception:  # noqa: BLE001
+            pass
+        if sections == list(outcome.sections):
             return outcome
+        return outcome.model_copy(update={"sections": sections})
 
 
     async def search(
@@ -877,7 +893,8 @@ class EngineManager:
             return cached
         try:
             outcome = await self._enrich_outcome(
-                await self._search_raw(source_config_id, query, source=source, strategy=strategy, top_k=top_k)
+                await self._search_raw(source_config_id, query, source=source, strategy=strategy, top_k=top_k),
+                source=source,
             )
             if outcome.sections or strategy == "vector" or not self._settings.search_fallback_vector:
                 self._search_cache_put(cache_key, outcome)
@@ -902,7 +919,8 @@ class EngineManager:
                 getattr(e, "message", None) or e,
             )
         return await self._enrich_outcome(
-            await self._search_raw(source_config_id, query, source=source, strategy="vector", top_k=top_k)
+            await self._search_raw(source_config_id, query, source=source, strategy="vector", top_k=top_k),
+            source=source,
         )
 
     async def search_many(
