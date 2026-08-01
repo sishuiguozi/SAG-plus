@@ -205,6 +205,20 @@ describe("agent run activity", () => {
     expect(steps[0]).toMatchObject({ status: "error", error: "已停止" });
   });
 
+  it("treats a failed model turn as a failed run", async () => {
+    const steps = reduce([
+      event("turn.started"),
+      event("run.failed", { error: { code: "run_failed", message: "上游请求失败" } }, 1, 2),
+    ]);
+    const activity = await import("./agent-run-activity");
+    const hasFailedStep = (activity as typeof activity & {
+      hasFailedAgentRunStep?: (items: LiveStep[]) => boolean;
+    }).hasFailedAgentRunStep;
+
+    expect(hasFailedStep).toBeTypeOf("function");
+    expect(hasFailedStep?.(steps)).toBe(true);
+  });
+
   it("normalizes and merges internal and external citation artifacts", () => {
     const first = {
       n: 1,

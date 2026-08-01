@@ -9,6 +9,12 @@ export interface LiveStep extends MessageStep {
   progress?: string;
 }
 
+export function hasFailedAgentRunStep(
+  steps: readonly { status?: LiveStep["status"]; error?: string }[],
+): boolean {
+  return steps.some((step) => step.status === "error" || Boolean(step.error));
+}
+
 export interface ToolScope {
   kind: "knowledge" | "internet" | null;
   sources: NonNullable<NonNullable<MessageStep["details"]>["sources"]>;
