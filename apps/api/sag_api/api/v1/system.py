@@ -41,7 +41,7 @@ def _get_local_model_manager():
     from sag_api.sag.local_model_manager import LocalModelManager
 
     global _local_model_manager
-    model_dir = Path(settings.embedding_local_model_path()).parent
+    model_dir = Path(settings.data_dir).resolve().parent / "models"
     if _local_model_manager is None or _local_model_manager.model_dir != model_dir:
         _local_model_manager = LocalModelManager(model_dir)
     return _local_model_manager

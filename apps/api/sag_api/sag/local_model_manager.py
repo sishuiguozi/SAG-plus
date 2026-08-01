@@ -28,8 +28,18 @@ class LocalModelManager:
     def _model_path(self, spec: ModelSpec) -> Path:
         return self.model_dir / spec.relative_dir / spec.file_name
 
+    def _existing_model_path(self, spec: ModelSpec) -> Path:
+        preferred = self._model_path(spec)
+        if preferred.is_file():
+            return preferred
+        if spec.kind is ModelKind.EMBEDDING and spec.file_name == "bge-m3-Q8_0.gguf":
+            legacy = self.model_dir / "bge-m3" / spec.file_name
+            if legacy.is_file():
+                return legacy
+        return preferred
+
     def _model_status(self, spec: ModelSpec) -> dict[str, Any]:
-        path = self._model_path(spec)
+        path = self._existing_model_path(spec)
         state = self._state.get(spec.file_name, {})
         exists = path.is_file()
         return {
@@ -109,7 +119,7 @@ class LocalModelManager:
         for name in dict.fromkeys(files):
             spec = get_model_spec(name)
             assert spec is not None
-            if self._model_path(spec).is_file() or name in self._tasks:
+            if self._existing_model_path(spec).is_file() or name in self._tasks:
                 continue
             self._state[name] = {"status": "downloading", "downloaded_bytes": 0, "total_bytes": None, "progress": 0, "error": None}
             self._tasks[name] = asyncio.create_task(self._download(name))

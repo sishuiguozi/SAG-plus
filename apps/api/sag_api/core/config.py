@@ -299,9 +299,12 @@ class Settings(BaseSettings):
         return "mineru" if self.mineru_configured else "markitdown"
 
     def embedding_local_model_path(self) -> str:
-        """程序内嵌 8-bit 量化模型（GGUF）路径：{data_dir 上级}/models/bge-m3/<model_file>。"""
+        """Return a new catalog path, while retaining the original BGE-M3 location."""
         engine_dir = Path(self.data_dir).resolve()
-        return str(engine_dir.parent / "models" / "bge-m3" / self.embedding_local_model_file)
+        root = engine_dir.parent / "models"
+        preferred = root / "embedding" / self.embedding_local_model_file
+        legacy = root / "bge-m3" / self.embedding_local_model_file
+        return str(legacy if legacy.is_file() else preferred)
 
     @property
     def effective_search_rerank_mode(self) -> Literal["off", "local", "api", "llm"]:

@@ -41,6 +41,18 @@ def test_status_ignores_partial_downloads(tmp_path: Path):
     assert row["status"] == "missing"
 
 
+def test_legacy_bge_q8_file_is_reported_as_ready(tmp_path: Path):
+    manager = LocalModelManager(tmp_path)
+    legacy = tmp_path / "bge-m3" / "bge-m3-Q8_0.gguf"
+    legacy.parent.mkdir()
+    legacy.write_bytes(b"existing-model")
+
+    row = manager.status()["embedding"]["models"][0]
+
+    assert row["status"] == "ready"
+    assert row["model_path"] == str(legacy)
+
+
 @pytest.mark.asyncio
 async def test_rejects_unknown_model_files(tmp_path: Path):
     manager = LocalModelManager(tmp_path)
