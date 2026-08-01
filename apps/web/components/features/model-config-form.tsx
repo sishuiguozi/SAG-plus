@@ -24,6 +24,7 @@ import { Slider } from "@/components/ui/slider";
 import { Spinner } from "@/components/ui/spinner";
 import { api, ApiError } from "@/lib/api";
 import {
+  isLocalEmbeddingTestDisabled,
   isLocalModelDownloadDisabled,
   toggleLocalModelSelection,
   type LocalModelAction,
@@ -31,6 +32,7 @@ import {
 import type {
   ModelConfig,
   ModelConfigPatch,
+  LocalEmbeddingTestResult,
   LocalModelManagerStatus,
   ModelProviderId,
   ModelProviderSpec,
@@ -107,6 +109,9 @@ export function ModelConfigForm() {
     "bge-m3-Q8_0.gguf",
   ]);
   const [localModelAction, setLocalModelAction] = React.useState<LocalModelAction>(null);
+  const [testingLocalEmbedding, setTestingLocalEmbedding] = React.useState(false);
+  const [localEmbeddingTestResult, setLocalEmbeddingTestResult] =
+    React.useState<LocalEmbeddingTestResult | null>(null);
 
   const hydrate = React.useCallback((config: ModelConfig) => {
     setCfg(config);
@@ -132,6 +137,7 @@ export function ModelConfigForm() {
     setEmbKey("");
     setMineruKey("");
     setRecommended(config.recommended ?? {});
+    setLocalEmbeddingTestResult(null);
   }, []);
 
   const load = React.useCallback(async () => {
@@ -362,6 +368,25 @@ export function ModelConfigForm() {
       toast.error(error instanceof ApiError ? error.message : t("localModelDownloadFailed"));
     } finally {
       setLocalModelAction(null);
+    }
+  }
+
+  async function testLocalEmbedding() {
+    setTestingLocalEmbedding(true);
+    setLocalEmbeddingTestResult(null);
+    try {
+      const result = await api.testLocalEmbedding();
+      setLocalEmbeddingTestResult(result);
+      if (result.ok) {
+        toast.success(t("localModelTestSucceeded"));
+      }
+    } catch (error) {
+      setLocalEmbeddingTestResult({
+        ok: false,
+        message: error instanceof ApiError ? error.message : t("localModelTestFailed"),
+      });
+    } finally {
+      setTestingLocalEmbedding(false);
     }
   }
 
@@ -692,11 +717,42 @@ export function ModelConfigForm() {
                       {localModelAction === "download" ? <Spinner /> : <Save />}
                       {t("localModelDownload")}
                     </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isLocalEmbeddingTestDisabled(
+                        cfg,
+                        localModels,
+                        localModelAction,
+                        testingLocalEmbedding,
+                      )}
+                      onClick={() => void testLocalEmbedding()}
+                    >
+                      {testingLocalEmbedding ? <Spinner /> : <Check />}
+                      {testingLocalEmbedding ? t("localModelTesting") : t("localModelTest")}
+                    </Button>
                     <Button type="button" variant="ghost" size="sm" onClick={() => void refreshLocalModels()}>
                       <RotateCw />
                       {t("localModelRefresh")}
                     </Button>
                   </div>
+                  {localEmbeddingTestResult && (
+                    <p
+                      className={cn(
+                        "text-sm",
+                        localEmbeddingTestResult.ok ? "text-success" : "text-destructive",
+                      )}
+                    >
+                      {localEmbeddingTestResult.ok
+                        ? t("localModelTestResult", {
+                            model: localEmbeddingTestResult.model_file ?? cfg.embedding_local_model_file,
+                            dimensions: localEmbeddingTestResult.dimensions ?? 0,
+                            elapsed: localEmbeddingTestResult.elapsed_ms ?? 0,
+                          })
+                        : localEmbeddingTestResult.message ?? t("localModelTestFailed")}
+                    </p>
+                  )}
                 </>
               )}
             </div>

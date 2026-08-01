@@ -55,7 +55,10 @@ Detailed implementation records are in
 5. To run embeddings fully locally, open **Settings → Model configuration →
    Local embedding**, click **Download inference backend**, select one or more
    bge-m3 GGUF variants, then download them. Weights are never downloaded
-   automatically; select a completed model and save the configuration.
+   automatically; select a completed model and save the configuration. Click
+   **Test local model** to generate one temporary vector and see its model,
+   dimensions, and latency; this does not upload text or write to the knowledge
+   base.
 
 ## Troubleshooting
 

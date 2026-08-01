@@ -621,7 +621,12 @@
     "localModelDownloadStarted": "Model download started in the background",
     "localModelDownloadFailed": "Could not start the model download",
     "localModelSelectRequired": "Choose at least one model variant",
-    "localModelRefresh": "Refresh status"
+    "localModelRefresh": "Refresh status",
+    "localModelTest": "Test local model",
+    "localModelTesting": "Testing…",
+    "localModelTestSucceeded": "Local model inference works",
+    "localModelTestFailed": "Local model test failed",
+    "localModelTestResult": "Test passed: {model} · {dimensions} dims · {elapsed} ms"
   },
   "SystemConfig": {
     "title": "System & Performance",

@@ -181,6 +181,14 @@ export interface LocalModelManagerStatus {
   models: LocalEmbeddingModelStatus[];
 }
 
+export interface LocalEmbeddingTestResult {
+  ok: boolean;
+  message?: string;
+  model_file?: string;
+  dimensions?: number;
+  elapsed_ms?: number;
+}
+
 export interface ModelConfig {
   llm_provider: ModelProviderId;
   llm_base_url: string | null;

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from time import perf_counter
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
@@ -243,6 +244,45 @@ async def download_local_models(
         return await _get_local_model_manager().download(body.files)
     except ValueError as exc:
         raise ValidationError(str(exc)) from exc
+
+
+@router.post("/local-models/test")
+async def test_local_embedding(
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Run one in-process embedding without writing data or calling an external API."""
+    if settings.embedding_provider != "local":
+        return {"ok": False, "message": "请先选择本地嵌入并保存配置"}
+
+    manager_status = _get_local_model_manager().status()
+    backend = manager_status["backend"]
+    if backend["status"] != "ready":
+        return {"ok": False, "message": backend["error"] or "请先下载本地推理后端"}
+
+    active_model = next(
+        (
+            model
+            for model in manager_status["models"]
+            if model["file_name"] == settings.embedding_local_model_file
+        ),
+        None,
+    )
+    if active_model is None or active_model["status"] != "ready":
+        return {"ok": False, "message": "请先下载当前选择的本地模型"}
+
+    from sag_api.sag.embedding_backend import _local_client
+
+    started = perf_counter()
+    try:
+        vector = await _local_client().generate("SAG-plus local embedding health check")
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "message": str(exc)}
+    return {
+        "ok": True,
+        "model_file": settings.embedding_local_model_file,
+        "dimensions": len(vector),
+        "elapsed_ms": round((perf_counter() - started) * 1000),
+    }
 
 
 @router.get("/model-providers")
