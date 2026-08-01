@@ -25,6 +25,7 @@ from sag_api.schemas.system import (
     LocalModelTestRequest,
     ModelConfigUpdate,
     QuickModelSetupRequest,
+    RerankAPITestRequest,
     SystemPreferencesUpdate,
 )
 from sag_api.services import settings_service
@@ -309,6 +310,28 @@ async def test_local_embedding(
         "dimensions": len(vector),
         "elapsed_ms": round((perf_counter() - started) * 1000),
     }
+
+
+@router.post("/reranker-api/test")
+async def test_reranker_api(
+    body: RerankAPITestRequest,
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Test unsaved rerank API credentials without persisting or returning them."""
+    from sag_api.sag.rerank_api_client import RerankAPIClient
+
+    started = perf_counter()
+    try:
+        scores = await RerankAPIClient(
+            url=body.url,
+            api_key=body.api_key,
+            model=body.model,
+            instruction=body.instruction,
+            timeout_ms=body.timeout_ms,
+        ).rank("SAG-plus reranker connection test", ["Relevant search passage", "Unrelated weather note"], limit=2)
+    except Exception as exc:  # noqa: BLE001 - only expose sanitized client failures
+        return {"ok": False, "message": str(exc).replace(body.api_key, "***")}
+    return {"ok": True, "score_count": len(scores), "elapsed_ms": round((perf_counter() - started) * 1000)}
 
 
 @router.get("/model-providers")

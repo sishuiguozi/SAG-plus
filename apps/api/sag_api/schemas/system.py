@@ -35,6 +35,14 @@ class LocalModelTestRequest(BaseModel):
     n_threads: int = Field(ge=0, le=128)
 
 
+class RerankAPITestRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=500)
+    api_key: str = Field(min_length=1, max_length=500)
+    model: str = Field(min_length=1, max_length=200)
+    instruction: str | None = Field(default=None, max_length=1000)
+    timeout_ms: int = Field(default=30_000, ge=1_000, le=120_000)
+
+
 class SystemPreferencesUpdate(BaseModel):
     timezone: str = Field(min_length=1, max_length=100)
 
