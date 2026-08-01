@@ -597,9 +597,9 @@
     "reuseGeneration": "复用生成模型",
     "separateEmbeddingKey": "请配置独立向量密钥",
     "optionalApiKey": "API Key（可选）",
-    "parserDescription": "配置 PDF 等文件的解析方式；MinerU 未配置或解析失败时自动回退 MarkItDown。",
-    "parserEngine": "解析引擎",
-    "parserEngineDescription": "选择默认引擎，并配置可选的 MinerU 服务。",
+    "parserDescription": "文档解析（PDF/Office）与代码解析（Tree-sitter）都在这里配置。",
+    "parserEngine": "文档解析引擎",
+    "parserEngineDescription": "选择 PDF 等文件的默认解析方式，并配置可选的 MinerU 服务。",
     "parserMethod": "解析方式",
     "autoRecommended": "Auto（推荐）",
     "autoDescription": "配置 MinerU 后优先使用；服务异常或解析失败时回退 MarkItDown。",
@@ -700,7 +700,9 @@
     "parserActiveAuto": "自动 · 当前生效：{engine}",
     "parserActiveMineru": "MinerU {version}",
     "parserActiveMarkitdown": "MarkItDown",
-    "parserMineruKeyMissing": "尚未配置 MinerU API Key，当前会回退到 MarkItDown。"
+    "parserMineruKeyMissing": "尚未配置 MinerU API Key，当前会回退到 MarkItDown。",
+    "codeParserTitle": "代码解析（Tree-sitter）",
+    "codeParserDescription": "用于源码结构解析；首次可后台下载全部语言包，离线后仍可解析。"
   },
   "SystemConfig": {
     "title": "系统与性能",

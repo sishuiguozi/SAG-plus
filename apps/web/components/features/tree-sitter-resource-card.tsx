@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { api, ApiError } from "@/lib/api";
 import type { TreeSitterResourceStatus } from "@/lib/types";
 
-export function TreeSitterResourceCard() {
+export function TreeSitterResourceCard({ embedded = false }: { embedded?: boolean } = {}) {
   const t = useTranslations("TreeSitterResource");
   const [status, setStatus] = React.useState<TreeSitterResourceStatus | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -58,9 +58,15 @@ export function TreeSitterResourceCard() {
   const progress = Math.round(rawProgress > 0 && rawProgress <= 1 ? rawProgress * 100 : rawProgress);
 
   return (
-    <div className="rounded-lg border bg-card/40 p-4">
-      <div className="mb-1 text-sm font-medium">{t("title")}</div>
-      <p className="mb-3 text-xs text-muted-foreground">{t("description")}</p>
+    <div className={embedded ? "rounded-md border bg-muted/20 p-3" : "rounded-lg border bg-card/40 p-4"}>
+      {!embedded ? (
+        <>
+          <div className="mb-1 text-sm font-medium">{t("title")}</div>
+          <p className="mb-3 text-xs text-muted-foreground">{t("description")}</p>
+        </>
+      ) : (
+        <p className="mb-3 text-xs text-muted-foreground">{t("description")}</p>
+      )}
       <div className="mb-3 grid gap-1 text-xs">
         <div>
           {t("state")}:{" "}

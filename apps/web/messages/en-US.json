@@ -597,9 +597,9 @@
     "reuseGeneration": "Reuse generation model",
     "separateEmbeddingKey": "Configure a separate embedding key",
     "optionalApiKey": "API Key (optional)",
-    "parserDescription": "Configure parsing for PDF and other files. Falls back to MarkItDown when MinerU is unavailable or fails.",
-    "parserEngine": "Parser engine",
-    "parserEngineDescription": "Choose the default engine and optionally configure MinerU.",
+    "parserDescription": "Configure document parsing (PDF/Office) and code parsing (Tree-sitter) here.",
+    "parserEngine": "Document parser engine",
+    "parserEngineDescription": "Choose the default engine for PDFs and other files, and optionally configure MinerU.",
     "parserMethod": "Parsing method",
     "autoRecommended": "Auto (recommended)",
     "autoDescription": "Prefer MinerU when configured and fall back to MarkItDown if the service or parsing fails.",
@@ -700,7 +700,9 @@
     "parserActiveAuto": "Automatic · currently using {engine}",
     "parserActiveMineru": "MinerU {version}",
     "parserActiveMarkitdown": "MarkItDown",
-    "parserMineruKeyMissing": "MinerU API key is not configured, so parsing falls back to MarkItDown."
+    "parserMineruKeyMissing": "MinerU API key is not configured, so parsing falls back to MarkItDown.",
+    "codeParserTitle": "Code parser (Tree-sitter)",
+    "codeParserDescription": "Used for source-code structure parsing. Download language packs once to keep offline parsing available."
   },
   "SystemConfig": {
     "title": "System & Performance",

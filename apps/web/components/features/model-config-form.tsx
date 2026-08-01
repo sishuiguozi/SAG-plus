@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { useApp } from "@/components/features/app-shell";
 import { SettingsRow, SettingsSection } from "@/components/features/settings-section";
+import { TreeSitterResourceCard } from "@/components/features/tree-sitter-resource-card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1345,6 +1346,13 @@ export function ModelConfigForm() {
               <FieldDescription>{t("secretDescription")}</FieldDescription>
             </Field>
           </div>
+        </SettingsRow>
+
+        <SettingsRow
+          title={t("codeParserTitle")}
+          description={t("codeParserDescription")}
+        >
+          <TreeSitterResourceCard embedded />
         </SettingsRow>
       </SettingsSection>
 
