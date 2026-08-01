@@ -13,6 +13,7 @@ from sag_api.schemas.system import ModelConfigUpdate
 # 本测试会改动的 settings 单例字段（finally 全部还原）
 _TOUCHED = (
     "llm_tool_choice_strategy",
+    "llm_reasoning_history_compat",
     "lancedb_ann_enabled",
     "lancedb_search_refine_factor",
     "lancedb_search_nprobes",
@@ -84,6 +85,15 @@ def test_tool_choice_strategy_default_and_schema_values() -> None:
         ModelConfigUpdate(llm_tool_choice_strategy="sometimes")
 
 
+def test_reasoning_history_compat_default_and_schema_values() -> None:
+    assert Settings(_env_file=None).llm_reasoning_history_compat == "auto"
+    for value in ("auto", "always", "off"):
+        patch = ModelConfigUpdate(llm_reasoning_history_compat=value)
+        assert patch.llm_reasoning_history_compat == value
+    with pytest.raises(ValidationError):
+        ModelConfigUpdate(llm_reasoning_history_compat="sometimes")
+
+
 async def _register(c, email):
     r = await c.post("/api/v1/auth/register", json={"email": email, "password": "password123"})
     assert r.status_code == 201, r.text
@@ -114,6 +124,7 @@ async def test_system_config_groups_persist_and_apply():
                 patch = {
                     # LLM 工具调用
                     "llm_tool_choice_strategy": "all_no_thinking",
+                    "llm_reasoning_history_compat": "always",
                     # 向量
                     "lancedb_ann_enabled": False,
                     "lancedb_search_refine_factor": 0,
@@ -203,6 +214,7 @@ async def test_system_config_groups_persist_and_apply():
                 # 非法值 → 422
                 for invalid in (
                     {"llm_tool_choice_strategy": "sometimes"},
+                    {"llm_reasoning_history_compat": "sometimes"},
                     {"lancedb_search_nprobes": -1},
                     {"lancedb_search_refine_factor": 101},
                     {"vector_write_job_batch_size": 50},

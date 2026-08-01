@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, Field, field_validator
 
 from sag_api.core.model_providers import ModelProviderId
-from sag_api.enums import SearchStrategy, ToolChoiceStrategy
+from sag_api.enums import ReasoningHistoryCompat, SearchStrategy, ToolChoiceStrategy
 
 
 class QuickModelSetupRequest(BaseModel):
@@ -73,6 +73,7 @@ class ModelConfigUpdate(BaseModel):
     llm_timeout_ms: int | None = Field(default=None, ge=1_000, le=600_000)
     llm_max_retries: int | None = Field(default=None, ge=0, le=10)
     llm_tool_choice_strategy: ToolChoiceStrategy | None = None
+    llm_reasoning_history_compat: ReasoningHistoryCompat | None = None
 
     embedding_provider: Literal["api", "local"] | None = None
     embedding_local_model_file: str | None = Field(default=None, min_length=1, max_length=200)

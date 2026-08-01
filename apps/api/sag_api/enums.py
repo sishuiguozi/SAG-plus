@@ -13,6 +13,7 @@ ToolChoiceStrategy = Literal[
     "auto",
     "all_no_thinking",
 ]
+ReasoningHistoryCompat = Literal["auto", "always", "off"]
 
 
 def normalize_search_strategy(value: str) -> str:

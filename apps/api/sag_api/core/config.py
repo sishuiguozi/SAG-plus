@@ -22,7 +22,12 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from sag_api.core.model_providers import ModelProviderId, get_model_provider
-from sag_api.enums import SearchStrategy, ToolChoiceStrategy, normalize_search_strategy
+from sag_api.enums import (
+    ReasoningHistoryCompat,
+    SearchStrategy,
+    ToolChoiceStrategy,
+    normalize_search_strategy,
+)
 
 _DEFAULT_LLM_PROVIDER = get_model_provider("openai")
 
@@ -151,6 +156,7 @@ class Settings(BaseSettings):
     llm_timeout_ms: int = Field(default=60_000, ge=1_000, le=600_000)
     llm_max_retries: int = Field(default=2, ge=0, le=10)
     llm_tool_choice_strategy: ToolChoiceStrategy = "forced_no_thinking"
+    llm_reasoning_history_compat: ReasoningHistoryCompat = "auto"
     # 透传给 chat/completions 的额外请求体（JSON），如 {"enable_thinking": false}；
     # 未配置时对 qwen 系模型通过 LiteLLM reasoning_effort=none 统一关闭思考。
     llm_extra_body: dict | None = None
