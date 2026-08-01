@@ -422,7 +422,9 @@
     "sourceGone": "This source no longer exists",
     "sourceContentFailed": "Failed to load source content",
     "loadFailed": "Failed to load knowledge",
-    "addContent": "Add content"
+    "addContent": "Add content",
+    "codeExtraction": "Code extract",
+    "codeExtractionTitle": "Code extraction policy"
   },
   "SearchStrategies": {
     "vectorLabel": "Fast",

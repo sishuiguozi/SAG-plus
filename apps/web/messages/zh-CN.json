@@ -422,7 +422,9 @@
     "sourceGone": "这个信源已不存在",
     "sourceContentFailed": "信源内容加载失败",
     "loadFailed": "知识库加载失败",
-    "addContent": "添加内容"
+    "addContent": "添加内容",
+    "codeExtraction": "代码抽取",
+    "codeExtractionTitle": "代码抽取策略"
   },
   "SearchStrategies": {
     "vectorLabel": "快速",
