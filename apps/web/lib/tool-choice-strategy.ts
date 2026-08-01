@@ -21,3 +21,12 @@ export function isLlmReasoningHistoryCompat(
 ): value is LlmReasoningHistoryCompat {
   return LLM_REASONING_HISTORY_COMPAT_MODES.some((mode) => mode === value);
 }
+
+export const LLM_JSON_SCHEMA_COMPAT_MODES = ["auto", "always", "off"] as const;
+
+export type LlmJsonSchemaCompat = (typeof LLM_JSON_SCHEMA_COMPAT_MODES)[number];
+
+export function isLlmJsonSchemaCompat(value: unknown): value is LlmJsonSchemaCompat {
+  return LLM_JSON_SCHEMA_COMPAT_MODES.some((mode) => mode === value);
+}
+

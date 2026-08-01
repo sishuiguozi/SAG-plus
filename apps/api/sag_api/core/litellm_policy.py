@@ -103,18 +103,34 @@ def _apply_scoped_reasoning_disable(
         _merge_extra_body(normalized, {"chat_template_kwargs": {"enable_thinking": False}})
 
 
-def _apply_opencode_response_format_compat(
+def _json_schema_compat_enabled(model: str, settings: Settings) -> bool:
+    """Whether to rewrite json_schema -> json_object for this route."""
+    mode = getattr(settings, "llm_json_schema_compat", "auto")
+    if mode == "always":
+        return True
+    if mode == "off":
+        return False
+    # auto: only known-incompatible OpenAI-compatible gateways
+    return _is_opencode_style_route(model, settings)
+
+
+def _apply_json_schema_compat(
     normalized: dict[str, Any],
     model: str,
     settings: Settings,
 ) -> None:
-    """Downgrade unsupported structured-output modes for Console Go / OpenCode.
+    """Optionally downgrade structured-output modes for gateway compatibility.
 
-    These endpoints reject ``response_format.type=json_schema`` with a generic
-    upstream failure. The historical local proxy rewrote it to ``json_object``
-    and left schema validation to the client-side parser.
+    Some OpenAI-compatible endpoints reject ``response_format.type=json_schema``
+    with a generic upstream failure. The historical local proxy rewrote it to
+    ``json_object`` and left schema validation to the client-side parser.
+
+    Controlled by ``settings.llm_json_schema_compat``:
+    - auto: rewrite only for known-incompatible routes (OpenCode/Console Go)
+    - always: rewrite for every provider
+    - off: never rewrite
     """
-    if not _is_opencode_style_route(model, settings):
+    if not _json_schema_compat_enabled(model, settings):
         return
     response_format = normalized.get("response_format")
     if not isinstance(response_format, Mapping):
@@ -220,7 +236,7 @@ def apply_litellm_completion_policy(
 
     # Provider compatibility rewrites that must stay independent of reasoning
     # strategy (extraction always sends json_schema via chat_with_schema).
-    _apply_opencode_response_format_compat(normalized, model, settings)
+    _apply_json_schema_compat(normalized, model, settings)
     return normalized
 
 

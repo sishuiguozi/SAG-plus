@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  LLM_JSON_SCHEMA_COMPAT_MODES,
   LLM_REASONING_HISTORY_COMPAT_MODES,
   LLM_TOOL_CHOICE_STRATEGIES,
+  isLlmJsonSchemaCompat,
   isLlmReasoningHistoryCompat,
   isLlmToolChoiceStrategy,
 } from "./tool-choice-strategy";
@@ -33,3 +35,12 @@ describe("tool choice strategies", () => {
     expect(isLlmReasoningHistoryCompat("sometimes")).toBe(false);
   });
 });
+
+  it("accepts the three json schema compatibility modes", () => {
+    expect(LLM_JSON_SCHEMA_COMPAT_MODES).toEqual(["auto", "always", "off"]);
+    for (const value of LLM_JSON_SCHEMA_COMPAT_MODES) {
+      expect(isLlmJsonSchemaCompat(value)).toBe(true);
+    }
+    expect(isLlmJsonSchemaCompat("sometimes")).toBe(false);
+  });
+

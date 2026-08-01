@@ -578,6 +578,15 @@
       "always": "对所有模型补齐推理历史字段，适用于使用模型别名的兼容接口。",
       "off": "不修改历史消息；接口不接受 reasoning_content 时使用。"
     },
+    "jsonSchemaCompat": "结构化输出兼容",
+    "jsonSchemaCompatAuto": "自动（推荐）",
+    "jsonSchemaCompatAlways": "始终降级",
+    "jsonSchemaCompatOff": "关闭",
+    "jsonSchemaCompatDescription": {
+      "auto": "仅在识别为 OpenCode / Console Go 等不兼容接口时，把 json_schema 降为 json_object。",
+      "always": "对所有模型都降级结构化输出格式，适用于更多兼容网关。",
+      "off": "不做降级；仅在接口原生支持 json_schema 时使用。"
+    },
     "embeddingDescription": "用于文档向量化和语义检索。",
     "modelAndConnection": "模型与连接",
     "embeddingConnectionDescription": "端点或密钥留空时复用生成模型配置。",

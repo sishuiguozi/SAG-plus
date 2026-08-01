@@ -1,5 +1,6 @@
 import type { SearchStrategy } from "./retrieval-config";
 import type {
+  LlmJsonSchemaCompat,
   LlmReasoningHistoryCompat,
   LlmToolChoiceStrategy,
 } from "./tool-choice-strategy";
@@ -229,6 +230,7 @@ export interface ModelConfig {
   llm_max_retries: number;
   llm_tool_choice_strategy: LlmToolChoiceStrategy;
   llm_reasoning_history_compat: LlmReasoningHistoryCompat;
+  llm_json_schema_compat: LlmJsonSchemaCompat;
   llm_api_key_set: boolean;
   embedding_provider: "api" | "local";
   embedding_local_model_file: string;
@@ -342,6 +344,7 @@ export type ModelConfigPatch = Partial<{
   llm_max_retries: number;
   llm_tool_choice_strategy: ModelConfig["llm_tool_choice_strategy"];
   llm_reasoning_history_compat: ModelConfig["llm_reasoning_history_compat"];
+  llm_json_schema_compat: ModelConfig["llm_json_schema_compat"];
   embedding_provider: "api" | "local";
   embedding_local_model_file: string;
   embedding_local_n_ctx: number;

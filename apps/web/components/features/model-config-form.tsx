@@ -33,6 +33,7 @@ import {
   type LocalModelAction,
 } from "@/lib/local-model-manager";
 import {
+  isLlmJsonSchemaCompat,
   isLlmReasoningHistoryCompat,
   isLlmToolChoiceStrategy,
 } from "@/lib/tool-choice-strategy";
@@ -99,6 +100,9 @@ export function ModelConfigForm() {
   const [reasoningHistoryCompat, setReasoningHistoryCompat] = React.useState<
     ModelConfig["llm_reasoning_history_compat"]
   >("auto");
+  const [jsonSchemaCompat, setJsonSchemaCompat] = React.useState<
+    ModelConfig["llm_json_schema_compat"]
+  >("auto");
   const [ctxWindow, setCtxWindow] = React.useState(128000);
   const [embProvider, setEmbProvider] = React.useState<"api" | "local">("api");
   const [embLocalModelFile, setEmbLocalModelFile] = React.useState("bge-m3-Q8_0.gguf");
@@ -164,6 +168,7 @@ export function ModelConfigForm() {
     setMaxRetries(config.llm_max_retries ?? 2);
     setToolChoiceStrategy(config.llm_tool_choice_strategy);
     setReasoningHistoryCompat(config.llm_reasoning_history_compat);
+    setJsonSchemaCompat(config.llm_json_schema_compat ?? "auto");
     setCtxWindow(config.llm_context_window ?? 128000);
     setEmbProvider(config.embedding_provider);
     setEmbLocalModelFile(config.embedding_local_model_file);
@@ -243,6 +248,7 @@ export function ModelConfigForm() {
       llm_max_retries: maxRetries,
       llm_tool_choice_strategy: toolChoiceStrategy,
       llm_reasoning_history_compat: reasoningHistoryCompat,
+      llm_json_schema_compat: jsonSchemaCompat,
       llm_context_window: ctxWindow,
       embedding_provider: embProvider,
       embedding_local_model_file: embLocalModelFile.trim(),
@@ -311,6 +317,9 @@ export function ModelConfigForm() {
     }
     if (isLlmReasoningHistoryCompat(rec.llm_reasoning_history_compat)) {
       setReasoningHistoryCompat(rec.llm_reasoning_history_compat);
+    }
+    if (isLlmJsonSchemaCompat(rec.llm_json_schema_compat)) {
+      setJsonSchemaCompat(rec.llm_json_schema_compat);
     }
     if (typeof rec.llm_context_window === "number") setCtxWindow(rec.llm_context_window);
     if (rec.embedding_provider === "api" || rec.embedding_provider === "local") {
@@ -792,6 +801,37 @@ export function ModelConfigForm() {
               </Select>
               <FieldDescription>
                 {t(`reasoningHistoryCompatDescription.${reasoningHistoryCompat}`)}
+              </FieldDescription>
+            </Field>
+            <Field className="sm:col-span-2">
+              <FieldLabel htmlFor="llm-json-schema-compat">
+                {t("jsonSchemaCompat")}
+                <RecommendedBadge
+                  t={translate}
+                  value={recommended.llm_json_schema_compat}
+                />
+              </FieldLabel>
+              <Select
+                value={jsonSchemaCompat}
+                onValueChange={(value) =>
+                  setJsonSchemaCompat(
+                    value as ModelConfig["llm_json_schema_compat"],
+                  )
+                }
+              >
+                <SelectTrigger id="llm-json-schema-compat">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">{t("jsonSchemaCompatAuto")}</SelectItem>
+                  <SelectItem value="always">
+                    {t("jsonSchemaCompatAlways")}
+                  </SelectItem>
+                  <SelectItem value="off">{t("jsonSchemaCompatOff")}</SelectItem>
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                {t(`jsonSchemaCompatDescription.${jsonSchemaCompat}`)}
               </FieldDescription>
             </Field>
           </div>

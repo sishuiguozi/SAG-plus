@@ -400,3 +400,45 @@ def test_non_opencode_json_schema_is_preserved() -> None:
 
     assert request["response_format"] == response_format
 
+def test_json_schema_compat_always_rewrites_non_opencode_routes() -> None:
+    settings = Settings(
+        _env_file=None,
+        llm_api_key="test-key",
+        llm_base_url="https://api.openai.com/v1",
+        llm_model="gpt-5-mini",
+        llm_provider="openai",
+        llm_json_schema_compat="always",
+    )
+    response_format = {
+        "type": "json_schema",
+        "json_schema": {"name": "x", "schema": {"type": "object"}},
+    }
+
+    request = apply_litellm_completion_policy(
+        settings,
+        {"messages": [], "response_format": response_format},
+    )
+
+    assert request["response_format"] == {"type": "json_object"}
+
+
+def test_json_schema_compat_off_keeps_opencode_json_schema() -> None:
+    settings = Settings(
+        _env_file=None,
+        llm_api_key="test-key",
+        llm_base_url="https://opencode.ai/zen/go/v1",
+        llm_model="deepseek-v4-flash",
+        llm_json_schema_compat="off",
+    )
+    response_format = {
+        "type": "json_schema",
+        "json_schema": {"name": "x", "schema": {"type": "object"}},
+    }
+
+    request = apply_litellm_completion_policy(
+        settings,
+        {"messages": [], "response_format": response_format},
+    )
+
+    assert request["response_format"] == response_format
+

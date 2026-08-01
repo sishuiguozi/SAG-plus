@@ -14,6 +14,7 @@ ToolChoiceStrategy = Literal[
     "all_no_thinking",
 ]
 ReasoningHistoryCompat = Literal["auto", "always", "off"]
+JsonSchemaCompat = Literal["auto", "always", "off"]
 
 
 def normalize_search_strategy(value: str) -> str:

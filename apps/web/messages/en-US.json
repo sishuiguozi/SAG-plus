@@ -578,6 +578,15 @@
       "always": "Fill reasoning history fields for every model, including compatible endpoints that use model aliases.",
       "off": "Do not change history messages; use this when the endpoint rejects reasoning_content."
     },
+    "jsonSchemaCompat": "Structured output compatibility",
+    "jsonSchemaCompatAuto": "Automatic (recommended)",
+    "jsonSchemaCompatAlways": "Always downgrade",
+    "jsonSchemaCompatOff": "Off",
+    "jsonSchemaCompatDescription": {
+      "auto": "Only rewrite json_schema to json_object for known-incompatible gateways such as OpenCode / Console Go.",
+      "always": "Rewrite structured output for every model. Use this with more OpenAI-compatible gateways.",
+      "off": "Do not rewrite; use only when the endpoint natively supports json_schema."
+    },
     "embeddingDescription": "Used for document embeddings and semantic retrieval.",
     "modelAndConnection": "Model and connection",
     "embeddingConnectionDescription": "Leave the endpoint or key blank to reuse the generation model settings.",

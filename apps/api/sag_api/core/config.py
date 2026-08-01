@@ -23,7 +23,7 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from sag_api.core.model_providers import ModelProviderId, get_model_provider
 from sag_api.enums import (
-    ReasoningHistoryCompat,
+    ReasoningHistoryCompat, JsonSchemaCompat,
     SearchStrategy,
     ToolChoiceStrategy,
     normalize_search_strategy,
@@ -158,6 +158,9 @@ class Settings(BaseSettings):
     llm_max_retries: int = Field(default=2, ge=0, le=10)
     llm_tool_choice_strategy: ToolChoiceStrategy = "forced_no_thinking"
     llm_reasoning_history_compat: ReasoningHistoryCompat = "auto"
+    # auto: only rewrite json_schema->json_object for known-incompatible routes
+    # (OpenCode/Console Go style). always/off force the rewrite for every provider.
+    llm_json_schema_compat: JsonSchemaCompat = "auto"
     # 透传给 chat/completions 的额外请求体（JSON），如 {"enable_thinking": false}；
     # 未配置时对 qwen 系模型通过 LiteLLM reasoning_effort=none 统一关闭思考。
     llm_extra_body: dict | None = None
