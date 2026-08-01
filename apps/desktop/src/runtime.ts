@@ -11,6 +11,7 @@ import type { Readable } from "node:stream";
 import { app, utilityProcess, type UtilityProcess } from "electron";
 import log from "electron-log/main";
 
+import type { DataRootInfo } from "./channels";
 import { desktopConfig } from "./config";
 
 interface RuntimeSecretFile {
@@ -31,6 +32,82 @@ function isValidSecretFile(value: unknown): value is RuntimeSecretFile {
   if (!value || typeof value !== "object") return false;
   return typeof (value as RuntimeSecretFile).secretKey === "string"
     && (value as RuntimeSecretFile).secretKey.length >= 64;
+}
+
+function dataRootFile(userDataDir: string): string {
+  return path.join(userDataDir, "data-root.json");
+}
+
+export function defaultDataRoot(userDataDir: string): string {
+  return path.join(userDataDir, "data");
+}
+
+export function loadDataRoot(userDataDir: string): { root: string; source: "override" | "default" } {
+  const file = dataRootFile(userDataDir);
+  if (existsSync(file)) {
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
+      if (
+        parsed
+        && typeof parsed === "object"
+        && typeof (parsed as { root?: unknown }).root === "string"
+        && (parsed as { root: string }).root.trim()
+      ) {
+        return {
+          root: path.resolve((parsed as { root: string }).root.trim()),
+          source: "override",
+        };
+      }
+    } catch (error) {
+      log.warn("Ignoring invalid data-root.json", error);
+    }
+  }
+  return { root: defaultDataRoot(userDataDir), source: "default" };
+}
+
+export function describeDataRoot(
+  userDataDir: string,
+  root?: string,
+  source?: "override" | "default",
+): DataRootInfo {
+  const loaded = root
+    ? { root: path.resolve(root), source: source ?? ("override" as const) }
+    : loadDataRoot(userDataDir);
+  const resolvedRoot = loaded.root;
+  const dbPath = path.join(resolvedRoot, "sag.db");
+  const databaseUrl = `sqlite+aiosqlite:///${dbPath.replace(/\\/g, "/")}`;
+  return {
+    root: resolvedRoot,
+    databaseUrl,
+    dataDir: path.join(resolvedRoot, "engine"),
+    uploadDir: path.join(resolvedRoot, "uploads"),
+    modelsDir: path.join(resolvedRoot, "models"),
+    source: loaded.source,
+    restartRequired: true,
+  };
+}
+
+export function saveDataRoot(userDataDir: string, root: string): DataRootInfo {
+  const resolved = path.resolve(root.trim());
+  if (!resolved) {
+    throw new Error("Data root path is empty");
+  }
+  writeFileSync(
+    dataRootFile(userDataDir),
+    `${JSON.stringify({ root: resolved }, null, 2)}\n`,
+    { encoding: "utf8", mode: 0o600 },
+  );
+  return describeDataRoot(userDataDir, resolved, "override");
+}
+
+export function dataRootEnv(userDataDir: string): Record<string, string> {
+  const info = describeDataRoot(userDataDir);
+  return {
+    SAG_DATA_ROOT: info.root,
+    SAG_DATABASE_URL: info.databaseUrl,
+    SAG_DATA_DIR: info.dataDir,
+    SAG_UPLOAD_DIR: info.uploadDir,
+  };
 }
 
 export function loadOrCreateSecret(userDataDir: string): string {
@@ -148,10 +225,12 @@ function startPythonRuntime(
     throw new Error(`Packaged Python backend not found: ${executable}`);
   }
   const secretKey = loadOrCreateSecret(userDataDir);
+  const storageEnv = dataRootEnv(userDataDir);
   const child = spawn(executable, [], {
     cwd: userDataDir,
     env: {
       ...process.env,
+      ...storageEnv,
       PYTHONUNBUFFERED: "1",
       PYTHONDONTWRITEBYTECODE: "1",
       SAG_ENVIRONMENT: "prod",

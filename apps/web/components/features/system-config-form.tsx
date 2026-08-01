@@ -261,6 +261,106 @@ function RecommendedHint({
   );
 }
 
+function DataRootSection() {
+  const t = useTranslations("SystemConfig");
+  const [info, setInfo] = React.useState<{
+    root: string;
+    dataDir: string;
+    uploadDir: string;
+    modelsDir: string;
+    source: string;
+  } | null>(null);
+  const [draft, setDraft] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const desktop = typeof window !== "undefined" ? window.sagDesktop : undefined;
+
+  React.useEffect(() => {
+    if (!desktop?.getDataRoot) return;
+    void desktop.getDataRoot().then((next) => {
+      setInfo(next);
+      setDraft(next.root);
+    }).catch(() => {
+      setInfo(null);
+    });
+  }, [desktop]);
+
+  if (!desktop?.getDataRoot) return null;
+
+  async function choose() {
+    if (!desktop?.chooseDataRoot) return;
+    setBusy(true);
+    try {
+      const result = await desktop.chooseDataRoot();
+      if (!result.canceled) {
+        setInfo(result.dataRoot);
+        setDraft(result.dataRoot.root);
+        toast.success(t("dataRootSaved"));
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("dataRootSaveFailed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function savePath() {
+    if (!desktop?.setDataRoot) return;
+    const value = draft.trim();
+    if (!value) {
+      toast.error(t("dataRootRequired"));
+      return;
+    }
+    setBusy(true);
+    try {
+      const next = await desktop.setDataRoot(value);
+      setInfo(next);
+      setDraft(next.root);
+      toast.success(t("dataRootSaved"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("dataRootSaveFailed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <SettingsSection title={t("dataRootTitle")} description={t("dataRootDescription")}>
+      <div className="space-y-3 p-4 sm:p-5">
+        <Field>
+          <FieldLabel htmlFor="data-root-path">{t("dataRootPath")}</FieldLabel>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              id="data-root-path"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder={info?.root || "D:\\SAG-data"}
+              disabled={busy}
+            />
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" disabled={busy} onClick={() => void choose()}>
+                {t("dataRootBrowse")}
+              </Button>
+              <Button type="button" disabled={busy} onClick={() => void savePath()}>
+                {busy ? <Spinner /> : null}
+                {t("dataRootSave")}
+              </Button>
+            </div>
+          </div>
+        </Field>
+        {info ? (
+          <div className="grid gap-1 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <div>{t("dataRootCurrent")}: <span className="font-mono text-foreground">{info.root}</span></div>
+            <div>engine: <span className="font-mono">{info.dataDir}</span></div>
+            <div>uploads: <span className="font-mono">{info.uploadDir}</span></div>
+            <div>models: <span className="font-mono">{info.modelsDir}</span></div>
+            <div className="text-amber-600 dark:text-amber-400">{t("dataRootRestartHint")}</div>
+          </div>
+        ) : null}
+      </div>
+    </SettingsSection>
+  );
+}
+
 function EnvOnlySection({ config }: { config: EnvOnlyConfig }) {
   const t = useTranslations("SystemConfig");
   const translate: (key: string) => string = React.useCallback(
@@ -514,6 +614,7 @@ export function SystemConfigForm() {
         );
       })}
 
+      <DataRootSection />
       {envOnly && <EnvOnlySection config={envOnly} />}
 
       <div className="flex flex-wrap justify-end gap-2 border-t pt-4">

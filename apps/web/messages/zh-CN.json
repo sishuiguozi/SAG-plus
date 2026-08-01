@@ -1001,7 +1001,17 @@
     },
     "resetDefault": "恢复默认值",
     "resetApplied": "已填入推荐值，点击保存生效",
-    "resetUnavailable": "推荐值暂不可用，请重启 API 后重试"
+    "resetUnavailable": "推荐值暂不可用，请重启 API 后重试",
+    "dataRootTitle": "知识库数据位置",
+    "dataRootDescription": "选择知识库、上传文件、向量索引与本地模型的保存根目录。修改后需重启应用生效。",
+    "dataRootPath": "数据根目录",
+    "dataRootBrowse": "浏览…",
+    "dataRootSave": "保存位置",
+    "dataRootSaved": "数据位置已保存，请重启应用后生效",
+    "dataRootSaveFailed": "保存数据位置失败",
+    "dataRootRequired": "请填写数据根目录",
+    "dataRootCurrent": "当前",
+    "dataRootRestartHint": "不会自动搬迁旧数据。若要沿用现有知识库，请先把旧目录内容复制到新位置，再重启。"
   },
   "AgentSettings": {
     "saved": "助手设定已保存",

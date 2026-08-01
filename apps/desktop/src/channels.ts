@@ -2,6 +2,9 @@ export const DESKTOP_CHANNELS = {
   appInfo: "desktop:app-info",
   checkForUpdates: "desktop:check-for-updates",
   updateState: "desktop:update-state",
+  getDataRoot: "desktop:get-data-root",
+  setDataRoot: "desktop:set-data-root",
+  chooseDataRoot: "desktop:choose-data-root",
 } as const;
 
 export type UpdateState =
@@ -12,3 +15,14 @@ export type UpdateState =
   | { status: "downloading"; percent: number }
   | { status: "downloaded"; version: string }
   | { status: "error"; message: string };
+
+export interface DataRootInfo {
+  root: string;
+  databaseUrl: string;
+  dataDir: string;
+  uploadDir: string;
+  modelsDir: string;
+  source: "override" | "default";
+  restartRequired: boolean;
+}
+

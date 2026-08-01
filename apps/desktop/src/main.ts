@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   shell,
   type IpcMainInvokeEvent,
@@ -11,6 +12,8 @@ import log from "electron-log/main";
 
 import { DESKTOP_CHANNELS } from "./channels";
 import {
+  describeDataRoot,
+  saveDataRoot,
   startPackagedRuntime,
   waitForDevelopmentRuntime,
   type ManagedRuntime,
@@ -93,6 +96,9 @@ function isTrustedSender(event: IpcMainInvokeEvent): boolean {
 function registerIpc(): void {
   ipcMain.removeHandler(DESKTOP_CHANNELS.appInfo);
   ipcMain.removeHandler(DESKTOP_CHANNELS.checkForUpdates);
+  ipcMain.removeHandler(DESKTOP_CHANNELS.getDataRoot);
+  ipcMain.removeHandler(DESKTOP_CHANNELS.setDataRoot);
+  ipcMain.removeHandler(DESKTOP_CHANNELS.chooseDataRoot);
   ipcMain.handle(DESKTOP_CHANNELS.appInfo, (event) => {
     if (!isTrustedSender(event)) throw new Error("Untrusted IPC sender");
     return { version: app.getVersion(), platform: process.platform, arch: process.arch };
@@ -100,6 +106,31 @@ function registerIpc(): void {
   ipcMain.handle(DESKTOP_CHANNELS.checkForUpdates, async (event) => {
     if (!isTrustedSender(event)) throw new Error("Untrusted IPC sender");
     return updater?.check() ?? { supported: false };
+  });
+  ipcMain.handle(DESKTOP_CHANNELS.getDataRoot, (event) => {
+    if (!isTrustedSender(event)) throw new Error("Untrusted IPC sender");
+    return describeDataRoot(app.getPath("userData"));
+  });
+  ipcMain.handle(DESKTOP_CHANNELS.setDataRoot, (event, root: unknown) => {
+    if (!isTrustedSender(event)) throw new Error("Untrusted IPC sender");
+    if (typeof root !== "string" || !root.trim()) {
+      throw new Error("Data root path is required");
+    }
+    return saveDataRoot(app.getPath("userData"), root);
+  });
+  ipcMain.handle(DESKTOP_CHANNELS.chooseDataRoot, async (event) => {
+    if (!isTrustedSender(event)) throw new Error("Untrusted IPC sender");
+    const current = describeDataRoot(app.getPath("userData"));
+    const result = await dialog.showOpenDialog({
+      title: "选择知识库数据目录",
+      defaultPath: current.root,
+      properties: ["openDirectory", "createDirectory"],
+    });
+    if (result.canceled || !result.filePaths[0]) {
+      return { canceled: true as const, dataRoot: current };
+    }
+    const dataRoot = saveDataRoot(app.getPath("userData"), result.filePaths[0]);
+    return { canceled: false as const, dataRoot };
   });
 }
 

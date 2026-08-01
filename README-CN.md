@@ -47,6 +47,19 @@ npm run dev
 - Tree-sitter 语言包在 **设置 → 模型 → 解析模型** 管理，请预留约 500MB；就绪后不会整包重下。
 - 详细说明见 [代码文件夹入库指南](docs/guides/CODE_FOLDER_INGESTION.md)。
 
+## 知识库数据位置
+
+- 桌面端默认把知识库数据保存在应用数据目录下的 `data` 文件夹，元数据库、
+  引擎索引、上传文件与本地模型都位于其中。
+- 在 **设置 → 系统 → 知识库数据位置** 可选择或填写新的根目录，保存后
+  重启应用生效。
+- 切换位置不会自动搬迁旧数据；若要沿用现有知识库，请先把旧根目录内容复制
+  到新位置再重启。
+- 开发模式下也可在 `apps/api/.env` 设置 `SAG_DATA_ROOT`，效果一致：
+  自动派生 `SAG_DATABASE_URL`（`{root}/sag.db`）、`SAG_DATA_DIR`
+  （`{root}/engine`）与 `SAG_UPLOAD_DIR`（`{root}/uploads`），模型目录
+  为 `{root}/models`。
+
 ## 日常使用
 
 1. 使用 `npm run dev` 启动桌面应用。

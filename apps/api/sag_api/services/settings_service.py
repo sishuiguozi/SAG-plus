@@ -406,6 +406,8 @@ def env_only_config() -> dict:
             {
                 "key": "storage",
                 "items": [
+                    {"key": "data_root", "env": "SAG_DATA_ROOT", "value": _settings.data_root},
+                    {"key": "database_url", "env": "SAG_DATABASE_URL", "value": _settings.database_url},
                     {"key": "data_dir", "env": "SAG_DATA_DIR", "value": _settings.data_dir},
                     {"key": "upload_dir", "env": "SAG_UPLOAD_DIR", "value": _settings.upload_dir},
                     {"key": "max_upload_mb", "env": "SAG_MAX_UPLOAD_MB", "value": _settings.max_upload_mb},

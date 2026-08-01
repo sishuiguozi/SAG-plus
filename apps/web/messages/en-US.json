@@ -1001,7 +1001,17 @@
     },
     "resetDefault": "Restore defaults",
     "resetApplied": "Recommended values applied; click save to apply",
-    "resetUnavailable": "Recommended values unavailable; restart the API and retry"
+    "resetUnavailable": "Recommended values unavailable; restart the API and retry",
+    "dataRootTitle": "Knowledge data location",
+    "dataRootDescription": "Choose the root folder for the knowledge database, uploads, vector index, and local models. Restart is required after changing it.",
+    "dataRootPath": "Data root folder",
+    "dataRootBrowse": "Browse…",
+    "dataRootSave": "Save location",
+    "dataRootSaved": "Data location saved. Restart the app to apply it.",
+    "dataRootSaveFailed": "Failed to save data location",
+    "dataRootRequired": "Enter a data root folder",
+    "dataRootCurrent": "Current",
+    "dataRootRestartHint": "Existing data is not moved automatically. Copy the old folder to the new location first if you want to keep your knowledge base, then restart."
   },
   "AgentSettings": {
     "saved": "Assistant settings saved",

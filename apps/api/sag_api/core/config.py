@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from sag_api.core.model_providers import ModelProviderId, get_model_provider
@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     database_sqlite_temp_store: Literal["DEFAULT", "FILE", "MEMORY"] = "MEMORY"
 
     # ── 存储 ────────────────────────────────────────────────────────────
+    # 可选数据根目录：设置后统一派生 database_url / data_dir / upload_dir
+    # （models 位于 {data_root}/models）。适合桌面端切换知识库落盘位置。
+    data_root: str | None = None
     data_dir: str = "./.data/engine"  # zleap-sag data_dir（LanceDB + SQLite）
     upload_dir: str = "./.data/uploads"  # 上传原始文件落盘
     max_upload_mb: int = 25  # 单文件上传上限
@@ -296,6 +299,22 @@ class Settings(BaseSettings):
     def effective_embedding_base_url(self) -> str | None:
         provider = get_model_provider(self.llm_provider)
         return self.embedding_base_url or (self.llm_base_url if provider.can_reuse_embedding_credentials else None)
+
+    @model_validator(mode="after")
+    def apply_data_root(self) -> "Settings":
+        """When data_root is set, derive the SQLite/engine/upload layout under it."""
+        raw = (self.data_root or "").strip()
+        if not raw:
+            return self
+        root = Path(raw).expanduser().resolve()
+        db_path = (root / "sag.db").resolve()
+        # SQLAlchemy sqlite absolute URLs: sqlite+aiosqlite:///C:/path/db.sqlite
+        db_url = f"sqlite+aiosqlite:///{db_path.as_posix()}"
+        object.__setattr__(self, "data_root", str(root))
+        object.__setattr__(self, "database_url", db_url)
+        object.__setattr__(self, "data_dir", str(root / "engine"))
+        object.__setattr__(self, "upload_dir", str(root / "uploads"))
+        return self
 
     @property
     def mineru_configured(self) -> bool:
