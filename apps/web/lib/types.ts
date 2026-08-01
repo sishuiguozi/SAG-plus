@@ -282,6 +282,7 @@ export interface ModelConfig {
   lancedb_maintenance_enabled: boolean;
   lancedb_maintenance_interval_days: number;
   lancedb_maintenance_delete_unverified: boolean;
+  lancedb_maintenance_older_than_days: number;
   // 磁盘分级保护
   disk_guard_enabled: boolean;
   disk_warn_gb: number;
@@ -394,6 +395,7 @@ export type ModelConfigPatch = Partial<{
   lancedb_maintenance_enabled: boolean;
   lancedb_maintenance_interval_days: number;
   lancedb_maintenance_delete_unverified: boolean;
+  lancedb_maintenance_older_than_days: number;
   disk_guard_enabled: boolean;
   disk_warn_gb: number;
   disk_pause_aux_gb: number;

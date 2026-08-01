@@ -91,6 +91,7 @@ _FIELDS = frozenset(
         "lancedb_maintenance_enabled",
         "lancedb_maintenance_interval_days",
         "lancedb_maintenance_delete_unverified",
+        "lancedb_maintenance_older_than_days",
         # 磁盘分级保护（SAG-OPT-802）
         "disk_guard_enabled",
         "disk_warn_gb",
@@ -325,6 +326,7 @@ def effective_model_config() -> dict:
         "lancedb_maintenance_enabled": _settings.lancedb_maintenance_enabled,
         "lancedb_maintenance_interval_days": _settings.lancedb_maintenance_interval_days,
         "lancedb_maintenance_delete_unverified": _settings.lancedb_maintenance_delete_unverified,
+        "lancedb_maintenance_older_than_days": _settings.lancedb_maintenance_older_than_days,
         # 向量索引与写入
         "lancedb_ann_enabled": _settings.lancedb_ann_enabled,
         "lancedb_search_refine_factor": _settings.lancedb_search_refine_factor,

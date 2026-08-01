@@ -990,6 +990,10 @@
       "lancedb_maintenance_delete_unverified": {
         "label": "Backup verified, allow old-version cleanup",
         "description": "When enabled, maintenance actually deletes old versions to free space (irreversible). Back up first."
+      },
+      "lancedb_maintenance_older_than_days": {
+        "label": "Keep old versions (days)",
+        "description": "How many days of old versions to keep during cleanup; 0 keeps only the latest version (full cleanup, back up first)."
       }
     },
     "enums": {
@@ -1014,6 +1018,15 @@
         "7": "Weekly (recommended)",
         "14": "Every 2 weeks",
         "30": "Monthly"
+      },
+      "lancedb_maintenance_older_than_days": {
+        "0": "Latest only (back up first)",
+        "1": "1 day",
+        "2": "2 days",
+        "3": "3 days (recommended)",
+        "7": "7 days",
+        "14": "14 days",
+        "30": "30 days"
       }
     },
     "recommendedPrefix": "Recommended: ",

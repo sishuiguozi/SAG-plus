@@ -70,6 +70,11 @@ const SECTIONS: SectionSpec[] = [
         options: ["1", "7", "14", "30"],
       },
       { key: "lancedb_maintenance_delete_unverified", kind: "bool" },
+      {
+        key: "lancedb_maintenance_older_than_days",
+        kind: "enum",
+        options: ["0", "1", "2", "3", "7", "14", "30"],
+      },
     ],
   },
   {
@@ -702,7 +707,8 @@ export function SystemConfigForm() {
           const value = values[spec.key];
           if (value === undefined) continue;
           patch[spec.key] =
-            spec.key === "lancedb_maintenance_interval_days"
+            spec.key === "lancedb_maintenance_interval_days" ||
+            spec.key === "lancedb_maintenance_older_than_days"
               ? Number(value)
               : spec.kind === "int" || spec.kind === "float"
                 ? clampNumber(value, spec)

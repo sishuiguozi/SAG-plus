@@ -128,6 +128,8 @@ class ModelConfigUpdate(BaseModel):
     # ── LanceDB 自动维护（SAG-OPT-803；下次应用启动时按计划执行）──
     lancedb_maintenance_enabled: bool | None = None
     lancedb_maintenance_interval_days: int | None = Field(default=None, ge=1, le=60)
+    # 清理时保留最近多少天的旧版本（0 = 只保留最新版本）。
+    lancedb_maintenance_older_than_days: int | None = Field(default=None, ge=0, le=30)
     # 确认已备份后才允许清理旧版本（清理不可逆）。
     lancedb_maintenance_delete_unverified: bool | None = None
 

@@ -990,6 +990,10 @@
       "lancedb_maintenance_delete_unverified": {
         "label": "已备份，允许清理旧版本",
         "description": "开启后维护会真正删除旧版本释放空间（不可逆）。请先完成备份再开启。"
+      },
+      "lancedb_maintenance_older_than_days": {
+        "label": "保留旧版本天数",
+        "description": "清理时保留最近多少天的旧版本；0 表示只保留最新版本（全量清理，需先备份）。"
       }
     },
     "enums": {
@@ -1014,6 +1018,15 @@
         "7": "每周（推荐）",
         "14": "每两周",
         "30": "每月"
+      },
+      "lancedb_maintenance_older_than_days": {
+        "0": "只保留最新（需先备份）",
+        "1": "1 天",
+        "2": "2 天",
+        "3": "3 天（推荐）",
+        "7": "7 天",
+        "14": "14 天",
+        "30": "30 天"
       }
     },
     "recommendedPrefix": "推荐值：",

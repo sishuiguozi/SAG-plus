@@ -172,6 +172,7 @@ def maintenance_status(settings: Any) -> dict[str, Any]:
     ]
     if settings.lancedb_maintenance_delete_unverified:
         base_args.append("--delete-unverified")
+    base_args.append(f"--older-than-seconds {int(settings.lancedb_maintenance_older_than_days or 3) * 86400}")
     base_args.append("--force")
     task_command = f"{python} {scripts_entry} " + " ".join(base_args)
 
@@ -184,6 +185,7 @@ def maintenance_status(settings: Any) -> dict[str, Any]:
         ]
         if settings.lancedb_maintenance_delete_unverified:
             packaged_args.append("--delete-unverified")
+        packaged_args.append(f"--older-than-seconds {int(settings.lancedb_maintenance_older_than_days or 3) * 86400}")
         packaged_args.append("--force")
         task_command_packaged = f"{python} --maintenance-once " + " ".join(packaged_args)
 
@@ -191,6 +193,7 @@ def maintenance_status(settings: Any) -> dict[str, Any]:
         "enabled": bool(settings.lancedb_maintenance_enabled),
         "interval_days": int(settings.lancedb_maintenance_interval_days or 7),
         "delete_unverified": bool(settings.lancedb_maintenance_delete_unverified),
+        "older_than_days": int(settings.lancedb_maintenance_older_than_days or 3),
         "last_success_at": last.isoformat(timespec="seconds") if last else None,
         "next_due_at": next_due.isoformat(timespec="seconds") if next_due else None,
         "due_now": bool(due),
@@ -216,6 +219,7 @@ def run_maintenance(settings: Any, *, force: bool = False) -> dict[str, Any]:
     ]
     if settings.lancedb_maintenance_delete_unverified:
         args.append("--delete-unverified")
+    args.extend(["--older-than-seconds", str(int(settings.lancedb_maintenance_older_than_days or 3) * 86400)])
     if force:
         args.append("--force")
     started = datetime.now(UTC)
