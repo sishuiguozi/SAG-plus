@@ -443,7 +443,13 @@ async def retrieve_relevant_sections(
             reranker=_local_reranker(),
             limit=requested_limit,
         )
-    elif rerank_mode == "api" and all((settings.search_rerank_api_url, settings.search_rerank_api_key, settings.search_rerank_api_model)):
+    elif rerank_mode == "api" and all(
+        (
+            settings.search_rerank_api_url,
+            settings.search_rerank_api_key,
+            settings.search_rerank_api_model,
+        )
+    ):
         from sag_api.sag.rerank_api_client import RerankAPIClient
 
         final_sections = await _api_rerank(

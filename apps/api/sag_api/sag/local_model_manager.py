@@ -178,7 +178,13 @@ class LocalModelManager:
             assert spec is not None
             if self._existing_model_path(spec).is_file() or name in self._tasks:
                 continue
-            self._state[name] = {"status": "downloading", "downloaded_bytes": 0, "total_bytes": None, "progress": 0, "error": None}
+            self._state[name] = {
+                "status": "downloading",
+                "downloaded_bytes": 0,
+                "total_bytes": None,
+                "progress": 0,
+                "error": None,
+            }
             self._tasks[name] = asyncio.create_task(self._download(name))
         return self.status()
 
@@ -208,7 +214,10 @@ class LocalModelManager:
                 output.write(chunk)
                 digest.update(chunk)
                 written += len(chunk)
-                self._state[file_name].update(downloaded_bytes=written, progress=round(written * 100 / total, 1) if total else 0)
+                self._state[file_name].update(
+                    downloaded_bytes=written,
+                    progress=round(written * 100 / total, 1) if total else 0,
+                )
         if total is not None and written != total:
             partial.unlink(missing_ok=True)
             raise RuntimeError("Model download size verification failed")

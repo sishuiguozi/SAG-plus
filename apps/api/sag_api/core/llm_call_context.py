@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Iterator, Literal
+from typing import Literal
 
 LLMCallScenario = Literal["extract", "rerank"]
 
