@@ -24,6 +24,8 @@ export function UploadZone({
   compact?: boolean;
 }) {
   const t = useTranslations("UploadZone");
+  // retained for caller compatibility; backend validates code/text routes.
+  void allowedExts;
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [drag, setDrag] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -34,31 +36,15 @@ export function UploadZone({
     total: number;
   } | null>(null);
 
-  const extOf = (name: string) => {
-    const i = name.lastIndexOf(".");
-    return i >= 0 ? name.slice(i).toLowerCase() : "";
-  };
-  const accept =
-    allowedExts && allowedExts.length > 0 ? allowedExts.join(",") : undefined;
-
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     const arr = Array.from(files);
     setBusy(true);
     let ok = 0;
-    let skipped = 0;
     const total = arr.length;
     let processed = 0;
     for (const file of arr) {
       processed += 1;
-      if (
-        allowedExts &&
-        allowedExts.length > 0 &&
-        !allowedExts.includes(extOf(file.name))
-      ) {
-        skipped += 1;
-        continue;
-      }
       try {
         setProgress({ name: file.name, pct: 0, idx: processed, total });
         await api.uploadDocumentWithProgress(sourceId, file, (pct) =>
@@ -79,9 +65,6 @@ export function UploadZone({
     if (ok > 0) {
       toast.success(t("uploaded", { count: ok }));
       onUploaded();
-    }
-    if (skipped > 0) {
-      toast(t("skipped", { count: skipped }));
     }
   }
 
@@ -113,7 +96,6 @@ export function UploadZone({
         ref={inputRef}
         type="file"
         multiple
-        accept={accept}
         className="hidden"
         onChange={(e) => handleFiles(e.target.files)}
       />

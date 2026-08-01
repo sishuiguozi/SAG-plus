@@ -107,5 +107,7 @@ def test_single_code_upload_is_allowed_but_sensitive_file_is_not():
     from sag_api.core.errors import ValidationError
 
     _check_extension("main.py", b"print('ok')")
+    _check_extension("main.cpp", b"int main() { return 0; }\n")
+    _check_extension("util.h", b"#pragma once\n")
     with pytest.raises(ValidationError):
         _check_extension(".env", b"TOKEN=secret")
