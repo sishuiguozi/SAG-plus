@@ -1,0 +1,251 @@
+"""Versioned, resumable Tree-sitter parser resource management."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from typing import Protocol
+
+from sag_api.schemas.tree_sitter import TreeSitterResourceState, TreeSitterResourceStatus
+
+TREE_SITTER_LANGUAGE_PACK_VERSION = "1.13.7"
+TREE_SITTER_ESTIMATED_BYTES = 360 * 1024 * 1024
+
+
+class LanguagePackAdapter(Protocol):
+    version: str
+    estimated_total_bytes: int
+
+    def manifest_languages(self) -> tuple[str, ...]: ...
+
+    def downloaded_languages(self, target_dir: Path) -> set[str]: ...
+
+    async def download(self, language: str, target_dir: Path) -> None: ...
+
+    def activate(self, target_dir: Path) -> None: ...
+
+
+_SUBPROCESS_SCRIPT = """
+import json
+import sys
+import tree_sitter_language_pack as pack
+
+target, operation, language = sys.argv[1:4]
+pack.init(pack.PackConfig(cache_dir=target))
+if operation == "download":
+    pack.download([language])
+print(json.dumps(pack.downloaded_languages()))
+"""
+
+
+class InstalledLanguagePackAdapter:
+    """Keep staging downloads outside the main process's global pack config."""
+
+    version = TREE_SITTER_LANGUAGE_PACK_VERSION
+    estimated_total_bytes = TREE_SITTER_ESTIMATED_BYTES
+
+    @staticmethod
+    def manifest_languages() -> tuple[str, ...]:
+        import tree_sitter_language_pack as pack
+
+        return tuple(sorted(pack.manifest_languages()))
+
+    @staticmethod
+    def _query(target_dir: Path, operation: str, language: str = "-") -> set[str]:
+        completed = subprocess.run(
+            [sys.executable, "-c", _SUBPROCESS_SCRIPT, str(target_dir), operation, language],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        output = completed.stdout.strip().splitlines()
+        return set(json.loads(output[-1])) if output else set()
+
+    def downloaded_languages(self, target_dir: Path) -> set[str]:
+        if not target_dir.exists():
+            return set()
+        return self._query(target_dir, "status")
+
+    async def download(self, language: str, target_dir: Path) -> None:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        await asyncio.to_thread(self._query, target_dir, "download", language)
+
+    @staticmethod
+    def activate(target_dir: Path) -> None:
+        import tree_sitter_language_pack as pack
+
+        pack.init(pack.PackConfig(cache_dir=str(target_dir)))
+
+
+class TreeSitterResourceManager:
+    def __init__(
+        self,
+        root_dir: Path,
+        *,
+        adapter: LanguagePackAdapter | None = None,
+    ) -> None:
+        self.adapter = adapter or InstalledLanguagePackAdapter()
+        self.root_dir = Path(root_dir)
+        self.version_dir = self.root_dir / self.adapter.version
+        self.active_dir = self.version_dir / "active"
+        self.staging_dir = self.version_dir / "staging"
+        self._checkpoint_path = self.version_dir / "download.json"
+        self._task: asyncio.Task[None] | None = None
+        self._operation_lock = asyncio.Lock()
+        self._pause_requested = False
+        self._state: TreeSitterResourceState | None = None
+        self._error: str | None = None
+
+    def _manifest(self) -> tuple[str, ...]:
+        return tuple(self.adapter.manifest_languages())
+
+    def _installed(self, target_dir: Path) -> set[str]:
+        return self.adapter.downloaded_languages(target_dir)
+
+    @staticmethod
+    def _disk_bytes(path: Path) -> int:
+        if not path.exists():
+            return 0
+        return sum(item.stat().st_size for item in path.rglob("*") if item.is_file())
+
+    def status(self) -> TreeSitterResourceStatus:
+        manifest = set(self._manifest())
+        active = self._installed(self.active_dir)
+        staging = self._installed(self.staging_dir)
+        visible = staging if self._state in {"downloading", "paused"} else active
+        if self._state is not None:
+            state = self._state
+        elif active == manifest and manifest:
+            state = "ready"
+        elif active:
+            state = "failed"
+        else:
+            state = "missing"
+        error = self._error
+        if state == "failed" and error is None and active != manifest:
+            error = f"Parser cache is incomplete: {len(active)}/{len(manifest)} languages installed"
+        disk_bytes = self._disk_bytes(self.version_dir)
+        installed_count = len(visible & manifest)
+        total_count = len(manifest)
+        progress = round(installed_count * 100 / total_count) if total_count else 0
+        return TreeSitterResourceStatus(
+            version=self.adapter.version,
+            state=state,
+            installed_languages=installed_count,
+            total_languages=total_count,
+            downloaded_bytes=min(disk_bytes, self.adapter.estimated_total_bytes),
+            total_bytes=self.adapter.estimated_total_bytes,
+            disk_bytes=disk_bytes,
+            progress=progress,
+            error=error,
+        )
+
+    async def start_download(self) -> TreeSitterResourceStatus:
+        async with self._operation_lock:
+            if self._task is not None and not self._task.done():
+                return self.status()
+            if self.status().state == "ready":
+                return self.status()
+            self._pause_requested = False
+            self._error = None
+            self._state = "downloading"
+            self._task = asyncio.create_task(self._run_download())
+        return self.status()
+
+    async def pause(self) -> TreeSitterResourceStatus:
+        self._pause_requested = True
+        return self.status()
+
+    async def resume(self) -> TreeSitterResourceStatus:
+        return await self.start_download()
+
+    async def repair(self) -> TreeSitterResourceStatus:
+        async with self._operation_lock:
+            if self._task is not None and not self._task.done():
+                return self.status()
+            self.version_dir.mkdir(parents=True, exist_ok=True)
+            if not self.staging_dir.exists() and self.active_dir.exists():
+                shutil.copytree(self.active_dir, self.staging_dir)
+            self._pause_requested = False
+            self._error = None
+            self._state = "downloading"
+            self._task = asyncio.create_task(self._run_download())
+        return self.status()
+
+    async def wait(self) -> None:
+        task = self._task
+        if task is not None:
+            await task
+
+    async def close(self) -> None:
+        task = self._task
+        if task is not None and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+    def activate_if_ready(self) -> bool:
+        manifest = set(self._manifest())
+        if manifest and self._installed(self.active_dir) == manifest:
+            activate = getattr(self.adapter, "activate", None)
+            if activate is not None:
+                activate(self.active_dir)
+            return True
+        return False
+
+    async def _run_download(self) -> None:
+        try:
+            self.version_dir.mkdir(parents=True, exist_ok=True)
+            self.staging_dir.mkdir(parents=True, exist_ok=True)
+            manifest = self._manifest()
+            installed = self._installed(self.staging_dir)
+            for language in manifest:
+                if language in installed:
+                    continue
+                await self.adapter.download(language, self.staging_dir)
+                installed.add(language)
+                self._write_checkpoint(installed, len(manifest))
+                if self._pause_requested:
+                    self._state = "paused"
+                    return
+            verified = self._installed(self.staging_dir)
+            if verified != set(manifest):
+                missing = sorted(set(manifest) - verified)
+                raise RuntimeError(f"Parser verification failed; missing: {', '.join(missing[:8])}")
+            self._promote_staging()
+            self._state = "ready"
+            self._error = None
+            self.activate_if_ready()
+        except asyncio.CancelledError:
+            self._state = "paused"
+            raise
+        except Exception as exc:  # noqa: BLE001
+            self._state = "failed"
+            self._error = str(exc)
+        finally:
+            self._task = None
+
+    def _write_checkpoint(self, installed: set[str], total: int) -> None:
+        self.version_dir.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "version": self.adapter.version,
+            "installed_languages": sorted(installed),
+            "total_languages": total,
+        }
+        self._checkpoint_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    def _promote_staging(self) -> None:
+        backup_dir = self.version_dir / "previous"
+        if backup_dir.exists():
+            shutil.rmtree(backup_dir)
+        if self.active_dir.exists():
+            self.active_dir.replace(backup_dir)
+        self.staging_dir.replace(self.active_dir)
+        if backup_dir.exists():
+            shutil.rmtree(backup_dir)

@@ -13,6 +13,7 @@ from sag_api.api.v1 import (
     sources,
     system,
     translate,
+    tree_sitter,
     universe,
 )
 
@@ -29,6 +30,7 @@ for _module in (
     activity,
     attachments,
     system,
+    tree_sitter,
     translate,
     universe,
 ):

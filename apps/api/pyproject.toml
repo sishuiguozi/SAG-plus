@@ -27,6 +27,7 @@ dependencies = [
     "mcp>=1.28,<2",
     "tzdata>=2024.1",
     "tantivy>=0.26",  # LanceDB FTS（BM25 稀疏召回）
+    "tree-sitter-language-pack==1.13.7",
 ]
 
 [project.optional-dependencies]

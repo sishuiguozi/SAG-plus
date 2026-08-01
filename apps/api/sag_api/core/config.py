@@ -106,6 +106,7 @@ class Settings(BaseSettings):
     # A4 父子分块：父块为目标大小的上下文块，子块继承 source_chunk_max_tokens 切分。
     parent_chunk_max_tokens: int = Field(default=1_024, ge=200, le=20_000)
     parent_chunk_vectorize: bool = True  # False 时父块仅入库、不生成向量
+    tree_sitter_auto_download: bool = True  # 后台下载全部语言解析器；测试环境显式关闭
     # 上传文档已有独立的知识型过滤要求；默认关闭上游基于标题/摘要的严格过滤，
     # 避免无摘要或标题缺失的书籍正文被误判为噪音。
     document_strict_filtering: bool = False
