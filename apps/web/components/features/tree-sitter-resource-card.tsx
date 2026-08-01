@@ -54,7 +54,8 @@ export function TreeSitterResourceCard() {
   }
 
   const state = String(status?.state || "missing");
-  const progress = Math.round(Number(status?.progress || 0) * (Number(status?.progress || 0) <= 1 ? 100 : 1));
+  const rawProgress = Number(status?.progress || 0);
+  const progress = Math.round(rawProgress > 0 && rawProgress <= 1 ? rawProgress * 100 : rawProgress);
 
   return (
     <div className="rounded-lg border bg-card/40 p-4">
@@ -77,6 +78,7 @@ export function TreeSitterResourceCard() {
         </div>
         <div>{t("version")}: {status?.version || "-"}</div>
         {status?.message ? <div className="text-muted-foreground">{status.message}</div> : null}
+        {status?.error ? <div className="text-destructive">{status.error}</div> : null}
         {["downloading", "repairing"].includes(state) ? (
           <div>{t("progress")}: {progress}%</div>
         ) : null}

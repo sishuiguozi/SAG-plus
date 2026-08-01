@@ -35,10 +35,16 @@ import sys
 import tree_sitter_language_pack as pack
 
 target, operation, language = sys.argv[1:4]
-pack.init(pack.PackConfig(cache_dir=target, languages=[]))
+# tree-sitter-language-pack 1.13.x: configure + prefetch is the reliable path.
+# plain download() can return success without a loadable cache entry.
+pack.configure(pack.PackConfig(cache_dir=target, languages=[]))
 if operation == "download":
-    pack.download([language])
-print(json.dumps(pack.downloaded_languages()))
+    pack.prefetch([language])
+elif operation == "download_many":
+    names = [part for part in language.split(",") if part]
+    if names:
+        pack.prefetch(names)
+print(json.dumps(sorted(pack.downloaded_languages())))
 """
 
 
@@ -58,10 +64,14 @@ class InstalledLanguagePackAdapter:
     def _query(target_dir: Path, operation: str, language: str = "-") -> set[str]:
         completed = subprocess.run(
             [sys.executable, "-c", _SUBPROCESS_SCRIPT, str(target_dir), operation, language],
-            check=True,
             capture_output=True,
             text=True,
         )
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout or "").strip()
+            raise RuntimeError(
+                f"Tree-sitter resource command failed ({operation}): {detail or completed.returncode}"
+            )
         output = completed.stdout.strip().splitlines()
         return set(json.loads(output[-1])) if output else set()
 
@@ -72,13 +82,30 @@ class InstalledLanguagePackAdapter:
 
     async def download(self, language: str, target_dir: Path) -> None:
         target_dir.mkdir(parents=True, exist_ok=True)
+        before = self.downloaded_languages(target_dir)
         await asyncio.to_thread(self._query, target_dir, "download", language)
+        after = self.downloaded_languages(target_dir)
+        if language not in after and len(after) <= len(before):
+            raise RuntimeError(f"Tree-sitter language download produced no cache entry: {language}")
+
+    async def download_many(self, languages: list[str], target_dir: Path) -> None:
+        if not languages:
+            return
+        target_dir.mkdir(parents=True, exist_ok=True)
+        await asyncio.to_thread(self._query, target_dir, "download_many", ",".join(languages))
 
     @staticmethod
     def activate(target_dir: Path) -> None:
         import tree_sitter_language_pack as pack
 
-        pack.init(pack.PackConfig(cache_dir=str(target_dir), languages=[]))
+        pack.configure(pack.PackConfig(cache_dir=str(target_dir), languages=[]))
+        # Ensure already-downloaded grammars are loadable in-process.
+        try:
+            names = pack.downloaded_languages()
+            if names:
+                pack.prefetch(names)
+        except Exception:
+            pack.init(pack.PackConfig(cache_dir=str(target_dir), languages=[]))
 
 
 class TreeSitterResourceManager:
@@ -205,15 +232,31 @@ class TreeSitterResourceManager:
             self.staging_dir.mkdir(parents=True, exist_ok=True)
             manifest = self._manifest()
             installed = self._installed(self.staging_dir)
-            for language in manifest:
-                if language in installed:
-                    continue
-                await self.adapter.download(language, self.staging_dir)
-                installed.add(language)
-                self._write_checkpoint(installed, len(manifest))
+            pending = [language for language in manifest if language not in installed]
+            batch_size = 8
+            for offset in range(0, len(pending), batch_size):
                 if self._pause_requested:
                     self._state = "paused"
                     return
+                batch = pending[offset : offset + batch_size]
+                download_many = getattr(self.adapter, "download_many", None)
+                # Prefer small batches for throughput, but still honor pause between
+                # languages when the adapter only supports one-by-one downloads.
+                if callable(download_many) and not self._pause_requested:
+                    await download_many(batch, self.staging_dir)
+                    installed = self._installed(self.staging_dir)
+                    self._write_checkpoint(installed, len(manifest))
+                    if self._pause_requested:
+                        self._state = "paused"
+                        return
+                else:
+                    for language in batch:
+                        if self._pause_requested:
+                            self._state = "paused"
+                            return
+                        await self.adapter.download(language, self.staging_dir)
+                        installed = self._installed(self.staging_dir)
+                        self._write_checkpoint(installed, len(manifest))
             verified = self._installed(self.staging_dir)
             if verified != set(manifest):
                 missing = sorted(set(manifest) - verified)

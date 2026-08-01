@@ -1012,5 +1012,7 @@ export interface TreeSitterResourceStatus {
   downloaded_bytes?: number | null;
   total_bytes?: number | null;
   message?: string | null;
+  error?: string | null;
+  disk_bytes?: number | null;
   disk_free_gb?: number | null;
 }
