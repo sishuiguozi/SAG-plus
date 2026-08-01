@@ -957,3 +957,60 @@ export interface Capabilities {
   allowed_upload_exts?: string[];
   timezone: string;
 }
+
+
+export type CodeLlmExtractionMode = "off" | "comments" | "all";
+
+export interface SourceCodeConfig {
+  llm_extraction_mode: CodeLlmExtractionMode;
+}
+
+export type CodeFolderPlanStatus = "new" | "changed" | "unchanged" | "rejected";
+
+export interface CodeFolderPlanItem {
+  relative_path: string;
+  sha256: string;
+  size_bytes: number;
+  status: CodeFolderPlanStatus;
+  reason?: string;
+  document_id?: string | null;
+}
+
+export interface CodeFolderPlanResponse {
+  root_name: string;
+  items: CodeFolderPlanItem[];
+  counts: {
+    new: number;
+    changed: number;
+    unchanged: number;
+    rejected: number;
+  };
+}
+
+export interface CodeFolderUploadResult {
+  document_id: string;
+  job_id?: string | null;
+  relative_path: string;
+  content_sha256: string;
+  status: "created" | "unchanged" | "queued_replacement";
+}
+
+export type TreeSitterResourceState =
+  | "missing"
+  | "downloading"
+  | "paused"
+  | "ready"
+  | "error"
+  | "repairing";
+
+export interface TreeSitterResourceStatus {
+  state: TreeSitterResourceState | string;
+  version?: string | null;
+  installed_languages?: number;
+  total_languages?: number;
+  progress?: number | null;
+  downloaded_bytes?: number | null;
+  total_bytes?: number | null;
+  message?: string | null;
+  disk_free_gb?: number | null;
+}

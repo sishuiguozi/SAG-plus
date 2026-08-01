@@ -1798,5 +1798,60 @@
     "copied": "Copied",
     "failed": "Translation failed, please try again",
     "emptyHint": "Waiting for translation…"
+  },
+  "CodeFolderImport": {
+    "title": "Import code folder",
+    "description": "Scan a local code directory and upload only new or changed files. Missing local files are never deleted automatically.",
+    "chooseFolder": "Choose folder",
+    "scanning": "Scanning folder…",
+    "scanProgress": "Scanned {done}/{total}",
+    "planning": "Building incremental plan…",
+    "scanFailed": "Scan failed",
+    "binary": "Looks like a binary file",
+    "new": "New",
+    "changed": "Changed",
+    "unchanged": "Unchanged",
+    "rejected": "Rejected",
+    "uploadHint": "{count} files will be uploaded",
+    "startUpload": "Start upload",
+    "uploadingOne": "Uploading: {name}",
+    "uploaded": "Uploaded {count} code files for background processing",
+    "nothingToUpload": "No changes to upload",
+    "uploadFailed": "Code folder upload failed"
+  },
+  "SourceCodeConfig": {
+    "title": "Code extraction policy",
+    "description": "Applies only to future code ingestion and reprocessing. Existing events are not rewritten.",
+    "recommended": "Recommended",
+    "saved": "Code extraction settings saved",
+    "saveFailed": "Save failed",
+    "loadFailed": "Failed to load",
+    "mode": {
+      "off": "Off",
+      "comments": "Comments only",
+      "all": "All child chunks"
+    }
+  },
+  "TreeSitterResource": {
+    "title": "Tree-sitter resources",
+    "description": "Download all language parsers after install. Offline parsing remains available. Reserve about 500MB.",
+    "state": "State",
+    "languages": "Languages",
+    "version": "Version",
+    "progress": "Progress",
+    "download": "Download",
+    "pause": "Pause",
+    "resume": "Resume",
+    "repair": "Repair",
+    "loadFailed": "Failed to load resource status",
+    "actionFailed": "Action failed",
+    "states": {
+      "missing": "Missing",
+      "downloading": "Downloading",
+      "paused": "Paused",
+      "ready": "Ready",
+      "error": "Error",
+      "repairing": "Repairing"
+    }
   }
 }

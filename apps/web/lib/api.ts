@@ -547,6 +547,65 @@ export const api = {
       method: "POST",
     }),
 
+  getSourceCodeConfig: (id: string) =>
+    request<import("./types").SourceCodeConfig>(`/api/v1/sources/${id}/code-config`),
+  updateSourceCodeConfig: (
+    id: string,
+    body: import("./types").SourceCodeConfig,
+  ) =>
+    request<import("./types").SourceCodeConfig>(`/api/v1/sources/${id}/code-config`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  planCodeFolder: (
+    sid: string,
+    body: {
+      root_name: string;
+      items: Array<{ relative_path: string; sha256: string; size_bytes: number }>;
+    },
+  ) =>
+    request<import("./types").CodeFolderPlanResponse>(
+      `/api/v1/sources/${sid}/code-folder/plan`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  uploadCodeFolderFile: (
+    sid: string,
+    payload: {
+      file: File;
+      relative_path: string;
+      root_name: string;
+      sha256: string;
+    },
+  ) => {
+    const fd = new FormData();
+    fd.append("file", payload.file);
+    fd.append("relative_path", payload.relative_path);
+    fd.append("root_name", payload.root_name);
+    fd.append("sha256", payload.sha256);
+    return request<import("./types").CodeFolderUploadResult>(
+      `/api/v1/sources/${sid}/code-folder/upload`,
+      { method: "POST", body: fd },
+    );
+  },
+  getTreeSitterStatus: () =>
+    request<import("./types").TreeSitterResourceStatus>("/api/v1/tree-sitter"),
+  downloadTreeSitter: () =>
+    request<import("./types").TreeSitterResourceStatus>("/api/v1/tree-sitter/download", {
+      method: "POST",
+    }),
+  pauseTreeSitter: () =>
+    request<import("./types").TreeSitterResourceStatus>("/api/v1/tree-sitter/pause", {
+      method: "POST",
+    }),
+  resumeTreeSitter: () =>
+    request<import("./types").TreeSitterResourceStatus>("/api/v1/tree-sitter/resume", {
+      method: "POST",
+    }),
+  repairTreeSitter: () =>
+    request<import("./types").TreeSitterResourceStatus>("/api/v1/tree-sitter/repair", {
+      method: "POST",
+    }),
+
   // 文档
   listDocuments: (
     sid: string,

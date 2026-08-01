@@ -12,6 +12,8 @@ import { DocumentList } from "@/components/features/document-list";
 import { IngestActivityPanel } from "@/components/features/ingest-activity-panel";
 import { SyncPanel } from "@/components/features/sync-panel";
 import { UploadZone } from "@/components/features/upload-zone";
+import { CodeFolderImport } from "@/components/features/code-folder-import";
+import { SourceCodeConfigCard } from "@/components/features/source-code-config-card";
 import { useSourceContent } from "@/components/features/use-source-content";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -176,13 +178,21 @@ export function KnowledgeSourceWorkspace({
             </p>
             {source &&
               (isFileSource ? (
-                <UploadZone
-                  sourceId={sourceId}
-                  onUploaded={() => void finishMutation()}
-                  maxMb={capabilities?.max_upload_mb ?? 25}
-                  allowedExts={capabilities?.allowed_upload_exts}
-                  compact
-                />
+                <div className="space-y-3">
+                  <UploadZone
+                    sourceId={sourceId}
+                    onUploaded={() => void finishMutation()}
+                    maxMb={capabilities?.max_upload_mb ?? 25}
+                    allowedExts={capabilities?.allowed_upload_exts}
+                    compact
+                  />
+                  <CodeFolderImport
+                    sourceId={sourceId}
+                    onImported={() => void finishMutation()}
+                    compact
+                  />
+                  <SourceCodeConfigCard sourceId={sourceId} />
+                </div>
               ) : (
                 <SyncPanel sourceId={sourceId} onSynced={() => void finishMutation()} />
               ))}

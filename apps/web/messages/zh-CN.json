@@ -1798,5 +1798,60 @@
     "copied": "已复制",
     "failed": "翻译失败，请稍后重试",
     "emptyHint": "等待译文…"
+  },
+  "CodeFolderImport": {
+    "title": "导入代码文件夹",
+    "description": "选择本地代码目录，增量扫描后仅上传新增和变更文件。本地缺失文件不会自动删除。",
+    "chooseFolder": "选择文件夹",
+    "scanning": "正在扫描文件夹…",
+    "scanProgress": "已扫描 {done}/{total}",
+    "planning": "正在生成增量计划…",
+    "scanFailed": "扫描失败",
+    "binary": "疑似二进制文件",
+    "new": "新增",
+    "changed": "变更",
+    "unchanged": "未变化",
+    "rejected": "已拒绝",
+    "uploadHint": "将上传 {count} 个文件",
+    "startUpload": "开始上传",
+    "uploadingOne": "上传中：{name}",
+    "uploaded": "已上传 {count} 个代码文件，后台处理中",
+    "nothingToUpload": "没有需要上传的变更",
+    "uploadFailed": "代码文件夹上传失败"
+  },
+  "SourceCodeConfig": {
+    "title": "代码抽取策略",
+    "description": "仅影响后续代码入库与重处理，不会追溯修改已有事件。",
+    "recommended": "推荐",
+    "saved": "代码抽取配置已保存",
+    "saveFailed": "保存失败",
+    "loadFailed": "加载失败",
+    "mode": {
+      "off": "关闭",
+      "comments": "仅注释",
+      "all": "全部子块"
+    }
+  },
+  "TreeSitterResource": {
+    "title": "Tree-sitter 解析资源",
+    "description": "首次安装后可后台下载全部语言解析器，离线后仍可解析代码。请预留约 500MB 空间。",
+    "state": "状态",
+    "languages": "语言包",
+    "version": "版本",
+    "progress": "进度",
+    "download": "下载",
+    "pause": "暂停",
+    "resume": "继续",
+    "repair": "修复",
+    "loadFailed": "无法读取资源状态",
+    "actionFailed": "操作失败",
+    "states": {
+      "missing": "未安装",
+      "downloading": "下载中",
+      "paused": "已暂停",
+      "ready": "已就绪",
+      "error": "异常",
+      "repairing": "修复中"
+    }
   }
 }
