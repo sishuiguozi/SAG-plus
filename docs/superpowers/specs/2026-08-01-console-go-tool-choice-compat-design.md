@@ -1,7 +1,7 @@
 # 工具调用思考与选择策略设计
 
 日期：2026-08-01
-状态：已实现并验证
+状态：四档策略已实现；DeepSeek 多轮历史兼容修订已确认
 
 ## 背景与结论
 
@@ -62,6 +62,26 @@ SAG-plus 当前会根据用户意图选择 `none`、`auto`、`required` 或指�
 
 如果某个未知接口不接受对应参数，用户可以切换“全程保留思考”或“自动工具选择”。策略不进行静默降级或二次请求。
 
+## DeepSeek 多轮思考历史兼容
+
+DeepSeek 思考模式要求历史中的 assistant 消息带回 `reasoning_content`。当第一轮指定工具按
+`forced_no_thinking` 关闭思考时，返回的 assistant tool-call 消息没有该字段；工具执行后的回答轮
+恢复思考，Console Go 会因此拒绝请求。仅移除当前轮工具 schema 或把 `tool_choice` 设为 `none`
+不能解决这个历史消息校验问题。
+
+请求策略层在同时满足以下条件时补齐历史字段：
+
+- 当前路由的模型标识包含 `deepseek`；
+- 当前请求没有被任一策略或抽取/重排作用域关闭思考；
+- `messages` 中存在 `role="assistant"` 且缺少 `reasoning_content` 的消息。
+
+策略必须创建新的消息列表和 assistant 字典，只为缺失字段写入 `reasoning_content=""`；已有的非空
+推理内容原样保留，调用方传入的请求与消息对象不得被修改。非 DeepSeek 模型、当前仍关闭思考的
+请求以及非 assistant 消息不做处理。
+
+这个兼容处理不改变四档配置语义：工具轮仍按第一档关闭思考，工具后的回答轮仍恢复思考；多工具
+链可以继续运行，不强制 `tool_choice="none"`，也不把工具结果降级为普通文本。
+
 ## 请求处理流程
 
 1. Agent 路由器按现有规则产生初始 `tool_choice`。
@@ -103,6 +123,9 @@ SAG-plus 当前会根据用户意图选择 `none`、`auto`、`required` 或指�
 - `auto`：指定函数和 `required` 改写为 `auto`，原有 `auto` 与 `none` 不变。
 - `all_no_thinking`：指定工具、`required`、`auto` 与 `none` 请求全部关闭思考。
 - OpenCode/DeepSeek、Qwen 和普通 OpenAI 兼容路由使用各自参数格式。
+- DeepSeek 恢复思考时，为缺失字段的历史 assistant 消息补空 `reasoning_content`。
+- 已有 `reasoning_content` 保持不变，原始请求和嵌套消息对象不被修改。
+- 非 DeepSeek 路由或关闭思考的请求不增加该历史字段。
 - 入库抽取和重排已有关闭思考作用域在任意聊天策略下继续生效。
 - 流式与非流式请求使用相同策略。
 - 系统设置 API 能保存、读取和重置四档值。
@@ -122,6 +145,8 @@ SAG-plus 当前会根据用户意图选择 `none`、`auto`、`required` 或指�
 - 自动工具模式将指定函数和 `required` 改为 `auto`。
 - 全程关闭模式对普通回答、工具轮和工具后回答都关闭思考。
 - Console Go 在默认模式下可成功执行指定 `search_context` 和 `get_time`。
+- Console Go 在工具结果返回后的第二轮恢复思考并成功继续生成，不再返回 upstream request failed。
+- 第二轮仍可继续选择其他工具，不通过强制 `none` 限制多工具链。
 - “你好”等无需工具的直接回答行为保持正常。
 - 相关后端测试、前端类型检查、ESLint 与 i18n 检查全部通过。
 
@@ -130,4 +155,6 @@ SAG-plus 当前会根据用户意图选择 `none`、`auto`、`required` 或指�
 - 未知接口可能不接受关闭思考参数；用户可切换为“全程保留思考”或“自动工具选择”。
 - 自动工具模式可能让模型放弃本应执行的工具，这是主动选择该模式的预期权衡。
 - 全程关闭模式会降低复杂回答的推理深度，但可以减少延迟并兼容不支持思考的接口。
+- 空 `reasoning_content` 是 DeepSeek 历史消息协议兼容字段，不代表伪造思考内容；如果上游以后取消
+  该要求，可以移除这段补齐逻辑而不影响四档配置。
 - 新配置默认使用 `forced_no_thinking`，旧安装无需数据库迁移即可获得推荐行为；回退代码后，数据库中的额外配置键应被旧版本安全忽略。
