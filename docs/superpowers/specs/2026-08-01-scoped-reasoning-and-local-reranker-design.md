@@ -5,8 +5,9 @@
 移除对 `sag_llm_proxy.py` 的依赖：SAG 在自身进程内仅为“入库后的实体/事件抽取”和
 “可选 LLM 重排”关闭模型推理。聊天回答、Agent 调用和普通检索保持原有模型行为。
 
-同时在桌面设置中增加可按需安装、下载并启用的本地 Cross-Encoder 重排器。默认模型为
-`BAAI/bge-reranker-v2-m3`，用于中文、英文和混合知识库的最终候选排序。
+同时在桌面设置中增加可按需安装、下载并启用的本地 Cross-Encoder 重排器。默认推荐模型为
+`Qwen/Qwen3-Reranker-0.6B`，并提供快速稳定和高精度两档可选模型，用于中文、英文、代码和
+混合知识库的最终候选排序。
 
 ## 范围与非目标
 
@@ -52,12 +53,18 @@
 ### 本地 Cross-Encoder 重排
 
 增加独立的 `LocalRerankerManager` 和 `LocalRerankerClient`，不复用 embedding 的 GGUF/llama.cpp
-后端。`bge-reranker-v2-m3` 是 XLM-R Cross-Encoder，需要其官方 Transformers 权重和可选的
-PyTorch CPU 推理后端；两者均按需安装/下载，默认不占下载和内存。
+后端。三种 Cross-Encoder 都使用官方 Transformers 权重和共享的按需 PyTorch CPU 推理后端；
+它们均默认不占下载和内存。
+
+| 档位 | 模型 | 用途 |
+| --- | --- | --- |
+| 默认推荐 | `Qwen/Qwen3-Reranker-0.6B` | 多语言、代码和长文档的平衡选择（100+ 语言、32K 上下文） |
+| 快速稳定 | `BAAI/bge-reranker-v2-m3` | 成熟的多语言 Cross-Encoder，适合较弱 CPU |
+| 高精度 | `BAAI/bge-reranker-v2-gemma` | 2B 多语言模型，优先效果、接受更高内存与延迟 |
 
 - 后端安装按钮：安装 `sentence-transformers` 及其 CPU 运行依赖，状态可轮询、失败可读。
-- 模型下载按钮：下载固定、白名单的 `BAAI/bge-reranker-v2-m3` 到应用数据目录的 `reranker/`
-  子目录；下载先写 `.part`，完成后原子替换。
+- 模型下载按钮：下载固定、白名单的上述三种官方模型到应用数据目录的 `reranker/` 子目录；
+  下载先写 `.part`，完成后原子替换。用户可下载多个模型，但一次只启用一个。
 - 启用开关：只有后端与模型均 ready 时可启用；启用后对规则融合结果的前 N 条计算 query-passage
   分数并按分数降序排列。初始 N 使用现有 `search_llm_rerank_candidates` 的上限（默认 8），但
   不调用 LLM。
@@ -91,6 +98,7 @@ PyTorch CPU 推理后端；两者均按需安装/下载，默认不占下载和�
 ## 验收标准
 
 用户不再需要启动外部代理。入库抽取及 LLM 重排对支持的模型会发送正确的关闭推理参数；聊天
-请求不会被这些参数污染。用户可在设置页自行安装后端、下载并启用本地
-`bge-reranker-v2-m3`；启用后知识库检索先完成现有向量/BM25/规则融合，再以本地分数稳定重排
-有限候选。任何本地模型前置条件或推理失败都不会中断搜索。
+请求不会被这些参数污染。用户可在设置页自行安装后端、下载并启用本地重排模型；默认推荐
+`Qwen/Qwen3-Reranker-0.6B`，也可选择 `BAAI/bge-reranker-v2-m3` 或
+`BAAI/bge-reranker-v2-gemma`。启用后知识库检索先完成现有向量/BM25/规则融合，再以本地分数
+稳定重排有限候选。任何本地模型前置条件或推理失败都不会中断搜索。
