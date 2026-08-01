@@ -12,6 +12,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from sag_api.core.config import Settings
+from sag_api.core.llm_call_context import current_llm_call_scenario
 
 _COMPLETION_CALL_TYPES = {"completion", "acompletion"}
 
@@ -36,6 +37,49 @@ def _is_openai_route(model: str, settings: Settings) -> bool:
     return settings.llm_provider == "openai"
 
 
+def _routing_text(model: str, settings: Settings) -> str:
+    return " ".join((model, settings.llm_provider, settings.llm_base_url or "")).casefold()
+
+
+def _is_opencode_style_route(model: str, settings: Settings) -> bool:
+    routing = _routing_text(model, settings)
+    return any(marker in routing for marker in ("deepseek", "opencode", "/zen/"))
+
+
+def _is_qwen_template_route(model: str, settings: Settings) -> bool:
+    routing = _routing_text(model, settings)
+    return any(marker in routing for marker in ("qwen", "vllm", "sglang"))
+
+
+def _merge_extra_body(request: dict[str, Any], patch: Mapping[str, Any]) -> None:
+    existing = request.get("extra_body")
+    merged = dict(existing) if isinstance(existing, Mapping) else {}
+    for key, value in patch.items():
+        if isinstance(value, Mapping) and isinstance(merged.get(key), Mapping):
+            merged[key] = {**merged[key], **value}
+        else:
+            merged[key] = value
+    request["extra_body"] = merged
+
+
+def _apply_scoped_reasoning_disable(
+    normalized: dict[str, Any],
+    model: str,
+    settings: Settings,
+) -> None:
+    """Apply only the provider fields accepted by the active endpoint family."""
+    normalized["reasoning_effort"] = "none"
+    if _is_opencode_style_route(model, settings):
+        _merge_extra_body(normalized, {"thinking": {"type": "disabled"}})
+    elif _is_qwen_template_route(model, settings):
+        existing = normalized.get("extra_body")
+        if isinstance(existing, Mapping):
+            clean = dict(existing)
+            clean.pop("enable_thinking", None)
+            normalized["extra_body"] = clean
+        _merge_extra_body(normalized, {"chat_template_kwargs": {"enable_thinking": False}})
+
+
 def _with_allowed_openai_param(request: dict[str, Any], name: str) -> None:
     configured = request.get("allowed_openai_params")
     if configured is None:
@@ -55,10 +99,10 @@ def apply_litellm_completion_policy(
 ) -> dict[str, Any]:
     """Return one normalized LiteLLM completion request.
 
-    Qwen reasoning is disabled through LiteLLM's standard
-    ``reasoning_effort`` argument.  ``allowed_openai_params`` is required for
-    custom OpenAI-compatible model names whose capabilities LiteLLM cannot
-    infer.  An explicit ``enable_thinking: true`` remains an opt-in override.
+    User-configured request fields are preserved for normal chat calls.  Only
+    entity/event extraction and legacy LLM reranking get a scoped reasoning
+    disable override; ``allowed_openai_params`` supports custom compatible
+    endpoint model names whose capabilities LiteLLM cannot infer.
     """
 
     normalized = dict(request)
@@ -67,9 +111,10 @@ def apply_litellm_completion_policy(
 
     model = str(normalized.get("model") or settings.routed_llm_model)
     thinking = _thinking_override(normalized.get("extra_body"))
-    if "reasoning_effort" not in normalized:
-        if thinking is False or (thinking is None and "qwen" in model.casefold()):
-            normalized["reasoning_effort"] = "none"
+    if current_llm_call_scenario() is not None:
+        _apply_scoped_reasoning_disable(normalized, model, settings)
+    elif "reasoning_effort" not in normalized and thinking is False:
+        normalized["reasoning_effort"] = "none"
 
     if "reasoning_effort" in normalized and _is_openai_route(model, settings):
         _with_allowed_openai_param(normalized, "reasoning_effort")
