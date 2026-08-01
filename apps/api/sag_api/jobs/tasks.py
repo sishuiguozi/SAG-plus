@@ -131,6 +131,9 @@ async def process_document(
             if prepared is not None and prepared.provider == "tree_sitter"
             else {}
         )
+        from sag_api.services.source_service import _read_source_code_config
+
+        code_kwargs["code_llm_extraction_mode"] = _read_source_code_config(source).llm_extraction_mode
         process_path = None
         if prepared is not None:
             process_path = str(prepared.path)

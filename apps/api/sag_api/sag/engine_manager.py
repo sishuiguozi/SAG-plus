@@ -739,6 +739,7 @@ class EngineManager:
         max_concurrency: int | None = None,
         document_title: str | None = None,
         prepared_document: "PreparedDocument | None" = None,
+        code_llm_extraction_mode: str | None = None,
     ) -> ProcessOutcome:
         """独立处理一篇文档；同源文档可并行，chunk 完成即保存断点。"""
 
@@ -760,6 +761,11 @@ class EngineManager:
                     enable_strict_filtering=self._settings.document_strict_filtering,
                     prepared_document=prepared_document,
                     code_source_id=source.id if source is not None else source_config_id,
+                    code_llm_extraction_mode=(
+                        code_llm_extraction_mode
+                        if code_llm_extraction_mode in {"off", "comments", "all"}
+                        else "comments"
+                    ),
                 )
                 return await processor.process(
                     path,

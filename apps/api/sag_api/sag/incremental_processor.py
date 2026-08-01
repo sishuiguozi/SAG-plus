@@ -218,6 +218,7 @@ class IncrementalDocumentProcessor:
         enable_strict_filtering: bool = False,
         prepared_document: PreparedDocument | None = None,
         code_source_id: str | None = None,
+        code_llm_extraction_mode: Literal["off", "comments", "all"] = "comments",
     ) -> None:
         self._engine = engine
         self._source_config_id = source_config_id
@@ -228,6 +229,10 @@ class IncrementalDocumentProcessor:
         self._enable_strict_filtering = enable_strict_filtering
         self._prepared_document = prepared_document
         self._code_source_id = code_source_id or source_config_id
+        mode = (code_llm_extraction_mode or "comments").strip().lower()
+        if mode not in {"off", "comments", "all"}:
+            mode = "comments"
+        self._code_llm_extraction_mode: Literal["off", "comments", "all"] = mode  # type: ignore[assignment]
 
     async def process(
         self,
@@ -367,7 +372,51 @@ class IncrementalDocumentProcessor:
             # EngineManager 才能映射可重试类型，文档与 Job 也能保存真实错误原因。
             raise _first_task_error(errors) from errors
 
+    async def _load_source_chunk(self, chunk_id: str):
+        from zleap.sag.db import get_session_factory
+        from zleap.sag.db.models import SourceChunk
+
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            return await session.get(SourceChunk, chunk_id)
+
+    def _code_chunk_meta(self, chunk) -> dict:
+        extra = getattr(chunk, "extra_data", None) or {}
+        return extra if isinstance(extra, dict) else {}
+
+    def _is_code_chunk(self, chunk) -> bool:
+        meta = self._code_chunk_meta(chunk)
+        chunk_type = str(meta.get("chunk_type") or "")
+        return chunk_type in {"code_parent", "code_child"} or bool(
+            meta.get("code_language") or meta.get("content_sha256") or meta.get("symbol_id")
+        )
+
+    def _code_extraction_plan(self, chunk) -> tuple[bool, str | None]:
+        """Return (skip_llm, replacement_content)."""
+        if not self._is_code_chunk(chunk):
+            return False, None
+        mode = self._code_llm_extraction_mode
+        meta = self._code_chunk_meta(chunk)
+        chunk_type = str(meta.get("chunk_type") or "")
+        if mode == "off":
+            return True, None
+        if mode == "comments":
+            text = str(meta.get("llm_extraction_text") or "").strip()
+            if not text:
+                return True, None
+            return False, text
+        if chunk_type == "code_parent":
+            return True, None
+        return False, None
+
     async def _extract_chunk(self, chunk_id: str) -> tuple[list[str], int]:
+        chunk = await self._load_source_chunk(chunk_id)
+        if chunk is None:
+            raise RuntimeError(f"切片不存在: {chunk_id}")
+        skip_llm, replacement_content = self._code_extraction_plan(chunk)
+        if skip_llm:
+            return [], 0
+
         template = getattr(self._engine, "_extractor", None)
         if template is None:
             raise RuntimeError("抽取引擎尚未初始化")
@@ -411,10 +460,6 @@ class IncrementalDocumentProcessor:
                 )
             return response
 
-        # zleap-sag 0.7.x 的批处理层会把单块异常记录成失败后返回空列表，调用方
-        # 因而无法区分“正常无事项”和“LLM/Schema 失败”。Muse 每次只交给这个
-        # extractor 一个 chunk，可以在实例边界记录原始异常并在 extract() 返回后
-        # 重新抛出，避免把失败块写入成功断点。无需修改 site-packages。
         original_extract_from_chunk = getattr(extractor, "extract_from_chunk", None)
         if callable(original_extract_from_chunk):
 
@@ -427,6 +472,40 @@ class IncrementalDocumentProcessor:
                     raise
 
             extractor.extract_from_chunk = tracked_extract_from_chunk
+
+        original_load = getattr(extractor, "_load_chunk_content", None)
+        if callable(original_load) and replacement_content is not None:
+
+            async def patched_load_chunk_content(loaded_chunk, config):
+                sections, metadata = await original_load(loaded_chunk, config)
+                rewritten = []
+                for index, section in enumerate(sections or []):
+                    clone = type("ArticleSectionView", (), {})()
+                    for attr in (
+                        "id",
+                        "article_id",
+                        "order_index",
+                        "render_group_index",
+                        "type",
+                        "rank",
+                        "heading",
+                        "raw_content",
+                        "image_url",
+                        "length",
+                        "extra_data",
+                    ):
+                        setattr(clone, attr, getattr(section, attr, None))
+                    clone.content = replacement_content if index == 0 else ""
+                    rewritten.append(clone)
+                if not rewritten:
+                    clone = type("ArticleSectionView", (), {})()
+                    clone.content = replacement_content
+                    clone.heading = getattr(loaded_chunk, "heading", None)
+                    clone.type = "CODE"
+                    rewritten = [clone]
+                return rewritten, metadata
+
+            extractor._load_chunk_content = patched_load_chunk_content
 
         chat_owner.chat = tracked_chat
         try:
