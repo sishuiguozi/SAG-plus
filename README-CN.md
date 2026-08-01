@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://arxiv.org/abs/2606.15971"><img alt="论文" src="https://img.shields.io/badge/paper-arXiv%3A2606.15971-18181b" /></a>
   <a href="https://pypi.org/project/zleap-sag/"><img alt="PyPI" src="https://img.shields.io/pypi/v/zleap-sag?label=zleap--sag&color=18181b" /></a>
-  <img alt="mysag" src="https://img.shields.io/badge/mysag-%E4%BC%98%E5%8C%96%E7%BB%B4%E6%8A%A4%E5%88%86%E6%94%AF-18181b" />
+  <img alt="SAG-plus" src="https://img.shields.io/badge/SAG--plus-%E4%BC%98%E5%8C%96%E7%BB%B4%E6%8A%A4%E5%88%86%E6%94%AF-18181b" />
   <img alt="Python" src="https://img.shields.io/badge/Python-3.11%2B-3776ab" />
   <img alt="Node" src="https://img.shields.io/badge/Node-20%2B-339933" />
   <a href="LICENSE"><img alt="许可" src="https://img.shields.io/badge/license-MIT-18181b" /></a>
@@ -43,9 +43,9 @@ https://github.com/user-attachments/assets/cae70570-3885-490f-9126-dea23dcb369c
 
 ### 更新日志
 
-**2026 年 8 月 · mysag 优化维护分支**
+**2026 年 8 月 · SAG-plus 优化维护分支**
 
-`mysag` 是基于 [Zleap-AI/SAG](https://github.com/Zleap-AI/SAG) 的个人维护优化分支。
+`SAG-plus` 是基于 [Zleap-AI/SAG](https://github.com/Zleap-AI/SAG) 的个人维护优化分支。
 它保留 SAG 的原创架构与上游署名，同时面向长期本地运行补强检索、入库、存储、运维和知识工作台体验。
 
 **2026 年 7 月 14 日**
@@ -77,7 +77,7 @@ SAG 在 HotpotQA、2WikiMultiHopQA 和 MuSiQue 的 9 项 Recall@1/2/5 指标中�
 
 产品默认面向本地单用户场景。它使用 SQLite 与 LanceDB 即可启动，不依赖外部数据库，同时保留迁移至 PostgreSQL/pgvector 等生产后端的路径。
 
-### mysag 的重点增强
+### SAG-plus 的重点增强
 
 本分支聚焦让大型本地知识库更快入库、更安全运行、更容易核验；SAG 原有检索架构保持不变。
 
@@ -186,8 +186,8 @@ Electron 客户端会打包 Web 工作台和本地知识后端；生产运行时
 准备 Docker Desktop，或 Docker Engine 与 Compose v2。
 
 ```bash
-git clone https://github.com/sishuiguozi/mysag.git
-cd mysag
+git clone https://github.com/sishuiguozi/SAG-plus.git
+cd SAG-plus
 docker compose up -d --build
 ```
 

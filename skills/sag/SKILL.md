@@ -8,7 +8,7 @@ description: Use when an AI coding agent needs to search, browse, cite, or read 
 SAG 把你的文档变成可检索、可溯源的知识库，并以 **MCP** 暴露给任何 Agent。
 本 Skill 教会 Agent 使用 SAG 的 8 个只读工具完成「先确认范围、再看结构、最后精确取内容」的探索漏斗。
 
-在 `mysag` 优化分支中，服务端可在语义检索外叠加 BM25 全文召回、重排和父子上下文增强；MCP 工具签名不变，Agent 仍应遵循本 Skill 的漏斗顺序并以返回证据为准。
+在 `SAG-plus` 优化分支中，服务端可在语义检索外叠加 BM25 全文召回、重排和父子上下文增强；MCP 工具签名不变，Agent 仍应遵循本 Skill 的漏斗顺序并以返回证据为准。
 
 ## 连接
 

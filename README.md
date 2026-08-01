@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://arxiv.org/abs/2606.15971"><img alt="Paper" src="https://img.shields.io/badge/paper-arXiv%3A2606.15971-18181b" /></a>
   <a href="https://pypi.org/project/zleap-sag/"><img alt="PyPI" src="https://img.shields.io/pypi/v/zleap-sag?label=zleap--sag&color=18181b" /></a>
-  <img alt="mysag" src="https://img.shields.io/badge/mysag-optimized%20fork-18181b" />
+  <img alt="SAG-plus" src="https://img.shields.io/badge/SAG--plus-optimized%20fork-18181b" />
   <img alt="Python" src="https://img.shields.io/badge/Python-3.11%2B-3776ab" />
   <img alt="Node" src="https://img.shields.io/badge/Node-20%2B-339933" />
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-18181b" /></a>
@@ -43,9 +43,9 @@ https://github.com/user-attachments/assets/9bb618e9-fef8-4d07-8a30-3f7d83beb0ff
 
 ### Changelog
 
-**August 2026 · mysag optimized fork**
+**August 2026 · SAG-plus optimized fork**
 
-`mysag` is a personal, actively maintained optimization fork of
+`SAG-plus` is a personal, actively maintained optimization fork of
 [Zleap-AI/SAG](https://github.com/Zleap-AI/SAG). It preserves SAG's original
 architecture and upstream attribution while adding retrieval, ingestion,
 storage, operations, and workspace improvements for long-running local use.
@@ -79,7 +79,7 @@ Upload a document once. SAG parses it, splits it into chunks, embeds it, extract
 
 The product is deliberately local-first and single-user. It starts with SQLite and LanceDB, requires no external database, and keeps a clear path to PostgreSQL/pgvector and other production backends.
 
-### What mysag adds
+### What SAG-plus adds
 
 This fork concentrates on making a large local knowledge base faster to ingest,
 safer to operate, and easier to inspect. The original SAG retrieval architecture
@@ -193,8 +193,8 @@ from the application bundle and includes recovery/update safeguards.
 Requirements: Docker Desktop, or Docker Engine with Compose v2.
 
 ```bash
-git clone https://github.com/sishuiguozi/mysag.git
-cd mysag
+git clone https://github.com/sishuiguozi/SAG-plus.git
+cd SAG-plus
 docker compose up -d --build
 ```
 

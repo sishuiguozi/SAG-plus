@@ -1,11 +1,11 @@
 # Changelog
 
-`mysag` 是 [Zleap-AI/SAG](https://github.com/Zleap-AI/SAG) 的个人维护优化分支。
+`SAG-plus` 是 [Zleap-AI/SAG](https://github.com/Zleap-AI/SAG) 的个人维护优化分支。
 本分支尚未发布独立安装包；从源码使用请参阅根目录 README。
 
 ## Unreleased
 
-### mysag optimization branch · 2026-08
+### SAG-plus optimization branch · 2026-08
 
 - 检索：新增 TTL 结果缓存、LanceDB BM25 全文召回与 grep 回退、可选 LLM 重排、父子分块和可重复运行的评估脚本。
 - 入库与存储：四张向量表统一接入持久化单写者队列，支持记录级去重、批量追加、失败恢复、辅助索引延迟补齐、维护门禁和磁盘保护。
