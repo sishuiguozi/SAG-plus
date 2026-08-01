@@ -621,7 +621,12 @@
     "localModelDownloadStarted": "模型开始后台下载",
     "localModelDownloadFailed": "模型下载启动失败",
     "localModelSelectRequired": "请至少选择一个模型版本",
-    "localModelRefresh": "刷新状态"
+    "localModelRefresh": "刷新状态",
+    "localModelTest": "测试本地模型",
+    "localModelTesting": "测试中…",
+    "localModelTestSucceeded": "本地模型推理正常",
+    "localModelTestFailed": "本地模型测试失败",
+    "localModelTestResult": "测试成功：{model} · {dimensions} 维 · {elapsed} ms"
   },
   "SystemConfig": {
     "title": "系统与性能",

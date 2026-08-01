@@ -19,6 +19,7 @@ import type {
   ModelConfig,
   ModelConfigPatch,
   LocalModelManagerStatus,
+  LocalEmbeddingTestResult,
   ModelProviderSpec,
   ModelSetupStatus,
   KnowledgeMcpDescriptor,
@@ -472,6 +473,10 @@ export const api = {
     request<LocalModelManagerStatus>("/api/v1/system/local-models/download", {
       method: "POST",
       body: JSON.stringify({ files }),
+    }),
+  testLocalEmbedding: () =>
+    request<LocalEmbeddingTestResult>("/api/v1/system/local-models/test", {
+      method: "POST",
     }),
   getModelProviders: () =>
     request<ModelProviderSpec[]>("/api/v1/system/model-providers"),
