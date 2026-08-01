@@ -205,6 +205,7 @@ async def test_prefers_prebuilt_cuda_rank_runtime_when_nvidia_is_available(
 
     monkeypatch.setattr("sag_api.sag.local_model_manager.importlib.util.find_spec", fake_find_spec)
     monkeypatch.setattr("sag_api.sag.local_model_manager.shutil.which", lambda _: "nvidia-smi")
+    monkeypatch.setattr(sys, "platform", "win32")
 
     def fake_run(args: list[str], **_: object) -> None:
         commands.append(args)

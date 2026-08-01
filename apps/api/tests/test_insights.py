@@ -301,9 +301,11 @@ async def test_entity_read_path():
             assert invalid.status_code == 422
 
             # 删除文档必须同步清理统计与引擎中的块、事件及孤立实体。
-            deleted = await c.delete(
+            deleted = await c.request(
+                "DELETE",
                 f"/api/v1/sources/{sid}/documents/{document_id}",
                 headers=H,
+                json={"password": "password123"},
             )
             assert deleted.status_code == 200
             source_after_delete = (await c.get(f"/api/v1/sources/{sid}", headers=H)).json()

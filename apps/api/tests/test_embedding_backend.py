@@ -29,12 +29,14 @@ def test_install_api_mode_keeps_original():
     from sag_api.sag.embedding_backend import install_embedding_backend, uninstall_embedding_backend
 
     original = _original_factory_impl()
+    original_provider = settings.embedding_provider
     try:
         settings.embedding_provider = "api"
         install_embedding_backend(settings)
         assert _original_factory_impl() is original  # api 模式不替换
     finally:
         uninstall_embedding_backend()
+        settings.embedding_provider = original_provider
     assert _original_factory_impl() is original
 
 
@@ -44,6 +46,7 @@ def test_install_local_mode_replaces_and_uninstall_restores():
 
     original_factory = _original_factory_impl()
     original_module = _original_module_funcs()
+    original_provider = settings.embedding_provider
     try:
         settings.embedding_provider = "local"
         install_embedding_backend(settings)
@@ -53,6 +56,7 @@ def test_install_local_mode_replaces_and_uninstall_restores():
         assert _original_module_funcs() != original_module  # 便捷函数已替换
     finally:
         uninstall_embedding_backend()
+        settings.embedding_provider = original_provider
     assert _original_factory_impl() is original_factory
     assert _original_module_funcs() == original_module
 

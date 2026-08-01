@@ -46,7 +46,13 @@ async def test_delete_cleanup_and_registration():
             await app.state.engine_manager.provision(sag_id)
             assert sag_id in app.state.engine_manager._slots
 
-            assert (await c.delete(f"/api/v1/sources/{sid}", headers=H)).status_code == 200
+            deleted = await c.request(
+                "DELETE",
+                f"/api/v1/sources/{sid}",
+                headers=H,
+                json={"password": "password123"},
+            )
+            assert deleted.status_code == 200
             bindings = (await c.get(f"/api/v1/agents/{agent['id']}/bindings", headers=H)).json()
             assert bindings == [], "指向已删信源的绑定应被清理"
             assert sag_id not in app.state.engine_manager._slots, "引擎槽应已释放"
