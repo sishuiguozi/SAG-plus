@@ -1,0 +1,82 @@
+          <SettingsRow title={t("localParamsTitle")} description={t("localParamsDescription")}>
+        {embProvider === "local" && (
+        ) : null}
+          </SettingsRow>
+            </div>
+              })()}
+                );
+                  </>
+                    )}
+                      </Alert>
+                        <AlertDescription>{local.error}</AlertDescription>
+                        <AlertTitle>{t("localModelError")}</AlertTitle>
+                      <Alert variant="destructive">
+                    {local.error && (
+                    </p>
+                      {local.model_path}
+                    <p className="break-all rounded-md bg-muted/50 px-3 py-2 font-mono text-xs text-muted-foreground">
+                    </div>
+                      </span>
+                        {local.ready ? t("localModelReady") : t("localModelNotReady")}
+                      >
+                        }
+                            : "rounded bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400"
+                            ? "rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400"
+                          local.ready
+                        className={
+                      <span
+                      )}
+                        </span>
+                          {t("localModelSize", { size: local.model_size_mb })}
+                        <span className="text-muted-foreground">
+                      {local.model_size_mb != null && (
+                      </span>
+                        {t("localModel")}: bge-m3 (Q8_0)
+                      <span className="font-medium text-foreground">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                  <>
+                return (
+                }
+                  );
+                    </Alert>
+                      <AlertDescription>{t("localModelUnknownHint")}</AlertDescription>
+                      <AlertTitle>{t("localModelUnknown")}</AlertTitle>
+                    <Alert>
+                  return (
+                if (!local) {
+                const local = capabilities?.local_embedding;
+              {(() => {
+            <div className="grid gap-3">
+          <SettingsRow title={t("localModelTitle")} description={t("localModelDescription")}>
+        {embProvider === "local" ? (
+
+        </SettingsRow>
+          </Field>
+            </FieldDescription>
+                : t("embeddingSourceApiHint")}
+                ? t("embeddingSourceLocalHint")
+              {embProvider === "local"
+            <FieldDescription>
+            </Select>
+              </SelectContent>
+                <SelectItem value="api">{t("embeddingSourceApi")}</SelectItem>
+                <SelectItem value="local">{t("embeddingSourceLocal")}</SelectItem>
+              <SelectContent>
+              </SelectTrigger>
+                <SelectValue />
+              <SelectTrigger id="emb-provider">
+            >
+              onValueChange={(value) => setEmbProvider(value as "api" | "local")}
+              value={embProvider}
+            <Select
+            </FieldLabel>
+              <RecommendedBadge t={translate} value={recommended.embedding_provider} />
+              {t("embeddingSource")}
+            <FieldLabel htmlFor="emb-provider">
+          <Field>
+        >
+          }
+              : t("embeddingApiDescription")
+              ? t("embeddingLocalDescription")
+            embProvider === "local"
+          description={

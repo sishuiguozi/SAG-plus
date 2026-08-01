@@ -1,0 +1,1397 @@
+{
+  "generated_at": "2026-07-31T16:07:20+00:00",
+  "db": "E:\\sag\\.data\\engine\\sag.db",
+  "tables": [
+    "article",
+    "article_section",
+    "entity",
+    "entity_type",
+    "event_entity",
+    "event_entity_embedding",
+    "kb_document",
+    "source_chunk",
+    "source_config",
+    "source_event"
+  ],
+  "index_count": 59,
+  "indexes": [
+    {
+      "table": "article",
+      "name": "ix_article_category",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "category"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX \"ix_article_category\" ON article (category)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "article",
+      "name": "ix_article_source_config_id_id",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_config_id",
+        "id"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX \"ix_article_source_config_id_id\" ON article (source_config_id, id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "article",
+      "name": "idx_article_source_id",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_article_source_id ON article (source_id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "article",
+      "name": "idx_source_config_status",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_config_id",
+        "status"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_source_config_status ON article (source_config_id, status)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "article",
+      "name": "sqlite_autoindex_article_1",
+      "unique": true,
+      "origin": "pk",
+      "columns": [
+        "id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "article_section",
+      "name": "idx_article_order",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "article_id",
+        "order_index"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_article_order ON article_section (article_id, order_index)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "article_section",
+      "name": "idx_article_section_article_rank",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "article_id",
+        "rank"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_article_section_article_rank ON article_section (article_id, rank)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "article_section",
+      "name": "sqlite_autoindex_article_section_1",
+      "unique": true,
+      "origin": "pk",
+      "columns": [
+        "id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "entity",
+      "name": "ix_entity_normalized_name",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "normalized_name"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX ix_entity_normalized_name ON entity (normalized_name)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "entity",
+      "name": "ix_entity_float_value",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "float_value"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX ix_entity_float_value ON entity (float_value)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "entity",
+      "name": "uk_source_config_type_name",
+      "unique": true,
+      "origin": "c",
+      "columns": [
+        "source_config_id",
+        "type",
+        "normalized_name"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE UNIQUE INDEX uk_source_config_type_name ON entity (source_config_id, type, normalized_name)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "entity",
+      "name": "ix_entity_int_value",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "int_value"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX ix_entity_int_value ON entity (int_value)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "entity",
+      "name": "ix_entity_enum_value",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "enum_value"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX ix_entity_enum_value ON entity (enum_value)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "entity",
+      "name": "ix_entity_source_config_value_type",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_config_id",
+        "value_type"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX ix_entity_source_config_value_type ON entity (source_config_id, value_type)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "entity",
+      "name": "ix_entity_type_value_type",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "type",
+        "value_type"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX ix_entity_type_value_type ON entity (type, value_type)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "entity",
+      "name": "ix_entity_value_type",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "value_type"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX ix_entity_value_type ON entity (value_type)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "entity",
+      "name": "idx_entity_type_id",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "entity_type_id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_entity_type_id ON entity (entity_type_id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "entity",
+      "name": "ix_entity_datetime_value",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "datetime_value"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX ix_entity_datetime_value ON entity (datetime_value)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "entity",
+      "name": "sqlite_autoindex_entity_1",
+      "unique": true,
+      "origin": "pk",
+      "columns": [
+        "id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "entity_type",
+      "name": "ix_entity_type_source_config_id",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_config_id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX ix_entity_type_source_config_id ON entity_type (source_config_id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "entity_type",
+      "name": "idx_default_active",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "is_default",
+        "is_active"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_default_active ON entity_type (is_default, is_active)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "entity_type",
+      "name": "ix_entity_type_article_id",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "article_id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX ix_entity_type_article_id ON entity_type (article_id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "entity_type",
+      "name": "uk_scope_source_config_article_type",
+      "unique": true,
+      "origin": "c",
+      "columns": [
+        "scope",
+        "source_config_id",
+        "article_id",
+        "type"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY",
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE UNIQUE INDEX uk_scope_source_config_article_type ON entity_type (scope, source_config_id, article_id, type)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "entity_type",
+      "name": "sqlite_autoindex_entity_type_1",
+      "unique": true,
+      "origin": "pk",
+      "columns": [
+        "id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "event_entity",
+      "name": "idx_source_graph_event_entity_lookup",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "event_id",
+        "weight",
+        "created_time",
+        "entity_id"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY",
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_source_graph_event_entity_lookup ON event_entity (event_id, weight, created_time, entity_id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "event_entity",
+      "name": "idx_universe_event_entity_weight",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "event_id",
+        "weight",
+        "entity_id"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_universe_event_entity_weight ON event_entity (event_id, weight, entity_id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "event_entity",
+      "name": "idx_universe_entity_event_timeline",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "entity_id",
+        "created_time",
+        "weight",
+        "event_id"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY",
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_universe_entity_event_timeline ON event_entity (entity_id, created_time, weight, event_id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "event_entity",
+      "name": "uk_event_entity",
+      "unique": true,
+      "origin": "c",
+      "columns": [
+        "event_id",
+        "entity_id"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE UNIQUE INDEX uk_event_entity ON event_entity (event_id, entity_id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "event_entity",
+      "name": "sqlite_autoindex_event_entity_1",
+      "unique": true,
+      "origin": "pk",
+      "columns": [
+        "id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "event_entity_embedding",
+      "name": "idx_event_entity_embedding_updated_time",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "updated_time"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_event_entity_embedding_updated_time ON event_entity_embedding (updated_time)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "event_entity_embedding",
+      "name": "sqlite_autoindex_event_entity_embedding_1",
+      "unique": true,
+      "origin": "pk",
+      "columns": [
+        "id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "kb_document",
+      "name": "idx_kb_document_source_id",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_kb_document_source_id ON kb_document (source_id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "kb_document",
+      "name": "idx_kb_document_uploader_id",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "uploader_id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_kb_document_uploader_id ON kb_document (uploader_id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "kb_document",
+      "name": "idx_kb_document_kb_source",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "knowledge_base_id",
+        "source_id"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_kb_document_kb_source ON kb_document (knowledge_base_id, source_id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "kb_document",
+      "name": "idx_kb_document_created_time",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "created_time"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_kb_document_created_time ON kb_document (created_time)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "kb_document",
+      "name": "sqlite_autoindex_kb_document_1",
+      "unique": true,
+      "origin": "pk",
+      "columns": [
+        "id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_chunk",
+      "name": "ix_source_chunk_source_id",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX ix_source_chunk_source_id ON source_chunk (source_id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_chunk",
+      "name": "ix_source_chunk_source_config_id",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_config_id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX ix_source_chunk_source_config_id ON source_chunk (source_config_id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_chunk",
+      "name": "idx_source_chunk_source",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_type",
+        "source_id",
+        "rank"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_source_chunk_source ON source_chunk (source_type, source_id, rank)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_chunk",
+      "name": "idx_created",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "created_time"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_created ON source_chunk (created_time)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_chunk",
+      "name": "idx_source_chunk_article_id",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "article_id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_source_chunk_article_id ON source_chunk (article_id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_chunk",
+      "name": "sqlite_autoindex_source_chunk_1",
+      "unique": true,
+      "origin": "pk",
+      "columns": [
+        "id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_config",
+      "name": "sqlite_autoindex_source_config_1",
+      "unique": true,
+      "origin": "pk",
+      "columns": [
+        "id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_event",
+      "name": "idx_universe_event_snapshot_cover",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_config_id",
+        "created_time",
+        "status",
+        null,
+        "rank",
+        "id"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY",
+        "BINARY",
+        "BINARY",
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_universe_event_snapshot_cover on source_event (source_config_id, created_time, status, coalesce(start_time, created_time), rank, id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_event",
+      "name": "idx_source_graph_event_scope_created",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_config_id",
+        "source_id",
+        "status",
+        "created_time",
+        "id"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY",
+        "BINARY",
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_source_graph_event_scope_created ON source_event (source_config_id, source_id, status, created_time, id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_event",
+      "name": "idx_source_graph_event_scope_rank",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_config_id",
+        "source_id",
+        "status",
+        "rank",
+        "created_time",
+        "id"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY",
+        "BINARY",
+        "BINARY",
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_source_graph_event_scope_rank ON source_event (source_config_id, source_id, status, rank, created_time, id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_event",
+      "name": "idx_universe_event_category_effective_timeline",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_config_id",
+        "category",
+        null,
+        "id"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY",
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_universe_event_category_effective_timeline ON source_event (source_config_id, category, COALESCE(start_time, created_time), id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_event",
+      "name": "idx_universe_event_effective_timeline",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_config_id",
+        null,
+        "id"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_universe_event_effective_timeline ON source_event (source_config_id, COALESCE(start_time, created_time), id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_event",
+      "name": "idx_universe_event_category_timeline",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_config_id",
+        "category",
+        "start_time",
+        "created_time",
+        "id"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY",
+        "BINARY",
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_universe_event_category_timeline ON source_event (source_config_id, category, start_time, created_time, id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_event",
+      "name": "idx_universe_event_timeline",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_config_id",
+        "start_time",
+        "created_time",
+        "id"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY",
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_universe_event_timeline ON source_event (source_config_id, start_time, created_time, id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_event",
+      "name": "ix_source_event_chunk_id",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "chunk_id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX ix_source_event_chunk_id ON source_event (chunk_id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_event",
+      "name": "idx_parent_level",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "parent_id",
+        "level"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_parent_level ON source_event (parent_id, level)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_event",
+      "name": "idx_level",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "level"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_level ON source_event (level)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_event",
+      "name": "idx_source_event_article_rank",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "article_id",
+        "rank"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_source_event_article_rank ON source_event (article_id, rank)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_event",
+      "name": "idx_source_rank",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_type",
+        "source_id",
+        "rank"
+      ],
+      "collations": [
+        "BINARY",
+        "BINARY",
+        "BINARY"
+      ],
+      "desc": [
+        false,
+        false,
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_source_rank ON source_event (source_type, source_id, rank)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_event",
+      "name": "idx_end_time",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "end_time"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_end_time ON source_event (end_time)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_event",
+      "name": "ix_source_event_source_id",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "source_id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX ix_source_event_source_id ON source_event (source_id)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_event",
+      "name": "idx_start_time",
+      "unique": false,
+      "origin": "c",
+      "columns": [
+        "start_time"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "CREATE INDEX idx_start_time ON source_event (start_time)",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    },
+    {
+      "table": "source_event",
+      "name": "sqlite_autoindex_source_event_1",
+      "unique": true,
+      "origin": "pk",
+      "columns": [
+        "id"
+      ],
+      "collations": [
+        "BINARY"
+      ],
+      "desc": [
+        false
+      ],
+      "partial": 0,
+      "ddl": "",
+      "tier1_dup_of": null,
+      "tier2_superset_of": []
+    }
+  ],
+  "tier1_duplicates": [],
+  "tier2_prefix_redundant": [],
+  "explains": [
+    {
+      "label": "article.source_config_id 列表",
+      "sql": "SELECT * FROM article WHERE source_config_id = 1 ORDER BY id DESC LIMIT 50",
+      "detail": [
+        "SEARCH article USING INDEX ix_article_source_config_id_id (source_config_id=?)"
+      ]
+    },
+    {
+      "label": "article.category 过滤",
+      "sql": "SELECT * FROM article WHERE category = 'report' LIMIT 50",
+      "detail": [
+        "SCAN article"
+      ]
+    },
+    {
+      "label": "article_section.article_id 分块",
+      "sql": "SELECT * FROM article_section WHERE article_id = 1 ORDER BY order_index",
+      "detail": [
+        "SEARCH article_section USING INDEX idx_article_order (article_id=?)"
+      ]
+    },
+    {
+      "label": "source_chunk.article_id 分块",
+      "sql": "SELECT * FROM source_chunk WHERE article_id = 1",
+      "detail": [
+        "SEARCH source_chunk USING INDEX idx_source_chunk_article_id (article_id=?)"
+      ]
+    },
+    {
+      "label": "source_chunk.source_config_id",
+      "sql": "SELECT * FROM source_chunk WHERE source_config_id = 1 LIMIT 50",
+      "detail": [
+        "SEARCH source_chunk USING INDEX ix_source_chunk_source_config_id (source_config_id=?)"
+      ]
+    },
+    {
+      "label": "source_event.chunk_id",
+      "sql": "SELECT * FROM source_event WHERE chunk_id = 1",
+      "detail": [
+        "SEARCH source_event USING INDEX ix_source_event_chunk_id (chunk_id=?)"
+      ]
+    },
+    {
+      "label": "source_event.article_id",
+      "sql": "SELECT * FROM source_event WHERE article_id = 1",
+      "detail": [
+        "SEARCH source_event USING INDEX idx_source_event_article_rank (article_id=?)"
+      ]
+    },
+    {
+      "label": "source_event.parent_id",
+      "sql": "SELECT * FROM source_event WHERE parent_id = 1",
+      "detail": [
+        "SEARCH source_event USING INDEX idx_parent_level (parent_id=?)"
+      ]
+    },
+    {
+      "label": "source_event.source_config_id",
+      "sql": "SELECT * FROM source_event WHERE source_config_id = 1 LIMIT 50",
+      "detail": [
+        "SEARCH source_event USING INDEX idx_universe_event_snapshot_cover (source_config_id=?)"
+      ]
+    },
+    {
+      "label": "entity.normalized_name",
+      "sql": "SELECT * FROM entity WHERE normalized_name = 'x' AND source_config_id = 1",
+      "detail": [
+        "SEARCH entity USING INDEX ix_entity_normalized_name (normalized_name=?)"
+      ]
+    },
+    {
+      "label": "entity.entity_type_id",
+      "sql": "SELECT * FROM entity WHERE entity_type_id = 1 LIMIT 50",
+      "detail": [
+        "SEARCH entity USING INDEX idx_entity_type_id (entity_type_id=?)"
+      ]
+    },
+    {
+      "label": "event_entity.event_id",
+      "sql": "SELECT * FROM event_entity WHERE event_id = 1",
+      "detail": [
+        "SEARCH event_entity USING INDEX idx_source_graph_event_entity_lookup (event_id=?)"
+      ]
+    },
+    {
+      "label": "event_entity.entity_id",
+      "sql": "SELECT * FROM event_entity WHERE entity_id = 1",
+      "detail": [
+        "SEARCH event_entity USING INDEX idx_universe_entity_event_timeline (entity_id=?)"
+      ]
+    }
+  ]
+}

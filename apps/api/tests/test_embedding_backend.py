@@ -1,0 +1,62 @@
+"""本地 embedding 后端补丁：api/local 切换与恢复、schema 校验。"""
+
+import pytest
+
+from sag_api.schemas.system import ModelConfigUpdate
+
+
+def _original_factory_impl():
+    import zleap.sag.core.ai.factory as zl_factory
+
+    return zl_factory.get_embedding_client
+
+
+def _original_module_funcs():
+    import zleap.sag.core.ai.embedding as zl_embedding
+
+    return (
+        zl_embedding.get_embedding_client,
+        zl_embedding.generate_embedding,
+        zl_embedding.batch_generate_embedding,
+    )
+
+
+def test_install_api_mode_keeps_original():
+    from sag_api.core.config import settings
+    from sag_api.sag.embedding_backend import install_embedding_backend, uninstall_embedding_backend
+
+    original = _original_factory_impl()
+    try:
+        settings.embedding_provider = "api"
+        install_embedding_backend(settings)
+        assert _original_factory_impl() is original  # api 模式不替换
+    finally:
+        uninstall_embedding_backend()
+    assert _original_factory_impl() is original
+
+
+def test_install_local_mode_replaces_and_uninstall_restores():
+    from sag_api.core.config import settings
+    from sag_api.sag.embedding_backend import install_embedding_backend, uninstall_embedding_backend
+
+    original_factory = _original_factory_impl()
+    original_module = _original_module_funcs()
+    try:
+        settings.embedding_provider = "local"
+        install_embedding_backend(settings)
+        from sag_api.sag.embedding_backend import _factory_get_embedding_client
+
+        assert _original_factory_impl() is _factory_get_embedding_client  # 已被替换
+        assert _original_module_funcs() != original_module  # 便捷函数已替换
+    finally:
+        uninstall_embedding_backend()
+    assert _original_factory_impl() is original_factory
+    assert _original_module_funcs() == original_module
+
+
+def test_model_config_patch_accepts_provider():
+    patch = ModelConfigUpdate(embedding_provider="local")
+    assert patch.embedding_provider == "local"
+    assert ModelConfigUpdate(embedding_provider="api").embedding_provider == "api"
+    with pytest.raises(ValueError):
+        ModelConfigUpdate(embedding_provider="remote")

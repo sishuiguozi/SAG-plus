@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "katex": "^0.18.1",
+    "rehype-katex": "^7.0.1",
+    "rehype-raw": "^7.0.0",
+    "remark-math": "^6.0.0"
+  }
+}
