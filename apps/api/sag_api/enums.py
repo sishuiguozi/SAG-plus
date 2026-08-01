@@ -7,6 +7,12 @@ from typing import Literal
 
 SearchStrategy = Literal["vector", "multi"]
 SEARCH_STRATEGIES = frozenset({"vector", "multi"})
+ToolChoiceStrategy = Literal[
+    "forced_no_thinking",
+    "forced_with_thinking",
+    "auto",
+    "all_no_thinking",
+]
 
 
 def normalize_search_strategy(value: str) -> str:
