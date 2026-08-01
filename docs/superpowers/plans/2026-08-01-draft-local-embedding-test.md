@@ -29,7 +29,7 @@
 - 修改：`apps/api/sag_api/api/v1/system.py`
 - 修改：`apps/api/tests/test_local_model_manager.py`
 
-- [ ] **步骤 1：编写失败测试**
+- [x] **步骤 1：编写失败测试**
 
 将现有健康检查测试改为发送：
 
@@ -40,7 +40,7 @@ json={"model_file": "bge-m3-Q6_K.gguf", "n_ctx": 4096, "n_threads": 6}
 模拟 `LocalEmbeddingClient` 构造器，断言它收到模型管理器所列的 Q6 路径、`n_ctx=4096`、
 `n_threads=6`，而不是从 `settings` 读取 Q8。另加未知 `model_file` 返回 422 的断言。
 
-- [ ] **步骤 2：运行失败测试**
+- [x] **步骤 2：运行失败测试**
 
 运行：
 
@@ -51,7 +51,7 @@ cd apps/api
 
 预期：失败，因为端点当前不接受请求体并仍调用全局 `_local_client()`。
 
-- [ ] **步骤 3：增加请求 schema 与临时客户端实现**
+- [x] **步骤 3：增加请求 schema 与临时客户端实现**
 
 在 `system.py` schema 中定义：
 
@@ -68,7 +68,7 @@ class LocalEmbeddingTestRequest(BaseModel):
 创建局部变量并调用 `await client.generate("SAG-plus local embedding health check")`。未知目录项抛出
 `ValidationError("Unsupported local embedding model")`。不引用 `_local_client()`，不读或写 `settings.embedding_*`。
 
-- [ ] **步骤 4：运行 API 验证**
+- [x] **步骤 4：运行 API 验证**
 
 运行：
 
@@ -79,7 +79,7 @@ cd apps/api
 
 预期：全部通过。
 
-- [ ] **步骤 5：提交 API 变更**
+- [x] **步骤 5：提交 API 变更**
 
 ```bash
 git add apps/api/sag_api/schemas/system.py apps/api/sag_api/api/v1/system.py apps/api/tests/test_local_model_manager.py
@@ -95,7 +95,7 @@ git commit -m "feat(api): test draft local models"
 - 修改：`apps/web/lib/local-model-manager.test.ts`
 - 修改：`apps/web/components/features/model-config-form.tsx`
 
-- [ ] **步骤 1：编写失败的草稿条件测试**
+- [x] **步骤 1：编写失败的草稿条件测试**
 
 让 `isLocalEmbeddingTestDisabled` 接受 `embeddingProvider` 和 `modelFile` 字符串而不是 `cfg`。
 断言下列未保存草稿仍可测试：
@@ -106,7 +106,7 @@ expect(isLocalEmbeddingTestDisabled("local", "bge-m3-Q6_K.gguf", readyQ6, null, 
 
 并保留 API 模式、后端未就绪、草稿文件未就绪和操作进行中时禁用的断言。
 
-- [ ] **步骤 2：运行失败测试**
+- [x] **步骤 2：运行失败测试**
 
 运行：
 
@@ -117,7 +117,7 @@ npm run test:unit -- lib/local-model-manager.test.ts
 
 预期：失败，因为函数目前读取 `cfg` 对象。
 
-- [ ] **步骤 3：实现草稿请求与启用条件**
+- [x] **步骤 3：实现草稿请求与启用条件**
 
 在 `types.ts` 定义：
 
@@ -144,7 +144,7 @@ isLocalEmbeddingTestDisabled(
 组件使用 `embProvider`、`embLocalModelFile`、`embLocalNCtx`、`embLocalNThreads` 调用 helper 和 API；
 结果回退模型名也使用 `embLocalModelFile`。
 
-- [ ] **步骤 4：运行 Web 验证**
+- [x] **步骤 4：运行 Web 验证**
 
 运行：
 
@@ -158,7 +158,7 @@ npm run i18n:check
 
 预期：全部通过。
 
-- [ ] **步骤 5：提交 Web 变更**
+- [x] **步骤 5：提交 Web 变更**
 
 ```bash
 git add apps/web
@@ -171,12 +171,12 @@ git commit -m "feat(web): test unsaved local models"
 - 修改：`README.md`
 - 修改：`README-CN.md`
 
-- [ ] **步骤 1：更新使用说明**
+- [x] **步骤 1：更新使用说明**
 
 将“测试本地模型”说明改为：它测试当前下拉选择和推理参数，不需保存，也不修改已保存配置、
 知识库或远程服务。
 
-- [ ] **步骤 2：完成跨层验证与推送**
+- [x] **步骤 2：完成跨层验证与推送**
 
 运行：
 

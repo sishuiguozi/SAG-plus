@@ -189,6 +189,12 @@ export interface LocalEmbeddingTestResult {
   elapsed_ms?: number;
 }
 
+export interface LocalEmbeddingTestRequest {
+  model_file: string;
+  n_ctx: number;
+  n_threads: number;
+}
+
 export interface ModelConfig {
   llm_provider: ModelProviderId;
   llm_base_url: string | null;

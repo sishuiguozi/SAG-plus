@@ -146,9 +146,8 @@ async def test_local_model_endpoints_require_auth_and_return_catalog(tmp_path: P
 
 
 @pytest.mark.asyncio
-async def test_local_embedding_health_check_runs_a_real_client_call(monkeypatch: pytest.MonkeyPatch):
+async def test_local_embedding_health_check_uses_unsaved_draft_values(monkeypatch: pytest.MonkeyPatch):
     from sag_api.api.v1 import system
-    from sag_api.core.config import settings
     from sag_api.main import app
 
     class ReadyModelManager:
@@ -157,48 +156,131 @@ async def test_local_embedding_health_check_runs_a_real_client_call(monkeypatch:
                 "backend": {"status": "ready", "error": None},
                 "models": [
                     {
-                        "file_name": settings.embedding_local_model_file,
+                        "file_name": "bge-m3-Q6_K.gguf",
                         "status": "ready",
-                    }
+                        "model_path": "draft-q6.gguf",
+                    },
+                    {
+                        "file_name": "unknown.gguf",
+                        "status": "ready",
+                        "model_path": "not-in-catalog.gguf",
+                    },
                 ],
             }
 
     class FakeLocalClient:
-        model_path = "test.gguf"
+        def __init__(self, model_path: str, *, n_ctx: int, n_threads: int | None) -> None:
+            assert model_path == "draft-q6.gguf"
+            assert n_ctx == 4096
+            assert n_threads == 6
 
         async def generate(self, text: str) -> list[float]:
             assert text == "SAG-plus local embedding health check"
             return [0.1, 0.2, 0.3]
 
-        async def batch_generate(self, texts: list[str]) -> list[list[float]]:
-            return [[0.1, 0.2, 0.3] for _ in texts]
-
-        def warmup(self) -> None:
+        async def close(self) -> None:
             return None
 
-    monkeypatch.setattr(settings, "embedding_provider", "local")
     monkeypatch.setattr(system, "_get_local_model_manager", lambda: ReadyModelManager())
-    monkeypatch.setattr("sag_api.sag.embedding_backend._local_client", lambda: FakeLocalClient())
+    monkeypatch.setattr("sag_api.sag.embedding_backend.LocalEmbeddingClient", FakeLocalClient)
 
     transport = httpx.ASGITransport(app=app)
-    try:
-        async with app.router.lifespan_context(app):
-            async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
-                assert (await client.post("/api/v1/system/local-models/test")).status_code == 401
-                registration = await client.post(
-                    "/api/v1/auth/register",
-                    json={"email": "local-health@t.com", "password": "password123"},
-                )
-                headers = {"Authorization": f"Bearer {registration.json()['access_token']}"}
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
+            request_body = {
+                "model_file": "bge-m3-Q6_K.gguf",
+                "n_ctx": 4096,
+                "n_threads": 6,
+            }
+            assert (
+                await client.post("/api/v1/system/local-models/test", json=request_body)
+            ).status_code == 401
+            registration = await client.post(
+                "/api/v1/auth/register",
+                json={"email": "local-health@t.com", "password": "password123"},
+            )
+            headers = {"Authorization": f"Bearer {registration.json()['access_token']}"}
 
-                response = await client.post("/api/v1/system/local-models/test", headers=headers)
-    finally:
-        from sag_api.sag.embedding_backend import uninstall_embedding_backend
-
-        uninstall_embedding_backend()
+            response = await client.post(
+                "/api/v1/system/local-models/test", headers=headers, json=request_body
+            )
+            unsupported = await client.post(
+                "/api/v1/system/local-models/test",
+                headers=headers,
+                json={**request_body, "model_file": "unknown.gguf"},
+            )
 
     assert response.status_code == 200
     assert response.json()["ok"] is True
-    assert response.json()["model_file"] == settings.embedding_local_model_file
+    assert response.json()["model_file"] == "bge-m3-Q6_K.gguf"
     assert response.json()["dimensions"] == 3
     assert response.json()["elapsed_ms"] >= 0
+    assert unsupported.status_code == 422
+    assert unsupported.json() == {
+        "error": {
+            "code": "validation_error",
+            "message": "Unsupported local embedding model",
+        }
+    }
+
+
+@pytest.mark.asyncio
+async def test_local_embedding_health_check_serializes_and_closes_temporary_clients(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    from sag_api.api.v1 import system
+
+    first_started = asyncio.Event()
+    release_first = asyncio.Event()
+    second_started = asyncio.Event()
+    clients = []
+
+    class FakeLocalClient:
+        def __init__(self, _model_path: str, *, n_ctx: int, n_threads: int | None) -> None:
+            self.index = len(clients)
+            self.n_ctx = n_ctx
+            self.n_threads = n_threads
+            self.closed = False
+            clients.append(self)
+
+        async def generate(self, _text: str) -> list[float]:
+            if self.index == 0:
+                first_started.set()
+                await release_first.wait()
+                return [0.1, 0.2, 0.3]
+            if self.index == 1:
+                second_started.set()
+                return [0.4, 0.5, 0.6]
+            raise RuntimeError("simulated local inference failure")
+
+        async def close(self) -> None:
+            self.closed = True
+
+    monkeypatch.setattr("sag_api.sag.embedding_backend.LocalEmbeddingClient", FakeLocalClient)
+
+    first_request = asyncio.create_task(
+        system._generate_local_embedding_test("draft-q6.gguf", n_ctx=4096, n_threads=6)
+    )
+    await asyncio.wait_for(first_started.wait(), timeout=1)
+    second_request = asyncio.create_task(
+        system._generate_local_embedding_test("draft-q6.gguf", n_ctx=4096, n_threads=6)
+    )
+    try:
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(second_started.wait(), timeout=0.05)
+    finally:
+        release_first.set()
+
+    first_vector, second_vector = await asyncio.wait_for(
+        asyncio.gather(first_request, second_request), timeout=1
+    )
+    with pytest.raises(RuntimeError, match="simulated local inference failure"):
+        await asyncio.wait_for(
+            system._generate_local_embedding_test("draft-q6.gguf", n_ctx=512, n_threads=None),
+            timeout=1,
+        )
+
+    assert first_vector == [0.1, 0.2, 0.3]
+    assert second_vector == [0.4, 0.5, 0.6]
+    assert len(clients) == 3
+    assert all(client.closed for client in clients)

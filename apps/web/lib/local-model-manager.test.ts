@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isLocalEmbeddingTestResponseCurrent,
+  localEmbeddingTestDraftKey,
   isLocalEmbeddingTestDisabled,
   isLocalModelDownloadDisabled,
   toggleLocalModelSelection,
 } from "./local-model-manager";
-import type { LocalModelManagerStatus, ModelConfig } from "./types";
+import type { LocalModelManagerStatus } from "./types";
 
 const status = (backend: LocalModelManagerStatus["backend"]["status"]): LocalModelManagerStatus => ({
   backend_installed: backend === "ready",
@@ -14,6 +16,23 @@ const status = (backend: LocalModelManagerStatus["backend"]["status"]): LocalMod
 });
 
 describe("local model manager controls", () => {
+  it("changes the embedding test draft identity when any test input changes", () => {
+    const draft = localEmbeddingTestDraftKey("local", "bge-m3-Q6_K.gguf", 4096, 8);
+
+    expect(localEmbeddingTestDraftKey("api", "bge-m3-Q6_K.gguf", 4096, 8)).not.toBe(draft);
+    expect(localEmbeddingTestDraftKey("local", "bge-m3-Q8_0.gguf", 4096, 8)).not.toBe(draft);
+    expect(localEmbeddingTestDraftKey("local", "bge-m3-Q6_K.gguf", 2048, 8)).not.toBe(draft);
+    expect(localEmbeddingTestDraftKey("local", "bge-m3-Q6_K.gguf", 4096, 0)).not.toBe(draft);
+  });
+
+  it("rejects a test response after its draft changes", () => {
+    const requestDraft = localEmbeddingTestDraftKey("local", "bge-m3-Q6_K.gguf", 4096, 8);
+    const changedDraft = localEmbeddingTestDraftKey("local", "bge-m3-Q8_0.gguf", 4096, 8);
+
+    expect(isLocalEmbeddingTestResponseCurrent(requestDraft, requestDraft)).toBe(true);
+    expect(isLocalEmbeddingTestResponseCurrent(requestDraft, changedDraft)).toBe(false);
+  });
+
   it("keeps model selection multi-selectable without duplicate files", () => {
     expect(toggleLocalModelSelection(["bge-m3-Q8_0.gguf"], "bge-m3-Q6_K.gguf", true)).toEqual([
       "bge-m3-Q8_0.gguf",
@@ -31,19 +50,16 @@ describe("local model manager controls", () => {
     expect(isLocalModelDownloadDisabled(status("ready"), ["bge-m3-Q8_0.gguf"], null)).toBe(false);
   });
 
-  it("only enables an embedding test for the saved, ready local model", () => {
-    const config = {
-      embedding_provider: "local",
-      embedding_local_model_file: "bge-m3-Q8_0.gguf",
-    } as Pick<ModelConfig, "embedding_provider" | "embedding_local_model_file">;
+  it("enables an embedding test for an unsaved, ready local model draft", () => {
+    const draftModelFile = "bge-m3-Q6_K.gguf";
     const readyStatus = {
       ...status("ready"),
-      models: [{ file_name: "bge-m3-Q8_0.gguf", status: "ready" }],
+      models: [{ file_name: draftModelFile, status: "ready" }],
     } as LocalModelManagerStatus;
 
-    expect(isLocalEmbeddingTestDisabled(config, readyStatus, null, false)).toBe(false);
-    expect(isLocalEmbeddingTestDisabled({ ...config, embedding_provider: "api" }, readyStatus, null, false)).toBe(true);
-    expect(isLocalEmbeddingTestDisabled(config, readyStatus, "download", false)).toBe(true);
-    expect(isLocalEmbeddingTestDisabled(config, readyStatus, null, true)).toBe(true);
+    expect(isLocalEmbeddingTestDisabled("local", draftModelFile, readyStatus, null, false)).toBe(false);
+    expect(isLocalEmbeddingTestDisabled("api", draftModelFile, readyStatus, null, false)).toBe(true);
+    expect(isLocalEmbeddingTestDisabled("local", draftModelFile, readyStatus, "download", false)).toBe(true);
+    expect(isLocalEmbeddingTestDisabled("local", draftModelFile, readyStatus, null, true)).toBe(true);
   });
 });

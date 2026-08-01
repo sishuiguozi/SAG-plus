@@ -25,7 +25,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { api, ApiError } from "@/lib/api";
 import {
   isLocalEmbeddingTestDisabled,
+  isLocalEmbeddingTestResponseCurrent,
   isLocalModelDownloadDisabled,
+  localEmbeddingTestDraftKey,
   toggleLocalModelSelection,
   type LocalModelAction,
 } from "@/lib/local-model-manager";
@@ -112,6 +114,18 @@ export function ModelConfigForm() {
   const [testingLocalEmbedding, setTestingLocalEmbedding] = React.useState(false);
   const [localEmbeddingTestResult, setLocalEmbeddingTestResult] =
     React.useState<LocalEmbeddingTestResult | null>(null);
+  const localEmbeddingDraftKey = localEmbeddingTestDraftKey(
+    embProvider,
+    embLocalModelFile,
+    embLocalNCtx,
+    embLocalNThreads,
+  );
+  const localEmbeddingDraftKeyRef = React.useRef(localEmbeddingDraftKey);
+  localEmbeddingDraftKeyRef.current = localEmbeddingDraftKey;
+
+  React.useEffect(() => {
+    setLocalEmbeddingTestResult(null);
+  }, [localEmbeddingDraftKey]);
 
   const hydrate = React.useCallback((config: ModelConfig) => {
     setCfg(config);
@@ -372,15 +386,26 @@ export function ModelConfigForm() {
   }
 
   async function testLocalEmbedding() {
+    const requestDraftKey = localEmbeddingDraftKey;
     setTestingLocalEmbedding(true);
     setLocalEmbeddingTestResult(null);
     try {
-      const result = await api.testLocalEmbedding();
+      const result = await api.testLocalEmbedding({
+        model_file: embLocalModelFile.trim(),
+        n_ctx: embLocalNCtx,
+        n_threads: embLocalNThreads,
+      });
+      if (!isLocalEmbeddingTestResponseCurrent(requestDraftKey, localEmbeddingDraftKeyRef.current)) {
+        return;
+      }
       setLocalEmbeddingTestResult(result);
       if (result.ok) {
         toast.success(t("localModelTestSucceeded"));
       }
     } catch (error) {
+      if (!isLocalEmbeddingTestResponseCurrent(requestDraftKey, localEmbeddingDraftKeyRef.current)) {
+        return;
+      }
       setLocalEmbeddingTestResult({
         ok: false,
         message: error instanceof ApiError ? error.message : t("localModelTestFailed"),
@@ -722,7 +747,8 @@ export function ModelConfigForm() {
                       variant="outline"
                       size="sm"
                       disabled={isLocalEmbeddingTestDisabled(
-                        cfg,
+                        embProvider,
+                        embLocalModelFile,
                         localModels,
                         localModelAction,
                         testingLocalEmbedding,
@@ -746,7 +772,7 @@ export function ModelConfigForm() {
                     >
                       {localEmbeddingTestResult.ok
                         ? t("localModelTestResult", {
-                            model: localEmbeddingTestResult.model_file ?? cfg.embedding_local_model_file,
+                            model: localEmbeddingTestResult.model_file ?? embLocalModelFile,
                             dimensions: localEmbeddingTestResult.dimensions ?? 0,
                             elapsed: localEmbeddingTestResult.elapsed_ms ?? 0,
                           })

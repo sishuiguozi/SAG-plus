@@ -2,6 +2,22 @@ import type { LocalModelManagerStatus, ModelConfig } from "./types";
 
 export type LocalModelAction = "backend" | "download" | null;
 
+export function localEmbeddingTestDraftKey(
+  embeddingProvider: ModelConfig["embedding_provider"],
+  modelFile: string,
+  nCtx: number,
+  nThreads: number,
+): string {
+  return JSON.stringify([embeddingProvider, modelFile, nCtx, nThreads]);
+}
+
+export function isLocalEmbeddingTestResponseCurrent(
+  requestDraftKey: string,
+  currentDraftKey: string,
+): boolean {
+  return requestDraftKey === currentDraftKey;
+}
+
 export function toggleLocalModelSelection(
   selected: string[],
   fileName: string,
@@ -21,18 +37,19 @@ export function isLocalModelDownloadDisabled(
 }
 
 export function isLocalEmbeddingTestDisabled(
-  config: Pick<ModelConfig, "embedding_provider" | "embedding_local_model_file">,
+  embeddingProvider: ModelConfig["embedding_provider"],
+  modelFile: string,
   status: LocalModelManagerStatus,
   action: LocalModelAction,
   testing: boolean,
 ): boolean {
   const activeModel = status.models.find(
-    (model) => model.file_name === config.embedding_local_model_file,
+    (model) => model.file_name === modelFile,
   );
   return (
     testing ||
     action !== null ||
-    config.embedding_provider !== "local" ||
+    embeddingProvider !== "local" ||
     status.backend.status !== "ready" ||
     activeModel?.status !== "ready"
   );
