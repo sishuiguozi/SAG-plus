@@ -7,8 +7,8 @@
 SAG-plus is a locally run, personal optimization fork of
 [Zleap-AI/SAG](https://github.com/Zleap-AI/SAG) that turns scattered documents
 and code into searchable, related, traceable knowledge. The repository is
-maintained as a desktop development workspace, with a self-hosted Docker
-deployment kept as an alternative.
+maintained as a desktop development workspace; development mode is the
+supported way to run it.
 
 ## Table of contents
 
@@ -70,8 +70,7 @@ questions with citations, or expose the same knowledge to other applications.
 | Integration | Self-hosted REST/OpenAPI, OpenAI-compatible endpoint, MCP, and the `skills/sag` Agent Skill |
 
 The product targets a local, single-user setup by default. It runs on SQLite
-and LanceDB with no external database, while keeping a migration path to
-PostgreSQL/pgvector.
+and LanceDB with no external database.
 
 ---
 
@@ -145,32 +144,11 @@ The desktop script starts or reuses the local API (`127.0.0.1:8000`), Web UI
 checks dependencies, runs `npm ci` where needed, creates `apps/api/.venv`, and
 installs the API package. Stop it with `Ctrl+C`.
 
-### Quick start (Docker, self-hosted)
-
-Prepare Docker Desktop, or Docker Engine with Compose v2:
-
-```bash
-git clone https://github.com/sishuiguozi/SAG-plus.git
-cd SAG-plus
-docker compose up -d --build
-```
-
-Once both services are healthy, open:
-
-- Web app: [http://localhost:3000](http://localhost:3000)
-- API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
-
-First use:
-
-1. Enter a name to create or restore a local identity.
-2. In **Settings → Model**, fill in any OpenAI-compatible LLM and Embedding
-   endpoints (Docker defaults to 302.AI).
-3. Create a source and upload documents; wait until the status becomes **ready**.
-4. Search, open the original text, or start a conversation with citations.
-
-Without a model key the UI and services still start. Embeddings are used for
-indexing and vector retrieval; the LLM is used for event extraction, query
-understanding, and answer generation.
+First use: enter a name to create a local identity → configure any
+OpenAI-compatible LLM and Embedding endpoints in **Settings → Model** → create
+a source and upload documents, wait until the status becomes **ready** →
+search, open the original text, or start a conversation with citations.
+Without a model key the UI and services still start.
 
 ### Import knowledge
 
@@ -318,48 +296,6 @@ It returns a standard `chat.completion` with an extra `sag.citations` field
 that standard clients ignore; set `"stream": true` for SSE chunks. This
 endpoint is stateless (no thread is persisted).
 
-### Running and updating
-
-```bash
-docker compose ps                  # api and web should show healthy
-docker compose logs -f api web     # follow logs
-docker compose restart             # restart services
-docker compose down                # stop, keeping all data
-
-git pull --ff-only                 # update local code
-docker compose up -d --build       # rebuild, keeping data volumes
-```
-
-Default persistence:
-
-| Run mode | App metadata | Knowledge engine | Location |
-| --- | --- | --- | --- |
-| Docker default | SQLite | SQLite + LanceDB | Docker volume `sagdata` |
-| Local development | SQLite | SQLite + LanceDB | app-data `data` or the configured data root |
-| PostgreSQL overlay | PostgreSQL | PostgreSQL + pgvector | `pgdata` and `sagdata` volumes |
-
-`docker compose down` keeps your data. **`docker compose down -v` permanently
-deletes the database, knowledge index, and uploaded files.**
-
-### Networking and production security
-
-By default Compose binds ports 3000 and 8000 to `127.0.0.1`. SAG is currently
-a local single-user product; do not expose these ports directly to the public
-internet.
-
-To customize ports or serve on a trusted LAN:
-
-```bash
-cp .env.example .env
-# Edit BIND_ADDRESS, WEB_PORT, API_PORT, SAG_CORS_ORIGINS, and NEXT_PUBLIC_API_BASE.
-docker compose up -d --build
-```
-
-`NEXT_PUBLIC_API_BASE` is baked into the Web image at build time, so a rebuild
-(`--build`) is required after changing it. Server deployments should also add
-HTTPS and external access controls such as a VPN, IP allowlist, or reverse-proxy
-authentication.
-
 ---
 
 <a id="developer-guide"></a>
@@ -378,7 +314,7 @@ Developers can keep the whole backend and build their own frontend, or embed
 ```text
 apps/
 ├── web/                    Next.js 15 + React 19 product frontend
-├── desktop/                Electron shell, packaging, and local runtime lifecycle
+├── desktop/                Electron shell and local runtime lifecycle
 └── api/
     ├── sag_api/
     │   ├── api/v1/         FastAPI HTTP routes and serialization
@@ -419,9 +355,8 @@ cd apps/web && npm run typecheck
 
 ### Desktop client
 
-The Electron client packages the same Next.js app with a local FastAPI backend.
-Desktop development, per-platform release builds, signing, update
-configuration, and data directories are documented in
+The Electron client runs the same Next.js app with a local FastAPI backend.
+Desktop development, data directories, and run instructions are documented in
 [`apps/desktop/README.md`](apps/desktop/README.md).
 
 ### Build your own frontend on the SAG backend (self-hosted API)
@@ -495,25 +430,8 @@ Document writes are handled by a background task queue. Check the returned
 document status or its job before expecting search results.
 
 If your custom frontend is served from a different origin, add it to
-`SAG_CORS_ORIGINS`. When the API address changes, rebuild the Web image with
-the matching `NEXT_PUBLIC_API_BASE`.
-
-### PostgreSQL / pgvector deployment
-
-An optional production overlay migrates application metadata and the knowledge
-engine to PostgreSQL/pgvector:
-
-```bash
-cp .env.example .env
-openssl rand -hex 32   # fill SAG_SECRET_KEY
-openssl rand -hex 24   # fill POSTGRES_PASSWORD
-
-docker compose -f compose.yaml -f compose.postgres.yaml config
-docker compose -f compose.yaml -f compose.postgres.yaml up -d --build
-```
-
-Before serving, set real `SAG_CORS_ORIGINS` and `NEXT_PUBLIC_API_BASE` values.
-Back up both `pgdata` and `sagdata` before upgrading.
+`SAG_CORS_ORIGINS`. When the API address changes, rebuild the Web frontend
+with the matching `NEXT_PUBLIC_API_BASE`.
 
 ---
 

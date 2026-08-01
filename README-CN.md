@@ -4,7 +4,7 @@
   <a href="README.md">English</a> · <strong>简体中文</strong>
 </p>
 
-SAG-plus 是基于 [Zleap-AI/SAG](https://github.com/Zleap-AI/SAG) 的本地个人优化分支，把分散的文档与代码变成可搜索、可关联、可追溯的知识。当前仓库定位为桌面开发工作区，同时保留自托管 Docker 部署。
+SAG-plus 是基于 [Zleap-AI/SAG](https://github.com/Zleap-AI/SAG) 的本地个人优化分支，把分散的文档与代码变成可搜索、可关联、可追溯的知识。当前仓库定位为桌面开发工作区，以开发模式运行为主。
 
 ## 目录
 
@@ -49,7 +49,7 @@ SAG 通过 event-entity 索引与查询时动态超边，在一个系统中同�
 | Agent 对话 | 基于指定信源进行多轮问答，并提供可点击引用 |
 | 对外集成 | 自托管 REST/OpenAPI、OpenAI 兼容接口、MCP 与 `skills/sag` Agent Skill |
 
-产品默认面向本地单用户场景。它使用 SQLite 与 LanceDB 即可启动，不依赖外部数据库，同时保留迁移至 PostgreSQL/pgvector 的路径。
+产品默认面向本地单用户场景，使用 SQLite 与 LanceDB 即可启动，不依赖外部数据库。
 
 ---
 
@@ -110,29 +110,7 @@ npm run dev
 
 桌面脚本会启动或复用本地 API（`127.0.0.1:8000`）、Web（`127.0.0.1:3000` 或 `3001`）和 Electron 窗口。首次运行会自动检查依赖、在需要时执行 `npm ci`、创建 `apps/api/.venv` 并安装 API 包。按 `Ctrl+C` 停止。
 
-### 快速开始（Docker，自托管）
-
-准备 Docker Desktop，或 Docker Engine 与 Compose v2：
-
-```bash
-git clone https://github.com/sishuiguozi/SAG-plus.git
-cd SAG-plus
-docker compose up -d --build
-```
-
-两个服务健康后打开：
-
-- Web 应用：[http://localhost:3000](http://localhost:3000)
-- API 文档：[http://localhost:8000/docs](http://localhost:8000/docs)
-
-首次使用：
-
-1. 填写名字，创建或恢复本地身份。
-2. 进入 **设置 → 模型**，填写任意 OpenAI 兼容的 LLM 与 Embedding 接口（Docker 默认指向 302.AI）。
-3. 创建信源并上传文档，等待状态变为**就绪**。
-4. 开始检索、打开原文，或直接进行带引用的对话。
-
-没有模型密钥时，界面和服务仍可启动。Embedding 用于索引与向量检索；LLM 用于事件抽取、查询理解和生成回答。
+首次使用：填写名字创建本地身份 → 在 **设置 → 模型** 配置任意 OpenAI 兼容的 LLM 与 Embedding 接口 → 创建信源并上传文档，等待状态变为**就绪** → 开始检索、打开原文或进行带引用的对话。没有模型密钥时，界面和服务仍可启动。
 
 ### 导入知识
 
@@ -224,42 +202,6 @@ curl -s http://localhost:8000/api/v1/openai/<AGENT_ID>/chat/completions \
 
 返回标准 `chat.completion`，并额外提供 `sag.citations` 引用字段；标准客户端会忽略未知字段。设置 `"stream": true` 后以 SSE 分块返回。该端点无状态（不落库）。
 
-### 运行与更新
-
-```bash
-docker compose ps                  # api 和 web 应显示 healthy
-docker compose logs -f api web     # 持续查看日志
-docker compose restart             # 重启服务
-docker compose down                # 停止并保留全部数据
-
-git pull --ff-only                 # 更新本地代码
-docker compose up -d --build       # 重建服务，不删除数据卷
-```
-
-默认持久化方式：
-
-| 运行方式 | 应用元数据 | 知识引擎 | 保存位置 |
-| --- | --- | --- | --- |
-| Docker 默认 | SQLite | SQLite + LanceDB | Docker 数据卷 `sagdata` |
-| 本地开发 | SQLite | SQLite + LanceDB | 应用数据目录 `data` 或设置的知识库数据位置 |
-| PostgreSQL 覆盖 | PostgreSQL | PostgreSQL + pgvector | `pgdata` 与 `sagdata` 数据卷 |
-
-`docker compose down` 会保留数据。**`docker compose down -v` 会永久删除数据库、知识索引和已上传文件。**
-
-### 网络与生产安全
-
-默认 Compose 只将 3000 和 8000 端口绑定到 `127.0.0.1`。SAG 当前是本地单用户产品，不要把这两个端口直接暴露到公网。
-
-需要自定义端口或在受信局域网访问时：
-
-```bash
-cp .env.example .env
-# 修改 BIND_ADDRESS、WEB_PORT、API_PORT、SAG_CORS_ORIGINS 和 NEXT_PUBLIC_API_BASE。
-docker compose up -d --build
-```
-
-`NEXT_PUBLIC_API_BASE` 会在构建时写入 Web 镜像，因此修改后必须带 `--build`。服务器部署还应配置 HTTPS，以及 VPN、IP 白名单或反向代理认证等外部访问控制。
-
 ---
 
 <a id="开发者指南"></a>
@@ -275,7 +217,7 @@ SAG-plus 采用 Next.js 前端与 FastAPI 后端分离的架构。后端是基�
 ```text
 apps/
 ├── web/                    Next.js 15 + React 19 产品前端
-├── desktop/                Electron 桌面壳、打包与本地运行时生命周期
+├── desktop/                Electron 桌面壳与本地运行时生命周期
 └── api/
     ├── sag_api/
     │   ├── api/v1/         FastAPI HTTP 路由与序列化
@@ -314,7 +256,7 @@ cd apps/web && npm run typecheck
 
 ### 桌面客户端
 
-Electron 客户端将同一套 Next.js 应用与本地 FastAPI 后端一起打包。桌面开发、分平台发布构建、签名、更新配置和数据目录见 [`apps/desktop/README.md`](apps/desktop/README.md)。
+Electron 客户端将同一套 Next.js 应用与本地 FastAPI 后端一起运行。桌面开发、数据目录与运行说明见 [`apps/desktop/README.md`](apps/desktop/README.md)。
 
 ### 基于 SAG 后端制作自己的前端（自托管 API）
 
@@ -381,22 +323,7 @@ curl -s -X POST "$BASE/sources/$SOURCE_ID/search" \
 
 文档写入由后台任务队列处理。在期待检索结果前，请检查返回的文档状态或对应任务是否完成。
 
-如果自定义前端与 API 不同源，请将前端地址加入 `SAG_CORS_ORIGINS`。API 地址改变时，还要用对应的 `NEXT_PUBLIC_API_BASE` 重新构建 Web 镜像。
-
-### PostgreSQL/pgvector 部署
-
-可选的生产覆盖会将应用元数据与知识引擎迁移到 PostgreSQL/pgvector：
-
-```bash
-cp .env.example .env
-openssl rand -hex 32   # 填入 SAG_SECRET_KEY
-openssl rand -hex 24   # 填入 POSTGRES_PASSWORD
-
-docker compose -f compose.yaml -f compose.postgres.yaml config
-docker compose -f compose.yaml -f compose.postgres.yaml up -d --build
-```
-
-服务器部署前应设置真实的 `SAG_CORS_ORIGINS` 与 `NEXT_PUBLIC_API_BASE`。升级前同时备份 `pgdata` 和 `sagdata`。
+如果自定义前端与 API 不同源，请将前端地址加入 `SAG_CORS_ORIGINS`。API 地址改变时，还要用对应的 `NEXT_PUBLIC_API_BASE` 重新构建 Web 前端。
 
 ---
 
