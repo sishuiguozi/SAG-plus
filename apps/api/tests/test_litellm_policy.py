@@ -322,3 +322,81 @@ def test_explicitly_disabled_reasoning_does_not_fill_history() -> None:
     )
 
     assert "reasoning_content" not in request["messages"][1]
+
+def test_opencode_extract_rewrites_json_schema_and_disables_top_level_thinking() -> None:
+    """Console Go needs the old sag_llm_proxy transforms for extraction."""
+    from sag_api.core.llm_call_context import llm_call_scope
+
+    settings = Settings(
+        _env_file=None,
+        llm_api_key="test-key",
+        llm_base_url="https://opencode.ai/zen/go/v1",
+        llm_model="deepseek-v4-flash",
+        llm_tool_choice_strategy="forced_no_thinking",
+    )
+    schema_request = {
+        "messages": [{"role": "user", "content": "extract"}],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "structured_output",
+                "schema": {
+                    "type": "object",
+                    "properties": {"events": {"type": "array"}},
+                },
+            },
+        },
+    }
+
+    with llm_call_scope("extract"):
+        request = apply_litellm_completion_policy(settings, schema_request)
+
+    assert request["response_format"] == {"type": "json_object"}
+    assert "thinking" not in request
+    assert request["extra_body"]["thinking"] == {"type": "disabled"}
+    assert request["reasoning_effort"] == "none"
+
+
+def test_opencode_json_schema_is_downgraded_even_for_plain_chat() -> None:
+    settings = Settings(
+        _env_file=None,
+        llm_api_key="test-key",
+        llm_base_url="https://opencode.ai/zen/go/v1",
+        llm_model="deepseek-v4-flash",
+    )
+
+    request = apply_litellm_completion_policy(
+        settings,
+        {
+            "messages": [],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"name": "x", "schema": {"type": "object"}},
+            },
+        },
+    )
+
+    assert request["response_format"] == {"type": "json_object"}
+    assert "thinking" not in request
+
+
+def test_non_opencode_json_schema_is_preserved() -> None:
+    settings = Settings(
+        _env_file=None,
+        llm_api_key="test-key",
+        llm_base_url="https://api.openai.com/v1",
+        llm_model="gpt-5-mini",
+        llm_provider="openai",
+    )
+    response_format = {
+        "type": "json_schema",
+        "json_schema": {"name": "x", "schema": {"type": "object"}},
+    }
+
+    request = apply_litellm_completion_policy(
+        settings,
+        {"messages": [], "response_format": response_format},
+    )
+
+    assert request["response_format"] == response_format
+

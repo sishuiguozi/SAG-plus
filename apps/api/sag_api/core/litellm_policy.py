@@ -90,6 +90,9 @@ def _apply_scoped_reasoning_disable(
     """Apply only the provider fields accepted by the active endpoint family."""
     normalized["reasoning_effort"] = "none"
     if _is_opencode_style_route(model, settings):
+        # Console Go / OpenCode expect top-level thinking in the HTTP body.
+        # Put it in extra_body so LiteLLM merges it outbound without rejecting
+        # an unsupported OpenAI-compatible kwarg at the client boundary.
         _merge_extra_body(normalized, {"thinking": {"type": "disabled"}})
     elif _is_qwen_template_route(model, settings):
         existing = normalized.get("extra_body")
@@ -98,6 +101,27 @@ def _apply_scoped_reasoning_disable(
             clean.pop("enable_thinking", None)
             normalized["extra_body"] = clean
         _merge_extra_body(normalized, {"chat_template_kwargs": {"enable_thinking": False}})
+
+
+def _apply_opencode_response_format_compat(
+    normalized: dict[str, Any],
+    model: str,
+    settings: Settings,
+) -> None:
+    """Downgrade unsupported structured-output modes for Console Go / OpenCode.
+
+    These endpoints reject ``response_format.type=json_schema`` with a generic
+    upstream failure. The historical local proxy rewrote it to ``json_object``
+    and left schema validation to the client-side parser.
+    """
+    if not _is_opencode_style_route(model, settings):
+        return
+    response_format = normalized.get("response_format")
+    if not isinstance(response_format, Mapping):
+        return
+    if response_format.get("type") != "json_schema":
+        return
+    normalized["response_format"] = {"type": "json_object"}
 
 
 def _with_allowed_openai_param(request: dict[str, Any], name: str) -> None:
@@ -115,6 +139,9 @@ def _with_allowed_openai_param(request: dict[str, Any], name: str) -> None:
 
 def _reasoning_is_disabled(request: Mapping[str, Any]) -> bool:
     if request.get("reasoning_effort") == "none":
+        return True
+    top_thinking = request.get("thinking")
+    if isinstance(top_thinking, Mapping) and top_thinking.get("type") == "disabled":
         return True
     extra_body = request.get("extra_body")
     if not isinstance(extra_body, Mapping):
@@ -190,6 +217,10 @@ def apply_litellm_completion_policy(
 
     if "reasoning_effort" in normalized and _is_openai_route(model, settings):
         _with_allowed_openai_param(normalized, "reasoning_effort")
+
+    # Provider compatibility rewrites that must stay independent of reasoning
+    # strategy (extraction always sends json_schema via chat_with_schema).
+    _apply_opencode_response_format_compat(normalized, model, settings)
     return normalized
 
 
