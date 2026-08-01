@@ -7,6 +7,8 @@ SAG Desktop 用 Electron 承载现有 Next.js 工作台，并在本机管理两�
 
 桌面版默认打开完整主面板，产品界面和路由继续来自 `apps/web`。首版不拆分宠物窗口，也不维护第二套前端。
 
+> **mysag 分支说明：** 当前仓库未发布独立桌面安装包，也未启用自己的 GitHub Release 流水线。请从源码构建；下文保留的上游发布细节仅供后续迁移发布流程时参考，不能直接用于本仓库。
+
 ## 本地开发
 
 要求：
@@ -37,9 +39,14 @@ npm run dev
 
 如果 3000 或 8000 端口已经运行对应服务，开发脚本会复用它们。退出 Electron 时，由脚本创建的子进程会一起退出。
 
-## 用户下载与更新
+## 当前分支的下载与更新
 
-正式安装包统一发布在 [`Zleap-AI/SAG` Releases](https://github.com/Zleap-AI/SAG/releases/latest)：
+`mysag` 当前没有可下载的正式安装包。请按「本地开发」或「本地构建与排查」从源码构建。
+未配置 `SAG_UPDATE_GITHUB_REPOSITORY` 或 `SAG_UPDATE_BASE_URL` 的本地产物不会检查更新。
+
+## 上游发布流程参考（当前分支未启用）
+
+上游正式安装包统一发布在 [`Zleap-AI/SAG` Releases](https://github.com/Zleap-AI/SAG/releases/latest)：
 
 - macOS Apple Silicon：DMG 用于安装，ZIP 与 `latest-mac.yml` 用于自动更新；
 - Windows x64：暂不签名的 NSIS EXE 用于安装，`latest.yml` 与 blockmap 用于自动更新；Windows 可能显示“未知发布者”提示；
@@ -47,7 +54,7 @@ npm run dev
 
 已安装客户端默认跟随 GitHub Releases 的 `latest` 稳定通道。Release 必须是非草稿正式版本；草稿和失败的流水线不会被客户端发现。
 
-## 一条命令发布到 public
+## 上游一条命令发布到 public（当前分支未启用）
 
 正式发布只能从 `Zleap-AI/SAG` 的独立公开 clone 根目录、干净且已合并完成的 `main` 分支执行。该 clone 不得添加内部仓库 remote，也不得包含内部 Git 历史：
 
@@ -70,7 +77,7 @@ make release VERSION=1.4.0
 
 ## GitHub 发布环境
 
-打开 public 仓库的 [`Settings → Environments`](https://github.com/Zleap-AI/SAG/settings/environments)，创建名称完全一致的 `desktop-release` Environment。若启用 Deployment branches and tags 限制，需要同时允许 `main`（手动验收）与 `v*.*.*`（正式发布标签）；可选配 Required reviewers 作为人工发布闸门。
+`mysag` 目前不应配置或触发这套上游发布环境：`scripts/release-public.mjs` 与 `.github/workflows/desktop-release.yml` 仍固定校验 `Zleap-AI/SAG`。如需发布，请先将脚本和工作流显式迁移到本仓库，再在对应仓库创建 `desktop-release` Environment。
 
 在该 Environment 的 **Environment secrets** 中配置：
 
@@ -148,7 +155,7 @@ npm run package:dir
 | `SAG_DESKTOP_APP_ID` | `ai.zleap.sag` | 应用唯一标识；首次公开发布后不得随意修改 |
 | `SAG_DESKTOP_API_PORT` | `8000` | 本地 API 端口；同时写入 Web 构建和桌面运行时 |
 | `SAG_DESKTOP_WEB_PORT` | `32100` | 本地 Web 首选端口；被占用时向后寻找可用端口 |
-| `SAG_UPDATE_GITHUB_REPOSITORY` | 未设置 | GitHub 更新源，格式 `owner/repository`；正式流水线传入 `Zleap-AI/SAG` |
+| `SAG_UPDATE_GITHUB_REPOSITORY` | 未设置 | GitHub 更新源，格式 `owner/repository`；`mysag` 当前未配置正式更新源 |
 | `SAG_UPDATE_BASE_URL` | 未设置 | 备用通用更新源根地址；不能与 GitHub 更新源同时设置 |
 | `SAG_NOTARIZE` | `false` | 设为 `true` 时执行 macOS notarization |
 | `SAG_DESKTOP_PYTHON` | `apps/api/.venv` 中的 Python | 构建 sidecar 使用的解释器 |

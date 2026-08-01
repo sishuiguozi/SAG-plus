@@ -11,9 +11,14 @@
 | 4 | `sag_api/sag/vector_write_queue.py` | 事件/分块向量写入队列化（批处理、租约、幂等） | `main.py` | — | 向量队列测试 |
 | 5 | `sag_api/sag/embedding_backend.py` | 本地 bge-m3（llama-cpp）替换 zleap OpenAI embedding | `main.py` + 设置保存 | `uninstall_embedding_backend` | test_embedding_backend |
 | 6 | `sag_api/sag/chunking_compat.py` | 结构感知分块（代码块/表格不切断） | `main.py` | `uninstall_structural_chunking_patch` | test_chunking_structural |
-| 7 | `sag_api/sag/lancedb_fts.py` | BM25 独立召回（LanceDB FTS + tantivy） | 懒加载（首次检索） | — | test_lancedb_fts |
+| 7 | `sag_api/sag/lancedb_fts.py` | BM25 独立召回（LanceDB FTS + tantivy）；同步索引/查询经 worker thread 执行，避免阻塞 API 事件循环 | 懒加载（首次检索） | — | test_lancedb_fts |
 | 8 | `sag_api/core/litellm_policy.py` | LiteLLM pre-call 策略（provider 参数） | `main.py` | `uninstall_litellm_policy` | 模型配置测试 |
 | 9 | `sag_api/sag/parent_child.py` | 父子分块（A4）：入库 parent_id 回填 + 父块向量过滤 + 检索父上下文 | `main.py` | `uninstall_parent_child_loader_patch` | test_parent_child |
+
+## 运行期验证
+
+- `apps/api/scripts/eval_retrieval.py` 是 A5 检索评估入口。它会在调用者上下文预热引擎，再执行并发检索，避免 zleap-sag 的跨 `ContextVar` 关闭警告；输出每条用例的命中数与耗时。
+- 当前内置评估集是轻量回归基线，不替代面向真实业务语料的人工标注评估集。
 
 ## 治理约定
 - 新补丁必须提供 `install_*` / `uninstall_*`（可卸载的）或幂等标记

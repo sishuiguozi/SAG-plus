@@ -1,8 +1,17 @@
 # Changelog
 
-本项目遵循语义化版本。各版本及安装包均可在 [Releases](https://github.com/Zleap-AI/SAG/releases) 查看。
+`mysag` 是 [Zleap-AI/SAG](https://github.com/Zleap-AI/SAG) 的个人维护优化分支。
+本分支尚未发布独立安装包；从源码使用请参阅根目录 README。
 
 ## Unreleased
+
+### mysag optimization branch · 2026-08
+
+- 检索：新增 TTL 结果缓存、LanceDB BM25 全文召回与 grep 回退、可选 LLM 重排、父子分块和可重复运行的评估脚本。
+- 入库与存储：四张向量表统一接入持久化单写者队列，支持记录级去重、批量追加、失败恢复、辅助索引延迟补齐、维护门禁和磁盘保护。
+- 数据库与运维：SQLite 连接池/PRAGMA 调优、重复索引迁移、向量索引基准与增量维护、性能指标和自动维护工具。
+- 工作台：文档批量删除、入库活动/速率/ETA、解析诊断、选中文本翻译、虚拟化文档列表和图谱渐进加载。
+- 桌面运行：开发服务检查、数据目录隔离、崩溃恢复和更新前检查点支持；本分支暂不提供独立 Release。
 
 ## v1.4.0 · 2026-07-23
 

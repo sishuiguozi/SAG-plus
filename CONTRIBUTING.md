@@ -1,6 +1,7 @@
 # Contributing
 
-Thank you for your interest in SAG.
+Thank you for your interest in `mysag`, an optimization fork of
+[Zleap-AI/SAG](https://github.com/Zleap-AI/SAG).
 
 ## Environment
 
@@ -16,10 +17,14 @@ cd apps/web && npm run typecheck && npm run lint && npm run test:unit && npm run
 
 ## Workflow
 
-1. Branch from public `main`.
+1. Fork or branch from [`sishuiguozi/mysag`](https://github.com/sishuiguozi/mysag) `main`.
 2. Keep commits focused and explain what changed and why.
 3. Include tests and describe loading, empty, and error states for UI changes.
-4. Open a pull request to `main` after all checks pass.
+4. Open a pull request to this repository's `main` after all checks pass.
+
+When changing a compatibility patch, vector-write behavior, retrieval behavior,
+or a setting exposed in the UI, also update the matching entry in
+`docs/ARCHITECTURE_PATCHES.md` or `docs/SAG_OPTIMIZATION_2026.md`.
 
 ## Issues
 

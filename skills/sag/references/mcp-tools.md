@@ -8,6 +8,7 @@
 
 ## search(query: str, top_k: int = 8, source_id: str = "")
 语义检索。返回带编号证据块：`[n] 标题（chunk_id=…）\n内容`。
+`mysag` 服务端可能混合 BM25 词法召回、重排或父子上下文增强；这些是服务端实现细节，调用方无需改变参数或引用格式。
 需要服务端已配置 LLM（离线/未配时返回结构化错误说明）。
 
 ## list_documents(source_id: str = "")
