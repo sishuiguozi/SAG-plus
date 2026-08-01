@@ -60,6 +60,7 @@ class JobType(StrEnum):
     PROCESS_DOCUMENT = "process_document"
     SYNC_SOURCE = "sync_source"
     INDEX_UNIVERSE = "index_universe"
+    CLEANUP_DOCUMENT_REVISION = "cleanup_document_revision"
 
 
 class JobStatus(StrEnum):
