@@ -228,66 +228,54 @@ export function KnowledgeSourceWorkspace({
                   <Skeleton key={index} className="h-14 rounded-lg" />
                 ))}
               </div>
-            ) : documents.length === 0 ? (
-              <div className="flex min-h-56 shrink-0 flex-col items-center justify-center px-6 text-center">
-                <div className="grid size-10 place-items-center rounded-xl bg-muted text-muted-foreground">
-                  <FileText className="size-4" />
-                </div>
-                <p className="mt-3 text-sm font-medium">{t("emptyDocuments")}</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  {isFileSource ? t("emptyDocumentsUpload") : t("emptyDocumentsSync")}
-                </p>
-                <Button size="sm" className="mt-4" onClick={() => setScreen("add")}>
-                  {isFileSource ? (
-                    <Plus className="size-3.5" />
-                  ) : (
-                    <RefreshCw className="size-3.5" />
-                  )}
-                  {isFileSource ? t("addDocument") : t("syncSource")}
-                </Button>
-              </div>
             ) : (
-              <>
-                <div className="mb-2 shrink-0">
-                  <IngestActivityPanel sourceId={sourceId} active={active} />
-                </div>
-                <div className="min-h-0 flex-1">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                {isFileSource ? (
                   <div className="shrink-0 space-y-3 border-b px-2 pb-3 pt-2">
-
-                    {isFileSource ? (
-
-                      <>
-
-                        <SourceCodeConfigCard sourceId={sourceId} />
-
-                        <CodeFolderImport
-
-                          sourceId={sourceId}
-
-                          onImported={() => void handleDocumentsChanged()}
-
-                        />
-
-                      </>
-
-                    ) : null}
-
+                    <SourceCodeConfigCard sourceId={sourceId} />
+                    <CodeFolderImport
+                      sourceId={sourceId}
+                      onImported={() => void handleDocumentsChanged()}
+                    />
                   </div>
+                ) : null}
 
-                  <div className="min-h-0 flex-1 overflow-hidden">
-
-                  <DocumentList
-                    sourceId={sourceId}
-                    source={source}
-                    documents={documents}
-                    onChange={() => void handleDocumentsChanged()}
-                    variant="compact"
-                    onOpenDocument={(document) => setDocumentId(document.id)}
-                  />
-
+                {documents.length === 0 ? (
+                  <div className="flex min-h-56 flex-1 flex-col items-center justify-center px-6 text-center">
+                    <div className="grid size-10 place-items-center rounded-xl bg-muted text-muted-foreground">
+                      <FileText className="size-4" />
+                    </div>
+                    <p className="mt-3 text-sm font-medium">{t("emptyDocuments")}</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {isFileSource ? t("emptyDocumentsUpload") : t("emptyDocumentsSync")}
+                    </p>
+                    <Button size="sm" className="mt-4" onClick={() => setScreen("add")}>
+                      {isFileSource ? (
+                        <Plus className="size-3.5" />
+                      ) : (
+                        <RefreshCw className="size-3.5" />
+                      )}
+                      {isFileSource ? t("addDocument") : t("syncSource")}
+                    </Button>
                   </div>
-                </div>
-              </>
+                ) : (
+                  <>
+                    <div className="mb-2 shrink-0 px-1 pt-2">
+                      <IngestActivityPanel sourceId={sourceId} active={active} />
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-hidden">
+                      <DocumentList
+                        sourceId={sourceId}
+                        source={source}
+                        documents={documents}
+                        onChange={() => void handleDocumentsChanged()}
+                        variant="compact"
+                        onOpenDocument={(document) => setDocumentId(document.id)}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </motion.div>
         )}
