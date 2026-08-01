@@ -3,7 +3,7 @@ r"""检索评估集（A5）：跑一组 QA 用例，量化 recall@k / 命中率�
 用法（在 apps/api 下，venv）：
     python scripts/eval_retrieval.py --top-k 5 --limit 10
 
-会启动引擎读取真实库（E:\sag\.data\engine），对每个用例执行一次检索，
+会启动引擎读取真实库（<SAG_DATA_ROOT>/engine），对每个用例执行一次检索，
 输出命中率、平均 top 命中位次，用于对比优化前后的检索质量。
 
 用例结构：{query, expected_terms[]}（expected_terms 命中任一视为命中）。

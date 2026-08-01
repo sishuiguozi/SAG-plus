@@ -12,14 +12,15 @@ LanceDB 在 append 写入时自动增量维护 ANN/标量索引（无需每个�
 - 默认 dry-run；``--apply`` 才写；检测到 API/uvicorn 进程时拒绝（``--force`` 跳过）。
 
 用法：
-  python scripts/ensure_vector_indexes.py --uri "E:/sag/.data/engine/lancedb"
-  python scripts/ensure_vector_indexes.py --uri "E:/sag/.data/engine/lancedb" --apply
+  python scripts/ensure_vector_indexes.py --uri "<SAG_DATA_ROOT>/engine/lancedb"
+  python scripts/ensure_vector_indexes.py --uri "<SAG_DATA_ROOT>/engine/lancedb" --apply
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from datetime import UTC, datetime
@@ -29,7 +30,16 @@ from typing import Any
 import lancedb
 from lancedb.index import HnswFlat, HnswSq, BTree
 
-URI_DEFAULT = "E:/sag/.data/engine/lancedb"
+
+def _default_data_root() -> Path:
+    """数据根目录：优先 SAG_DATA_ROOT 环境变量，否则 ~/.sag/.data。"""
+    env = os.environ.get("SAG_DATA_ROOT")
+    if env:
+        return Path(env).expanduser()
+    return Path.home() / ".sag" / ".data"
+
+
+URI_DEFAULT = str(_default_data_root() / "engine" / "lancedb")
 
 # 表 -> (向量列, 索引类型, 索引名前缀)
 ANN_SPECS: dict[str, list[dict[str, Any]]] = {
