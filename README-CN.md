@@ -106,21 +106,21 @@ event ↔ entities → 一条潜在超边
 ```bash
 git clone https://github.com/sishuiguozi/SAG-plus.git
 cd SAG-plus
-cd /<仓库路径>/apps/desktop
+cd apps/desktop
 npm run dev
 ```
 
 在命令提示符（cmd）中运行：
 
 ```cmd
-cd /d <仓库路径>\apps\desktop
+cd /d SAG-plus\apps\desktop
 npm run dev
 ```
 
 在 PowerShell 中运行：
 
 ```powershell
-cd <仓库路径>\apps\desktop
+cd SAG-plus\apps\desktop
 npm run dev
 ```
 
