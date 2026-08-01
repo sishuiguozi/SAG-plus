@@ -82,6 +82,91 @@ npm run dev
    自动工具选择或全程关闭。“推理历史兼容”默认自动识别 DeepSeek；接口使用模型别名时选择
    “始终启用”，接口不接受 `reasoning_content` 时选择“关闭”。
 
+## 自托管 API
+
+浏览器不能直接导入 Python 包。自定义前端应调用一个持有 `DataEngine` 的 Python HTTP 服务。
+本仓库的 FastAPI 后端就是参考实现，并且已经与 Next.js 前端分离。
+
+启动 SAG 后即可使用自托管 API：
+
+| 入口 | 地址 |
+| --- | --- |
+| API Base | `http://localhost:8000/api/v1` |
+| 交互式 OpenAPI | [http://localhost:8000/docs](http://localhost:8000/docs) |
+| OpenAPI Schema | [http://localhost:8000/openapi.json](http://localhost:8000/openapi.json) |
+| MCP Streamable HTTP | `http://localhost:8000/mcp/` |
+
+这是**自托管 API**，不是由项目方托管的公共云 API。大部分接口需要 SAG JWT：
+
+```bash
+curl -s http://localhost:8000/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Developer"}'
+```
+
+从响应中复制 `access_token`，后续请求携带：
+
+```http
+Authorization: Bearer <SAG_TOKEN>
+```
+
+### API 地图
+
+| 领域 | 主要路由 | 用途 |
+| --- | --- | --- |
+| 系统 | `GET /system/health`、`/system/ready`、`/system/capabilities` | 健康状态与当前引擎能力 |
+| 身份 | `POST /auth/login`、`GET /auth/me` | 本地身份与 JWT |
+| 信源 | `GET/POST /sources`、`GET/PATCH/DELETE /sources/{id}` | 信源生命周期 |
+| 文档 | `/sources/{id}/documents` 与 `/sources/{id}/documents/ingest` | 文件上传、持续文本/消息写入、重新处理、删除 |
+| 检索 | `POST /search`、`POST /sources/{id}/search` | 全局或指定信源的 `vector`/`multi` 检索 |
+| 图谱 | `GET /sources/{id}/entities`、`/sources/{id}/graph` | 查看 event-entity 结构 |
+| Agent | `/agents`、`/threads`、`/ask` | Agent 配置、会话、SSE 运行与引用 |
+| OpenAI 兼容 | `POST /openai/{agent_id}/chat/completions` | 将任意 SAG Agent 作为带引用模型调用，支持流式 |
+| MCP | `/mcp/` 或 `/mcp/?source_id={id}` | 将整个知识库或单个信源开放给 MCP 宿主 |
+
+创建信源、持续写入文本并执行检索：
+
+```bash
+BASE=http://localhost:8000/api/v1
+TOKEN=<SAG_TOKEN>
+
+SOURCE_ID=$(curl -s -X POST "$BASE/sources" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Product docs"}' | jq -r .id)
+
+curl -s -X POST "$BASE/sources/$SOURCE_ID/documents/ingest" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"SAG","text":"SAG 使用 event-entity 索引与查询时动态超边。"}'
+
+curl -s -X POST "$BASE/sources/$SOURCE_ID/search" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"SAG 如何检索知识？","strategy":"multi","top_k":5}'
+```
+
+文档写入由后台任务队列处理。在期待检索结果前，请检查返回的文档状态或对应任务是否完成。
+
+如果自定义前端与 API 不同源，请将前端地址加入 `SAG_CORS_ORIGINS`。API 地址改变时，
+还要用对应的 `NEXT_PUBLIC_API_BASE` 重新构建 Web 镜像。
+
+### PostgreSQL/pgvector 部署
+
+可选的生产覆盖会将应用元数据与知识引擎迁移到 PostgreSQL/pgvector：
+
+```bash
+cp .env.example .env
+openssl rand -hex 32   # 填入 SAG_SECRET_KEY
+openssl rand -hex 24   # 填入 POSTGRES_PASSWORD
+
+docker compose -f compose.yaml -f compose.postgres.yaml config
+docker compose -f compose.yaml -f compose.postgres.yaml up -d --build
+```
+
+服务器部署前应设置真实的 `SAG_CORS_ORIGINS` 与 `NEXT_PUBLIC_API_BASE`。
+升级前同时备份 `pgdata` 和 `sagdata`。
+
 ## MCP 与 Skill 接口
 
 SAG-plus 把整个知识库（或单个信源）暴露为标准只读 MCP server，共 8 个工具，

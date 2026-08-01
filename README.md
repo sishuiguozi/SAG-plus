@@ -84,6 +84,97 @@ Detailed implementation records are in
    for aliased compatible models or **Off** when an endpoint rejects
    `reasoning_content`.
 
+## Self-hosted API
+
+Browsers cannot import Python packages directly. A custom frontend should call a
+Python HTTP service that owns the `DataEngine`; the FastAPI backend in this
+repository is the reference implementation and is already separated from the
+Next.js frontend.
+
+Once SAG is running, the self-hosted API is available at:
+
+| Entry | URL |
+| --- | --- |
+| API Base | `http://localhost:8000/api/v1` |
+| Interactive OpenAPI | [http://localhost:8000/docs](http://localhost:8000/docs) |
+| OpenAPI Schema | [http://localhost:8000/openapi.json](http://localhost:8000/openapi.json) |
+| MCP Streamable HTTP | `http://localhost:8000/mcp/` |
+
+This is a **self-hosted API**, not a public cloud API operated by the project.
+Most endpoints require a SAG JWT:
+
+```bash
+curl -s http://localhost:8000/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Developer"}'
+```
+
+Copy `access_token` from the response and send it on later requests:
+
+```http
+Authorization: Bearer <SAG_TOKEN>
+```
+
+### API map
+
+| Area | Main routes | Purpose |
+| --- | --- | --- |
+| System | `GET /system/health`, `/system/ready`, `/system/capabilities` | Health status and current engine capabilities |
+| Auth | `POST /auth/login`, `GET /auth/me` | Local identity and JWT |
+| Sources | `GET/POST /sources`, `GET/PATCH/DELETE /sources/{id}` | Source lifecycle |
+| Documents | `/sources/{id}/documents` and `/sources/{id}/documents/ingest` | File upload, continuous text/message writes, reprocessing, deletion |
+| Search | `POST /search`, `POST /sources/{id}/search` | `vector` / `multi` retrieval globally or per source |
+| Graph | `GET /sources/{id}/entities`, `/sources/{id}/graph` | Inspect the event-entity structure |
+| Agent | `/agents`, `/threads`, `/ask` | Agent configuration, threads, SSE runs, and citations |
+| OpenAI-compatible | `POST /openai/{agent_id}/chat/completions` | Call any SAG agent as a model with citations; streaming supported |
+| MCP | `/mcp/` or `/mcp/?source_id={id}` | Expose the whole KB or a single source to MCP hosts |
+
+Create a source, ingest text, and search:
+
+```bash
+BASE=http://localhost:8000/api/v1
+TOKEN=<SAG_TOKEN>
+
+SOURCE_ID=$(curl -s -X POST "$BASE/sources" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Product docs"}' | jq -r .id)
+
+curl -s -X POST "$BASE/sources/$SOURCE_ID/documents/ingest" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"SAG","text":"SAG uses an event-entity index and dynamic hyperedges at query time."}'
+
+curl -s -X POST "$BASE/sources/$SOURCE_ID/search" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"How does SAG retrieve knowledge?","strategy":"multi","top_k":5}'
+```
+
+Document writes are handled by a background task queue. Check the returned
+document status or its job before expecting search results.
+
+If your custom frontend is served from a different origin, add it to
+`SAG_CORS_ORIGINS`. When the API address changes, rebuild the Web image with the
+matching `NEXT_PUBLIC_API_BASE`.
+
+### PostgreSQL / pgvector deployment
+
+An optional production overlay migrates application metadata and the knowledge
+engine to PostgreSQL/pgvector:
+
+```bash
+cp .env.example .env
+openssl rand -hex 32   # fill SAG_SECRET_KEY
+openssl rand -hex 24   # fill POSTGRES_PASSWORD
+
+docker compose -f compose.yaml -f compose.postgres.yaml config
+docker compose -f compose.yaml -f compose.postgres.yaml up -d --build
+```
+
+Before serving, set real `SAG_CORS_ORIGINS` and `NEXT_PUBLIC_API_BASE` values.
+Back up both `pgdata` and `sagdata` before upgrading.
+
 ## MCP & Skill interface
 
 SAG-plus exposes the whole knowledge base (or a single source) as a standard
