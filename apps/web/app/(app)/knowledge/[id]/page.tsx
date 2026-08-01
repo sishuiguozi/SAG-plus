@@ -14,6 +14,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Settings2,
   TriangleAlert,
 } from "lucide-react";
 
@@ -25,6 +26,8 @@ import { RetrievalTestDialog } from "@/components/features/retrieval-test-dialog
 import { SourceGraph } from "@/components/features/source-graph";
 import { SyncPanel } from "@/components/features/sync-panel";
 import { UploadZone } from "@/components/features/upload-zone";
+import { CodeFolderImport } from "@/components/features/code-folder-import";
+import { SourceCodeConfigCard } from "@/components/features/source-code-config-card";
 import { useSourceContent } from "@/components/features/use-source-content";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -75,6 +78,7 @@ export default function SourceDetailPage() {
   }, [notFound, router]);
 
   const [addOpen, setAddOpen] = React.useState(false);
+  const [codeConfigOpen, setCodeConfigOpen] = React.useState(false);
   const [retrievalOpen, setRetrievalOpen] = React.useState(false);
   const isFileSource = !source || source.connector_kind === "file_upload";
 
@@ -114,6 +118,24 @@ export default function SourceDetailPage() {
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {isFileSource ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => setCodeConfigOpen(true)}
+                  disabled={!source}
+                  aria-label={t("codeExtraction")}
+                  title={t("codeExtractionTitle")}
+                >
+                  <Settings2 className="size-4" />
+                  {t("codeExtraction")}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{t("codeExtractionTitle")}</TooltipContent>
+            </Tooltip>
+          ) : null}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -304,15 +326,25 @@ export default function SourceDetailPage() {
           </DialogHeader>
           {source &&
             (source.connector_kind === "file_upload" ? (
-              <UploadZone
-                sourceId={id}
-                onUploaded={() => {
-                  setAddOpen(false);
-                  void refresh();
-                }}
-                maxMb={capabilities?.max_upload_mb ?? 25}
-                allowedExts={capabilities?.allowed_upload_exts}
-              />
+              <div className="space-y-3">
+                <SourceCodeConfigCard sourceId={id} />
+                <CodeFolderImport
+                  sourceId={id}
+                  onImported={() => {
+                    setAddOpen(false);
+                    void refresh();
+                  }}
+                />
+                <UploadZone
+                  sourceId={id}
+                  onUploaded={() => {
+                    setAddOpen(false);
+                    void refresh();
+                  }}
+                  maxMb={capabilities?.max_upload_mb ?? 25}
+                  allowedExts={capabilities?.allowed_upload_exts}
+                />
+              </div>
             ) : (
               <SyncPanel
                 sourceId={id}
@@ -322,6 +354,16 @@ export default function SourceDetailPage() {
                 }}
               />
             ))}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={codeConfigOpen} onOpenChange={setCodeConfigOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("codeExtractionTitle")}</DialogTitle>
+            <DialogDescription>{t("codeExtractionTitle")}</DialogDescription>
+          </DialogHeader>
+          <SourceCodeConfigCard sourceId={id} />
         </DialogContent>
       </Dialog>
 
