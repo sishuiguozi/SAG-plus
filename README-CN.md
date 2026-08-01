@@ -82,6 +82,92 @@ npm run dev
    自动工具选择或全程关闭。“推理历史兼容”默认自动识别 DeepSeek；接口使用模型别名时选择
    “始终启用”，接口不接受 `reasoning_content` 时选择“关闭”。
 
+## MCP 与 Skill 接口
+
+SAG-plus 把整个知识库（或单个信源）暴露为标准只读 MCP server，共 8 个工具，
+任何支持 MCP 的宿主（Claude Desktop / Cursor / Dify 等）都可以接入。
+
+### 接入方式
+
+- 在 Web 界面 **设置 → 集成** 复制现成配置（HTTP / stdio 两种，已带鉴权头）。
+- 或通过描述符接口获取：
+  - 全库：`GET /api/v1/system/mcp`
+  - 单信源：`GET /api/v1/sources/{source_id}/mcp`
+- **HTTP（推荐）**：`http://<host>/mcp/`（全库）或
+  `http://<host>/mcp/?source_id=<SOURCE_ID>`（单信源），请求头
+  `Authorization: Bearer <SAG_TOKEN>`。
+- **stdio**：`python -m sag_api.mcp.server`（默认全库；
+  `SAG_MCP_SOURCE_ID=<SOURCE_ID>` 限定单信源；需在 `apps/api` 的 Python 环境运行）。
+
+### MCP 工具（全部只读）
+
+| 工具 | 参数 | 用途 |
+| --- | --- | --- |
+| `list_sources` | — | 查看可访问的信源及其 `source_id` |
+| `list_documents` | `source_id?` | 列出文档（id / 状态 / 分块数） |
+| `outline` | `document_id` | 文档大纲（章节 + `chunk_id`） |
+| `search` | `query, top_k=8, source_id?` | 语义检索，返回带编号证据 |
+| `grep` | `pattern, limit=20, source_id?` | 原文精确查找（专名 / 编号 / 代码） |
+| `get_chunk` | `chunk_id, source_id?` | 读取单个分块的完整原文 |
+| `read` | `document_id, offset=1, limit=120` | 按行分页读取原始文件 |
+| `get_entity` | `name, source_id?` | 查询实体（人物 / 组织 / 概念） |
+
+推荐调用顺序（探索漏斗）：`list_sources` → `list_documents` →
+`outline` → `search`/`grep` → `get_chunk`/`read`。
+
+### Agent 绑定接口（挂载信源 / 外部 MCP）
+
+Agent 可以把知识库信源或外部 MCP server 挂成工具来源（`sag_api/mcp/` 客户端 +
+Web 端「设置 → Agent」）。REST 接口与界面一一对应：
+
+| 端点 | 用途 |
+| --- | --- |
+| `GET /api/v1/agents` | 列出 Agent |
+| `POST /api/v1/agents` | 新建 Agent |
+| `GET /api/v1/agents/default` | 获取默认 Agent |
+| `GET /api/v1/agents/{agent_id}` | 获取单个 Agent |
+| `PATCH /api/v1/agents/{agent_id}` | 更新 Agent |
+| `DELETE /api/v1/agents/{agent_id}` | 删除 Agent |
+| `GET /api/v1/agents/{agent_id}/bindings` | 列出绑定 |
+| `POST /api/v1/agents/{agent_id}/bindings` | 新增绑定 |
+| `DELETE /api/v1/agents/{agent_id}/bindings/{binding_id}` | 解除绑定 |
+
+新增绑定的请求体（`POST /api/v1/agents/{agent_id}/bindings`）：
+
+```json
+{
+  "target_type": "source",            // 或 "mcp_server"
+  "target_id": "<source_id>",         // source 填信源 id；mcp_server 可填显示名
+  "config": {}
+}
+```
+
+- `target_type: "source"`：绑定知识库信源（config 留空）。
+- `target_type: "mcp_server"`：把外部 MCP server 挂成工具来源；`config` 必须提供
+  `"url"`（Streamable HTTP）或 `"command"`（stdio），可选 `"args"`、`"env"`。
+
+### OpenAI 兼容对话接口
+
+任意 Agent 都可以当作「带引用的模型」调用：
+
+```
+POST /api/v1/openai/{agent_id}/chat/completions
+Authorization: Bearer <SAG_TOKEN>
+```
+
+请求体沿用 OpenAI Chat Completions 结构（`messages`、`model?`、`stream?`、
+`temperature?`、`max_tokens?`），检索、系统提示与防幻觉短路和站内对话完全一致。
+`stream: true` 时返回 SSE 的 `chat.completion.chunk`；否则返回标准
+`chat.completion` 对象，并附 SAG 扩展字段 `sag.citations` 用于引用溯源。
+该端点无状态（不落库）。
+
+### 自带技能
+
+仓库自带 `skills/sag` 技能（名称 `sag-knowledge`）：`SKILL.md` 教会 Agent
+通过上述 MCP 工具搜索、浏览、引用和阅读知识库文档，包含漏斗流程、工具参数
+参考（`references/mcp-tools.md`）与查询策略（`references/search-strategies.md`）。
+把 `skills/sag` 加入 Agent 的技能目录即可启用。
+
 ## 常见问题
 
 | 现象 | 检查方式 |

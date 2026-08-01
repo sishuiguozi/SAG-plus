@@ -84,6 +84,100 @@ Detailed implementation records are in
    for aliased compatible models or **Off** when an endpoint rejects
    `reasoning_content`.
 
+## MCP & Skill interface
+
+SAG-plus exposes the whole knowledge base (or a single source) as a standard
+read-only MCP server with 8 tools, so any MCP-capable host (Claude Desktop,
+Cursor, Dify, …) can query it.
+
+### Connect
+
+- In the Web UI, open **Settings → Integrations** and copy the ready-made
+  config (HTTP or stdio, auth header included).
+- Or fetch the descriptor programmatically:
+  - Whole knowledge base: `GET /api/v1/system/mcp`
+  - Single source: `GET /api/v1/sources/{source_id}/mcp`
+- **HTTP (recommended)**: `http://<host>/mcp/` (whole KB) or
+  `http://<host>/mcp/?source_id=<SOURCE_ID>` (single source), header
+  `Authorization: Bearer <SAG_TOKEN>`.
+- **stdio**: `python -m sag_api.mcp.server` (whole KB by default; set
+  `SAG_MCP_SOURCE_ID=<SOURCE_ID>` to limit to one source; requires the
+  `apps/api` Python environment).
+
+### MCP tools (all read-only)
+
+| Tool | Parameters | Purpose |
+| --- | --- | --- |
+| `list_sources` | — | List accessible sources and their `source_id`. |
+| `list_documents` | `source_id?` | List documents (id / status / chunk count). |
+| `outline` | `document_id` | Document outline (headings + `chunk_id`). |
+| `search` | `query, top_k=8, source_id?` | Semantic retrieval, returns numbered evidence. |
+| `grep` | `pattern, limit=20, source_id?` | Literal search (names / numbers / code). |
+| `get_chunk` | `chunk_id, source_id?` | Read one chunk’s full text. |
+| `read` | `document_id, offset=1, limit=120` | Read the original file line by line. |
+| `get_entity` | `name, source_id?` | Look up an entity (person / org / concept). |
+
+Recommended call order (exploration funnel): `list_sources` →
+`list_documents` → `outline` → `search`/`grep` → `get_chunk`/`read`.
+
+### Agent tool bindings (mount sources / external MCP servers)
+
+Agents can mount knowledge sources or external MCP servers as tool sources
+(`sag_api/mcp/` client + `apps/web` “Settings → Agents”). The REST
+interface mirrors the UI:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/v1/agents` | List agents |
+| `POST /api/v1/agents` | Create an agent |
+| `GET /api/v1/agents/default` | Get the default agent |
+| `GET /api/v1/agents/{agent_id}` | Get an agent |
+| `PATCH /api/v1/agents/{agent_id}` | Update an agent |
+| `DELETE /api/v1/agents/{agent_id}` | Delete an agent |
+| `GET /api/v1/agents/{agent_id}/bindings` | List bindings |
+| `POST /api/v1/agents/{agent_id}/bindings` | Add a binding |
+| `DELETE /api/v1/agents/{agent_id}/bindings/{binding_id}` | Remove a binding |
+
+Binding body (`POST /api/v1/agents/{agent_id}/bindings`):
+
+```json
+{
+  "target_type": "source",            // or "mcp_server"
+  "target_id": "<source_id>",         // source id, or a display name for mcp_server
+  "config": {}
+}
+```
+
+- `target_type: "source"` binds a knowledge-base source (config stays empty).
+- `target_type: "mcp_server"` connects an external MCP server as a tool source;
+  `config` must provide `"url"` (streamable HTTP) or `"command"` (stdio), plus
+  optional `"args"` and `"env"`.
+
+### OpenAI-compatible chat endpoint
+
+Any agent can be called like an OpenAI “model with citations”:
+
+```
+POST /api/v1/openai/{agent_id}/chat/completions
+Authorization: Bearer <SAG_TOKEN>
+```
+
+Request body follows OpenAI Chat Completions (`messages`, `model?`, `stream?`,
+`temperature?`, `max_tokens?`). It runs the same retrieval, system prompt, and
+anti-hallucination short-circuit as in-app chat. `stream: true` returns SSE
+`chat.completion.chunk` events; otherwise it returns a standard
+`chat.completion` object with a SAG extension field `sag.citations` for
+traceable sources. This endpoint is stateless (no thread is persisted).
+
+### Built-in skill
+
+The repository ships the `skills/sag` skill (name: `sag-knowledge`). Its
+`SKILL.md` teaches an agent how to search, browse, cite, and read knowledge-base
+documents through the MCP tools above, with a funnel workflow, a tool parameter
+reference (`references/mcp-tools.md`), and query strategies
+(`references/search-strategies.md`). Point your agent’s skills directory at
+`skills/sag` to enable it.
+
 ## Troubleshooting
 
 | Symptom | Check |

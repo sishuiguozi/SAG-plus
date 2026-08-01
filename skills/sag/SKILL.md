@@ -14,14 +14,17 @@ SAG 把你的文档变成可检索、可溯源的知识库，并以 **MCP** 暴�
 
 ## 连接
 
-在 SAG 界面「设置 → 集成」复制全库 MCP 配置。需要限定单个信源时，在 HTTP URL 后添加 `?source_id=<SOURCE_ID>`，或：
+在 SAG 界面「设置 → 集成」复制全库 MCP 配置（HTTP / stdio 两种，已带鉴权头）。也可通过描述符接口程序化获取：
 
 ```bash
+# 全库：GET /api/v1/system/mcp
+curl -s http://<host>/api/v1/system/mcp -H "Authorization: Bearer <TOKEN>"
+# 单信源：GET /api/v1/sources/<SOURCE_ID>/mcp
 curl -s http://<host>/api/v1/sources/<SOURCE_ID>/mcp -H "Authorization: Bearer <TOKEN>"
 ```
 
-- **HTTP（推荐）**：`http://<host>/mcp/?source_id=<SOURCE_ID>`，Header `Authorization: Bearer <TOKEN>`
-- **stdio**：`SAG_MCP_SOURCE_ID=<SOURCE_ID> python -m sag_api.mcp.server`（需 apps/api 环境）
+- **HTTP（推荐）**：`http://<host>/mcp/`（全库）或 `http://<host>/mcp/?source_id=<SOURCE_ID>`（单信源），Header `Authorization: Bearer <TOKEN>`
+- **stdio**：`python -m sag_api.mcp.server`（默认全库；`SAG_MCP_SOURCE_ID=<SOURCE_ID>` 限定单信源，需 apps/api 环境）
 
 ## 工具与用法（漏斗顺序）
 
