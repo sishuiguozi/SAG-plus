@@ -8,6 +8,8 @@
 
 **技术栈：** Python 3.11、Pydantic、LiteLLM、pytest、Next.js、React、TypeScript、Vitest、next-intl。
 
+**执行状态：** 4/4 个任务已完成；真实 Console Go 双轮调用已验证。
+
 ---
 
 ## 文件结构
@@ -58,7 +60,7 @@ def test_reasoning_history_compat_default_and_schema_values() -> None:
 $env:SAG_DOCUMENT_EXTRACT_CONCURRENCY='5'
 $env:SAG_LLM_TIMEOUT_MS='60000'
 $env:SAG_LLM_MODEL='qwen3.6-flash'
-uv run pytest tests/test_settings_system_config.py -q
+.\.venv\Scripts\python.exe -m pytest tests/test_settings_system_config.py -q
 ```
 
 工作目录：`apps/api`。预期：FAIL，配置或 schema 尚无 `llm_reasoning_history_compat`。
@@ -188,7 +190,7 @@ def test_explicitly_disabled_reasoning_does_not_fill_history() -> None:
 运行：
 
 ```powershell
-uv run pytest tests/test_litellm_policy.py -q
+.\.venv\Scripts\python.exe -m pytest tests/test_litellm_policy.py -q
 ```
 
 工作目录：`apps/api`。预期：新增断言 FAIL，策略尚未补齐 `reasoning_content`。
@@ -282,7 +284,7 @@ it("accepts the three reasoning history compatibility modes", () => {
 运行：
 
 ```powershell
-npm test -- --run lib/tool-choice-strategy.test.ts
+npm run test:unit -- lib/tool-choice-strategy.test.ts
 ```
 
 工作目录：`apps/web`。预期：FAIL，常量和守卫尚未导出。
@@ -320,7 +322,7 @@ export function isLlmReasoningHistoryCompat(value: unknown): value is LlmReasoni
 - [ ] **步骤 4：运行前端验证**
 
 ```powershell
-npm test -- --run lib/tool-choice-strategy.test.ts
+npm run test:unit -- lib/tool-choice-strategy.test.ts
 npm run typecheck
 npm run lint
 npm run i18n:check
@@ -347,8 +349,8 @@ git commit -m "feat: expose reasoning history compatibility"
 $env:SAG_DOCUMENT_EXTRACT_CONCURRENCY='5'
 $env:SAG_LLM_TIMEOUT_MS='60000'
 $env:SAG_LLM_MODEL='qwen3.6-flash'
-uv run pytest tests/test_litellm_policy.py tests/test_settings_system_config.py tests/test_settings_service.py tests/test_sag_generation_policy.py -q
-uv run ruff check --ignore E501 sag_api/core/litellm_policy.py sag_api/core/config.py sag_api/enums.py sag_api/schemas/system.py sag_api/services/settings_service.py tests/test_litellm_policy.py tests/test_settings_system_config.py
+.\.venv\Scripts\python.exe -m pytest tests/test_litellm_policy.py tests/test_settings_system_config.py tests/test_settings.py tests/test_agent_runtime.py tests/test_agentic.py -q
+.\.venv\Scripts\ruff.exe check --ignore E501 sag_api/core/litellm_policy.py sag_api/core/config.py sag_api/enums.py sag_api/schemas/system.py sag_api/services/settings_service.py tests/test_litellm_policy.py tests/test_settings_system_config.py
 ```
 
 工作目录：`apps/api`。预期：pytest 与 Ruff 均成功。

@@ -69,7 +69,7 @@
 | D2 | ~~备份自动化~~ **已完成** | `scripts/backup_data.py`（快照+保留 N 份+跳过可重建缓存） | — | — |
 | D3 | ~~模型版本化与按需下载~~ **已完成** | `local_embedding_status` 增加 `model_file`/`model_fingerprint`；`local_model_manager.py` 维护五种固定 bge-m3 GGUF、后台安装 llama-cpp-python、临时文件校验与原子提交 | — | — |
 | D4 | 崩溃自愈报告 | 队列恢复有 | **基本已有**（启动自检+恢复日志），UI 报告已规划 | P2 |
-| D5 | ~~工具调用思考策略~~ **已完成** | `llm_tool_choice_strategy` 提供工具轮关闭思考（默认）、全程保留、自动工具和全程关闭四档；`litellm_policy.py` 统一处理指定函数/`required`，保留抽取与 LLM 重排的独立关闭思考作用域。Console Go 指定 `search_context`、`get_time` 的流式请求已验证可用。 | — | — |
+| D5 | ~~工具调用思考策略与历史兼容~~ **已完成** | `llm_tool_choice_strategy` 提供工具轮关闭思考（默认）、全程保留、自动工具和全程关闭四档；`llm_reasoning_history_compat` 提供自动（默认）、始终启用和关闭三档后台设置。DeepSeek 恢复思考时会以不可变方式补齐历史 assistant 消息的 `reasoning_content`，模型别名可手动启用。Console Go 已真实验证指定 `search_context` 后恢复思考并成功生成正文。 | — | — |
 
 ### E. UX 与功能
 
