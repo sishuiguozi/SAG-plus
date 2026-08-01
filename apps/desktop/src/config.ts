@@ -16,6 +16,8 @@ export const desktopConfig = {
   apiPort: readPort("SAG_DESKTOP_API_PORT", DEFAULT_API_PORT),
   preferredWebPort: readPort("SAG_DESKTOP_WEB_PORT", DEFAULT_WEB_PORT),
   startupTimeoutMs: 45_000,
+  // API 启动早期可能执行 LanceDB 维护（压缩/清理旧版本），就绪等待必须足够长。
+  apiStartupTimeoutMs: 60 * 60 * 1000,
   updateCheckDelayMs: 30_000,
   updateCheckIntervalMs: 6 * 60 * 60 * 1000,
 } as const;

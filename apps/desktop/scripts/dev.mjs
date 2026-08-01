@@ -21,6 +21,10 @@ let restartingApi = false;
 const CONTROL_PORT = 43827;
 const CONTROL_PATH = "/__sag_restart__";
 
+// API 启动早期可能执行 LanceDB 维护（压缩/清理旧版本），就绪等待必须足够长，
+// 否则维护进行中 dev.mjs 会误判“API 启动超时”而退出。
+const API_READY_TIMEOUT_MS = 60 * 60_000;
+
 // 开发模式下与 Electron 使用同一份数据位置配置（{userData}/data-root.json），
 // 用户通过 设置 → 系统 → 知识库数据位置 保存后，重启 dev 会注入给 API。
 function devDataRootOverride() {
@@ -65,6 +69,22 @@ async function waitForAny(urls, timeoutMs = 90_000) {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error(`Timed out waiting for ${urls.join(" or ")}`);
+}
+
+async function waitForApiReady(timeoutMs = API_READY_TIMEOUT_MS) {
+  const startedAt = Date.now();
+  let lastLog = 0;
+  while (Date.now() - startedAt < timeoutMs) {
+    if (await reachable(apiUrl)) return;
+    const now = Date.now();
+    if (now - lastLog > 30_000) {
+      lastLog = now;
+      const waited = Math.round((now - startedAt) / 1000);
+      console.log(`[dev] 等待 API 就绪…（启动早期可能正在执行维护清理，已等待 ${waited}s）`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(`Timed out waiting for ${apiUrl} after ${Math.round(timeoutMs / 1000)}s`);
 }
 
 function start(name, command, args, options) {
@@ -170,8 +190,8 @@ async function restartApiForMaintenance() {
       console.log("[dev] API 已停止，重新启动…");
       startApi();
     }
-    await waitFor(apiUrl, 120_000);
-    console.log("[dev] API 已重启，维护将在启动早期执行");
+    await waitForApiReady();
+    console.log("[dev] API 已就绪（若刚执行过维护清理，可能耗时较长）");
   } catch (error) {
     console.error("[dev] API 重启失败：", error);
   } finally {
@@ -221,7 +241,7 @@ if (!reusedWebUrl) {
 const resolvedWebUrl = reusedWebUrl
   ? reusedWebUrl
   : await waitForAny([webUrl, webAltUrl]);
-await Promise.all([waitFor(apiUrl), Promise.resolve(resolvedWebUrl)]);
+await Promise.all([waitForApiReady(), Promise.resolve(resolvedWebUrl)]);
 
 const electronPath = require("electron");
 const electron = start("Electron", electronPath, [desktopRoot], {
