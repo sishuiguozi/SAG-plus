@@ -33,7 +33,7 @@ must not be committed.
 
 | Area | Optimization in this fork |
 | --- | --- |
-| Retrieval | Semantic retrieval is complemented by LanceDB FTS/BM25, reranking, result caching, and literal-search fallback. FTS work runs outside the async event loop. |
+| Retrieval | Semantic retrieval is complemented by LanceDB FTS/BM25, result caching, and literal-search fallback. Reranking can use a local Q8 cross-encoder, a compatible API, or an LLM, with a safe fallback. |
 | Context | Parent-child chunking retrieves precise child chunks while returning parent context, with duplicate suppression. |
 | Ingestion | Persistent batch/vector-write coordination gives LanceDB a single writer, retries, recovery, and idempotent work items. |
 | Storage | SQLite connection and pragma tuning, disk protection, LanceDB cleanup, index maintenance, and read/write observability reduce local-store pressure. |
@@ -53,13 +53,19 @@ Detailed implementation records are in
    child-level recall with broader parent context. Existing documents are not
    changed until they are processed again.
 5. To run embeddings fully locally, open **Settings → Model configuration →
-   Local embedding**, click **Download inference backend**, select one or more
-   bge-m3 GGUF variants, then download them. Weights are never downloaded
+   Local embedding**, click **Download inference backend**, then choose BGE-M3
+   Q8, Qwen3-Embedding-0.6B Q8, or Qwen3-Embedding-4B Q8. Weights are never downloaded
    automatically; select a completed model and save the configuration. Click
    **Test local model** to test the model currently selected in the dropdown
    against the current context or thread draft—no save is required. It generates
    one temporary vector and shows its model, dimensions, and latency; it does
    not change saved configuration, the knowledge base, or remote services.
+6. To enable reranking, open **Settings → Model configuration → Retrieval
+   reranking**. Choose a local BGE/Qwen Q8 cross-encoder, a compatible Rerank
+   API using its full URL (including Qwen and vLLM), or legacy LLM numbered
+   reranking. Local rerank models download separately from embeddings; their
+   native rank runtime is built only after you explicitly install it, and can be
+   tested without saving.
 
 ## Troubleshooting
 
@@ -70,6 +76,7 @@ Detailed implementation records are in
 | Electron closes immediately | Run the command from `E:\SAG-plus\apps\desktop` and read the first failing API or Web process in the terminal. |
 | Old knowledge is missing | Local data was not copied by Git. Verify the intended local data directory before creating a new index. |
 | Local embeddings are unavailable | In Settings, install the llama-cpp-python backend, download a selected model, choose that file, then save. |
+| Local reranking is unavailable | In **Retrieval reranking**, download the selected model and install the native reranker runtime. Retrieval keeps its fused order if either is unavailable. |
 
 ## Development references
 

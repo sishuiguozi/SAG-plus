@@ -792,8 +792,8 @@ export function ModelConfigForm() {
                             aria-label={model.file_name}
                           />
                           <span className="min-w-0">
-                            <span className="block font-medium">bge-m3 · {model.file_name.replace("bge-m3-", "").replace(".gguf", "")}</span>
-                            <span className="block text-sm text-muted-foreground">{model.label}</span>
+                            <span className="block font-medium">{model.label}</span>
+                            <span className="block text-sm text-muted-foreground">{model.file_name}</span>
                             {downloading && (
                               <span className="mt-1 block h-1.5 overflow-hidden rounded bg-muted">
                                 <span className="block h-full bg-primary" style={{ width: `${model.progress}%` }} />
@@ -919,6 +919,14 @@ export function ModelConfigForm() {
               </Field>
             </div>
           </SettingsRow>
+          {cfg.embedding_local_model_file !== embLocalModelFile && (
+            <SettingsRow title={t("embeddingModelChangeTitle")} description={t("embeddingModelChangeDescription")}>
+              <Alert>
+                <AlertTitle>{t("embeddingModelChangeWarning")}</AlertTitle>
+                <AlertDescription>{t("embeddingModelChangeHint")}</AlertDescription>
+              </Alert>
+            </SettingsRow>
+          )}
           </>
         ) : (
           <SettingsRow

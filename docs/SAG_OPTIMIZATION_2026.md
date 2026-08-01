@@ -35,7 +35,7 @@
 |---|---|---|---|---|
 | A1 | ~~检索结果 TTL 缓存~~ **已完成** | `engine_manager` 新增 `_search_cache_*`，search/search_many 缓存 SearchOutcome，TTL 30s 可配（设置→知识库），深拷贝隔离 | — |
 | A2 | ~~BM25 独立召回~~ **已完成** | 新增 `sag/lancedb_fts.py`：LanceDB FTS（tantivy）独立 BM25 召回 + 源过滤 + 索引自动维护；词法通道优先 FTS、失败回退 grep，且同步 FTS 操作转入 worker thread；设置页可开关（`lancedb_fts_enabled`） | — | — |
-| A3 | ~~LLM Rerank~~ **已完成（默认关）** | `_llm_rerank`（候选编号重排+失败回退）；`search_llm_rerank_enabled/candidates` 设置项 | — | — |
+| A3 | ~~Rerank~~ **已完成（默认关）** | 统一 `search_rerank_mode=off/local/api/llm`：本地 BGE/Qwen Q8 Cross-Encoder、完整 URL 的兼容 API（Qwen/vLLM）和 LLM 编号重排均可选；失败回退融合排序。入库抽取与 LLM 重排带独立调用标记，可关闭模型思考且不影响聊天。 | — | — |
 | A4 | ~~父子分块~~ **已完成（增量启用）** | `chunking_compat` 只保证结构完整；无 parent_id 关联 | 新 `document_chunk_mode=parent_child`：父块聚合上下文 + 子块精确检索，`extra_data.parent_id` 关联（复用现有 JSON 字段，无 migration）；入库回填 + 检索父上下文（`sag_api/sag/parent_child.py`）；旧数据无标记自动跳过（无需重灌，仅新文档生效） | — |
 | A5 | ~~检索评估集~~ **已完成** | `scripts/eval_retrieval.py`（内置用例、逐条延迟与命中率统计；当前 4 条基线为 3/4=75%） | — | — |
 | A6 | ~~Regex 分块~~ **已完成** | `document_chunk_regex`（Python re）+ 设置页正则输入；代码块/表格仍受保护 | — | — |

@@ -20,9 +20,12 @@
 ## 本地模型管理
 
 `sag_api/sag/local_model_manager.py` 是应用层服务而不是第三方兼容补丁，因此不计入上表。
-它只接受固定的 `gpustack/bge-m3-GGUF` 五种 GGUF 文件，使用 `.part` 临时文件、长度与
-ETag 校验后原子提交。`/system/local-models*` 端点要求已登录用户；设置页可按需安装当前
-API 虚拟环境内的 CPU 版 `llama-cpp-python`，并多选下载模型。模型与后端均不会在启动时下载。
+它只接受经过登记的三种 embedding 与三种 reranker Q8 GGUF 文件，按 `embedding/`、`reranker/`
+分目录保存；旧 `bge-m3/` 路径仍会被识别。下载使用 `.part` 临时文件、长度与 ETag 校验后原子
+提交。`/system/local-models*` 端点要求已登录用户；设置页可按需安装 CPU 版
+`llama-cpp-python`，并可选安装提供 `LlamaEmbedding` / `pooling=rank` 的原生重排运行时。
+普通 embedding 运行时不会被误判为支持 Cross-Encoder 重排；不可用时检索保留融合排序。模型与
+后端均不会在启动时下载。
 
 ## 运行期验证
 

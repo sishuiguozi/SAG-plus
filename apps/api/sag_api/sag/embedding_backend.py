@@ -1,13 +1,13 @@
-"""程序内嵌 8-bit 量化 embedding（llama-cpp-python + bge-m3 GGUF q8_0）。
+"""程序内嵌 8-bit 量化 embedding（llama-cpp-python + 受支持 GGUF）。
 
 工作方式：
 - `embedding_provider=api`   → 走 zleap-sag 原有 OpenAI 兼容客户端（不变）。
-- `embedding_provider=local` → 用 llama-cpp-python 在进程内加载 bge-m3-Q8_0.gguf，
+- `embedding_provider=local` → 用 llama-cpp-python 在进程内加载选中的 embedding GGUF，
   通过 monkeypatch 替换 zleap-sag 的 embedding 客户端入口，所有 ingest / search
   链路（factory.get_embedding_client / core.ai.embedding 便捷函数）统一走本地推理。
 
-本地输出与 OpenAI 兼容 API 的 bge-m3 对齐：1024 维 + L2 归一化（normalize=True），
-因此新向量可与既有 LanceDB 向量混合检索（q8_0 量化误差约 0.1% 量级）。
+每个知识库只能使用同一向量维度；切换 BGE-M3 与 Qwen3 embedding 模型后应重新处理文档，
+避免与既有 LanceDB 向量混用。
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ _patch_installed = False
 
 
 class LocalEmbeddingClient:
-    """llama.cpp 进程内推理的 bge-m3（GGUF q8_0，1024 维，L2 归一化）。"""
+    """llama.cpp 进程内推理的受支持 embedding GGUF（L2 归一化）。"""
 
     def __init__(self, model_path: str, *, n_ctx: int = 2048, n_threads: int | None = None) -> None:
         self.model_path = model_path
@@ -71,7 +71,7 @@ class LocalEmbeddingClient:
         if self.n_threads:
             kwargs["n_threads"] = self.n_threads
         self._llm = Llama(**kwargs)
-        log.info("本地 embedding 模型就绪（bge-m3 q8_0，1024 维，L2 归一化）")
+        log.info("本地 embedding 模型就绪（L2 归一化）：%s", self.model_path)
 
     async def generate(self, text: str) -> list[float]:
         async with self._lock:
@@ -208,7 +208,7 @@ def install_embedding_backend(settings: Settings) -> None:
             zl_ai.generate_embedding = _local_client().generate  # noqa: E731
         if _original_embedding_module["package_batch"] is not None:
             zl_ai.batch_generate_embedding = _local_client().batch_generate  # noqa: E731
-        log.info("本地 embedding 后端已启用（bge-m3 q8_0 程序内嵌）")
+        log.info("本地 embedding 后端已启用（GGUF 程序内嵌）")
     else:
         zl_factory.get_embedding_client = _original_factory_get
         zl_embedding.get_embedding_client = _original_embedding_module["get_embedding_client"]
