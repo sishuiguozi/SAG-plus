@@ -1,5 +1,7 @@
 # SAG 全面优化任务规划
 
+> 运行入口：本文为历史优化计划与执行记录；启动 SAG-plus 请在 `apps/desktop` 运行 `npm run dev`。
+
 > 文档状态：In Progress / 阶段 3、4、7、8 核心项已完成（见各节勾选）
 > 基线日期：2026-07-30（Asia/Shanghai）
 > 最近执行：2026-08-01（Asia/Shanghai；历史执行记录）

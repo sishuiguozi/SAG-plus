@@ -5,6 +5,8 @@ description: Use when an AI coding agent needs to search, browse, cite, or read 
 
 # SAG Knowledge Base
 
+> 此 Skill 描述已启动服务的 MCP 用法；本地启动 SAG-plus 请在 `apps/desktop` 运行 `npm run dev`。
+
 SAG 把你的文档变成可检索、可溯源的知识库，并以 **MCP** 暴露给任何 Agent。
 本 Skill 教会 Agent 使用 SAG 的 8 个只读工具完成「先确认范围、再看结构、最后精确取内容」的探索漏斗。
 
