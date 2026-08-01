@@ -220,20 +220,38 @@ class TreeSitterResourceManager:
         return await self.start_download()
 
     async def repair(self) -> TreeSitterResourceStatus:
+        """Fill missing languages only; never re-fetch a complete pack."""
         async with self._operation_lock:
             if self._task is not None and not self._task.done():
                 return self.status()
             manifest = set(self._manifest())
-            if manifest and self._installed(self.active_dir) == manifest:
+            active = self._installed(self.active_dir)
+            staging = self._installed(self.staging_dir)
+            if manifest and active == manifest:
                 self._state = "ready"
                 self._error = None
                 self.activate_if_ready()
                 self._best_effort_rmtree(self.staging_dir)
                 self._cleanup_stale_trees()
                 return self.status()
+            # Complete staging can be promoted without network.
+            if manifest and staging == manifest:
+                try:
+                    self._promote_staging()
+                    self._state = "ready"
+                    self._error = None
+                    self.activate_if_ready()
+                    return self.status()
+                except Exception as exc:  # noqa: BLE001
+                    if self._installed(self.active_dir) == manifest:
+                        self._state = "ready"
+                        self._error = None
+                        return self.status()
+                    self._error = str(exc)
             self.version_dir.mkdir(parents=True, exist_ok=True)
             if not self.staging_dir.exists() and self.active_dir.exists():
-                shutil.copytree(self.active_dir, self.staging_dir)
+                # Seed from active so repair only fetches the missing gap.
+                self._seed_staging_from_active()
             self._pause_requested = False
             self._error = None
             self._state = "downloading"

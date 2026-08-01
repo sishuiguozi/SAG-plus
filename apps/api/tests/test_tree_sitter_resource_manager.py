@@ -200,3 +200,22 @@ async def test_download_reuses_active_languages_instead_of_refetching(tmp_path: 
     assert manager.status().state == "ready"
     assert adapter.download_calls == ["typescript"]
 
+@pytest.mark.asyncio
+async def test_repair_is_noop_when_active_pack_is_ready(tmp_path: Path):
+    from sag_api.code_ingest.resource_manager import TreeSitterResourceManager
+
+    adapter = FakeLanguagePackAdapter()
+    manager = TreeSitterResourceManager(tmp_path, adapter=adapter)
+    manager.active_dir.mkdir(parents=True)
+    for language in adapter.manifest_languages():
+        (manager.active_dir / f"{language}.parser").write_bytes(language.encode())
+    manager._state = "failed"
+    manager._error = "old error"
+
+    status = await manager.repair()
+    await manager.wait()
+
+    assert status.state == "ready"
+    assert status.error is None
+    assert adapter.download_calls == []
+

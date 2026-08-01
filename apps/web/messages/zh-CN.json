@@ -1874,6 +1874,8 @@
       "repairing": "修复中"
     },
     "downloaded": "已下载",
-    "alreadyReady": "语言包已就绪，无需重新下载"
+    "alreadyReady": "语言包已就绪，无需重新下载",
+    "repairOk": "无需修复",
+    "repairHint": "仅补齐缺失的语言包，不会整包重下"
   }
 }

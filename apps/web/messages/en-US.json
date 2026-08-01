@@ -1874,6 +1874,8 @@
       "repairing": "Repairing"
     },
     "downloaded": "Downloaded",
-    "alreadyReady": "Language packs are already ready. No re-download needed."
+    "alreadyReady": "Language packs are already ready. No re-download needed.",
+    "repairOk": "No repair needed",
+    "repairHint": "Only fills missing language packs; does not re-download everything"
   }
 }

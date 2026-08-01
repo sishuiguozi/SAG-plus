@@ -35,8 +35,13 @@ export function TreeSitterResourceCard({ embedded = false }: { embedded?: boolea
   }, [status?.state, refresh]);
 
   async function run(action: "download" | "pause" | "resume" | "repair") {
-    // Ready pack: never kick off another download from the UI.
-    if (action === "download" && String(status?.state || "") === "ready") {
+    const current = String(status?.state || "");
+    const complete =
+      current === "ready" ||
+      (Number(status?.installed_languages || 0) > 0 &&
+        Number(status?.installed_languages || 0) >= Number(status?.total_languages || 0));
+    // Ready/complete pack: download and repair are both no-ops in the UI.
+    if ((action === "download" || action === "repair") && complete) {
       toast.message(t("alreadyReady"));
       return;
     }
@@ -51,7 +56,10 @@ export function TreeSitterResourceCard({ embedded = false }: { embedded?: boolea
               ? await api.resumeTreeSitter()
               : await api.repairTreeSitter();
       setStatus(next);
-      if (action === "download" && String(next.state) === "ready") {
+      if (
+        (action === "download" || action === "repair") &&
+        String(next.state) === "ready"
+      ) {
         toast.success(t("alreadyReady"));
       }
     } catch (err) {
@@ -122,10 +130,11 @@ export function TreeSitterResourceCard({ embedded = false }: { embedded?: boolea
           type="button"
           size="sm"
           variant="outline"
-          disabled={busy || isDownloading}
+          disabled={busy || isDownloading || isReady || languagesComplete}
           onClick={() => void run("repair")}
+          title={isReady || languagesComplete ? t("alreadyReady") : t("repairHint")}
         >
-          {t("repair")}
+          {isReady || languagesComplete ? t("repairOk") : t("repair")}
         </Button>
       </div>
     </div>
