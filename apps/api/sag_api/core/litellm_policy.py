@@ -59,6 +59,13 @@ def _is_opencode_style_route(model: str, settings: Settings) -> bool:
     return any(marker in routing for marker in ("deepseek", "opencode", "/zen/"))
 
 
+def _reasoning_history_compat_enabled(model: str, settings: Settings) -> bool:
+    mode = settings.llm_reasoning_history_compat
+    return mode == "always" or (
+        mode == "auto" and "deepseek" in _routing_text(model, settings)
+    )
+
+
 def _is_qwen_template_route(model: str, settings: Settings) -> bool:
     routing = _routing_text(model, settings)
     return any(marker in routing for marker in ("qwen", "vllm", "sglang"))
@@ -106,6 +113,39 @@ def _with_allowed_openai_param(request: dict[str, Any], name: str) -> None:
     request["allowed_openai_params"] = allowed
 
 
+def _reasoning_is_disabled(request: Mapping[str, Any]) -> bool:
+    if request.get("reasoning_effort") == "none":
+        return True
+    extra_body = request.get("extra_body")
+    if not isinstance(extra_body, Mapping):
+        return False
+    thinking = extra_body.get("thinking")
+    return (
+        isinstance(thinking, Mapping) and thinking.get("type") == "disabled"
+    ) or _thinking_override(extra_body) is False
+
+
+def _with_reasoning_history_compat(request: dict[str, Any]) -> None:
+    messages = request.get("messages")
+    if not isinstance(messages, (list, tuple)):
+        return
+
+    normalized_messages: list[Any] | None = None
+    for index, message in enumerate(messages):
+        if (
+            not isinstance(message, Mapping)
+            or message.get("role") != "assistant"
+            or "reasoning_content" in message
+        ):
+            continue
+        if normalized_messages is None:
+            normalized_messages = list(messages)
+        normalized_messages[index] = {**message, "reasoning_content": ""}
+
+    if normalized_messages is not None:
+        request["messages"] = normalized_messages
+
+
 def apply_litellm_completion_policy(
     settings: Settings,
     request: Mapping[str, Any],
@@ -141,6 +181,12 @@ def apply_litellm_completion_policy(
         _apply_scoped_reasoning_disable(normalized, model, settings)
     elif "reasoning_effort" not in normalized and thinking is False:
         normalized["reasoning_effort"] = "none"
+
+    if (
+        not _reasoning_is_disabled(normalized)
+        and _reasoning_history_compat_enabled(model, settings)
+    ):
+        _with_reasoning_history_compat(normalized)
 
     if "reasoning_effort" in normalized and _is_openai_route(model, settings):
         _with_allowed_openai_param(normalized, "reasoning_effort")

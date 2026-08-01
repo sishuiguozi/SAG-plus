@@ -10,6 +10,23 @@ NAMED_SEARCH = {
     "function": {"name": "search_context"},
 }
 
+HISTORY = [
+    {"role": "user", "content": "AFSIM 是什么"},
+    {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {
+                "id": "call-1",
+                "type": "function",
+                "function": {"name": "search_context", "arguments": "{}"},
+            }
+        ],
+    },
+    {"role": "tool", "tool_call_id": "call-1", "content": "AFSIM 是仿真框架"},
+    {"role": "assistant", "content": "继续检索", "reasoning_content": "已有推理"},
+]
+
 
 def test_extract_scope_disables_qwen_reasoning_without_mutating_chat_requests():
     from sag_api.core.llm_call_context import llm_call_scope
@@ -222,3 +239,86 @@ def test_extract_scope_still_disables_reasoning_under_auto_strategy() -> None:
 
     assert request["tool_choice"] == "auto"
     assert request["reasoning_effort"] == "none"
+
+
+def test_deepseek_auto_fills_missing_assistant_reasoning_without_mutation() -> None:
+    settings = Settings(
+        _env_file=None,
+        llm_api_key="test-key",
+        llm_base_url="https://opencode.ai/zen/go/v1",
+        llm_model="deepseek-v4-flash",
+        llm_reasoning_history_compat="auto",
+    )
+    original_messages = [dict(message) for message in HISTORY]
+
+    request = apply_litellm_completion_policy(
+        settings,
+        {"messages": original_messages, "tool_choice": "auto"},
+    )
+
+    assert request["messages"][1]["reasoning_content"] == ""
+    assert request["messages"][3]["reasoning_content"] == "已有推理"
+    assert request["messages"] is not original_messages
+    assert request["messages"][1] is not original_messages[1]
+    assert "reasoning_content" not in original_messages[1]
+
+
+@pytest.mark.parametrize(
+    ("mode", "model", "expected"),
+    [
+        ("auto", "gpt-5-mini", False),
+        ("always", "gpt-5-mini", True),
+        ("off", "deepseek-v4-flash", False),
+    ],
+)
+def test_reasoning_history_compat_modes(mode: str, model: str, expected: bool) -> None:
+    settings = Settings(
+        _env_file=None,
+        llm_api_key="test-key",
+        llm_model=model,
+        llm_reasoning_history_compat=mode,
+    )
+
+    request = apply_litellm_completion_policy(
+        settings,
+        {"messages": HISTORY, "tool_choice": "auto"},
+    )
+
+    assert ("reasoning_content" in request["messages"][1]) is expected
+
+
+def test_disabled_reasoning_does_not_fill_history() -> None:
+    settings = Settings(
+        _env_file=None,
+        llm_api_key="test-key",
+        llm_model="deepseek-v4-flash",
+        llm_tool_choice_strategy="all_no_thinking",
+        llm_reasoning_history_compat="always",
+    )
+
+    request = apply_litellm_completion_policy(
+        settings,
+        {"messages": HISTORY, "tool_choice": "auto"},
+    )
+
+    assert "reasoning_content" not in request["messages"][1]
+
+
+def test_explicitly_disabled_reasoning_does_not_fill_history() -> None:
+    settings = Settings(
+        _env_file=None,
+        llm_api_key="test-key",
+        llm_model="deepseek-v4-flash",
+        llm_reasoning_history_compat="always",
+    )
+
+    request = apply_litellm_completion_policy(
+        settings,
+        {
+            "messages": HISTORY,
+            "tool_choice": "auto",
+            "reasoning_effort": "none",
+        },
+    )
+
+    assert "reasoning_content" not in request["messages"][1]
