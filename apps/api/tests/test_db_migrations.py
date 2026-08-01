@@ -51,4 +51,3 @@ def test_document_model_exposes_code_metadata_fields():
     assert Document.relative_path.property.columns[0].nullable is True
     assert Document.content_sha256.property.columns[0].nullable is True
     assert Document.code_language.property.columns[0].nullable is True
-
