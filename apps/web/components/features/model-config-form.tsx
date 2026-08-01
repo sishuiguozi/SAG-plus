@@ -25,6 +25,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { api, ApiError } from "@/lib/api";
 import {
   isLocalEmbeddingTestDisabled,
+  isLocalEmbeddingTestResponseCurrent,
   isLocalModelDownloadDisabled,
   localEmbeddingTestDraftKey,
   toggleLocalModelSelection,
@@ -119,6 +120,8 @@ export function ModelConfigForm() {
     embLocalNCtx,
     embLocalNThreads,
   );
+  const localEmbeddingDraftKeyRef = React.useRef(localEmbeddingDraftKey);
+  localEmbeddingDraftKeyRef.current = localEmbeddingDraftKey;
 
   React.useEffect(() => {
     setLocalEmbeddingTestResult(null);
@@ -383,6 +386,7 @@ export function ModelConfigForm() {
   }
 
   async function testLocalEmbedding() {
+    const requestDraftKey = localEmbeddingDraftKey;
     setTestingLocalEmbedding(true);
     setLocalEmbeddingTestResult(null);
     try {
@@ -391,11 +395,17 @@ export function ModelConfigForm() {
         n_ctx: embLocalNCtx,
         n_threads: embLocalNThreads,
       });
+      if (!isLocalEmbeddingTestResponseCurrent(requestDraftKey, localEmbeddingDraftKeyRef.current)) {
+        return;
+      }
       setLocalEmbeddingTestResult(result);
       if (result.ok) {
         toast.success(t("localModelTestSucceeded"));
       }
     } catch (error) {
+      if (!isLocalEmbeddingTestResponseCurrent(requestDraftKey, localEmbeddingDraftKeyRef.current)) {
+        return;
+      }
       setLocalEmbeddingTestResult({
         ok: false,
         message: error instanceof ApiError ? error.message : t("localModelTestFailed"),

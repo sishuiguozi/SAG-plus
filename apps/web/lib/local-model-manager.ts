@@ -11,6 +11,13 @@ export function localEmbeddingTestDraftKey(
   return JSON.stringify([embeddingProvider, modelFile, nCtx, nThreads]);
 }
 
+export function isLocalEmbeddingTestResponseCurrent(
+  requestDraftKey: string,
+  currentDraftKey: string,
+): boolean {
+  return requestDraftKey === currentDraftKey;
+}
+
 export function toggleLocalModelSelection(
   selected: string[],
   fileName: string,
