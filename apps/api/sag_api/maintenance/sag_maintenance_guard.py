@@ -129,6 +129,43 @@ def _process_rows() -> list[dict[str, Any]]:
     return rows
 
 
+def _listening_pids() -> set[int] | None:
+    """Windows：当前正在监听端口的进程 pid 集合。
+
+    返回 None 表示查询失败（无法判断），调用方应保守处理；
+    返回空集合表示确实没有进程在监听。
+    """
+    if os.name != "nt":
+        return None
+    try:
+        completed = subprocess.run(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                (
+                    "Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | "
+                    "Select-Object -ExpandProperty OwningProcess"
+                ),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
+        )
+    except Exception:
+        return None
+    pids: set[int] = set()
+    for line in completed.stdout.splitlines():
+        stripped = line.strip()
+        if stripped.isdigit():
+            pids.add(int(stripped))
+    return pids
+
+
 def find_sag_runtime_processes(
     rows: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
@@ -146,6 +183,8 @@ def find_sag_runtime_processes(
         "python.exe", "python", "python3.exe", "python3",
         "sag-api.exe", "sag-api",
     }
+    # 只拦截真正在监听端口的 API 进程；查询失败（None）时保守视为全部活动。
+    listening_pids = _listening_pids()
     matches: list[dict[str, Any]] = []
     for row in rows if rows is not None else _process_rows():
         pid = int(row.get("pid") or 0)
@@ -165,6 +204,10 @@ def find_sag_runtime_processes(
             or "sag_api/desktop.py" in normalized
             or "sag-api.exe" in normalized
         )
+        if is_api and listening_pids is not None and pid not in listening_pids:
+            # 命令行像 SAG API 但并未监听任何端口 → 僵死残留进程，
+            # 不会持有数据文件，不应阻止维护。
+            continue
         is_maintenance_or_test = (
             "sag_maintenance_guard" in normalized
             or "cleanup_lancedb_old_versions.py" in normalized
