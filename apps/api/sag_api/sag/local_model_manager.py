@@ -65,10 +65,21 @@ class LocalModelManager:
             "status": "ready" if backend_installed else self._backend_state["status"],
             "error": None if backend_installed else self._backend_state["error"],
         }
-        crispembed = {"status": "missing", "error": "CrispEmbed runtime is not installed"}
+        # ``find_spec("parent.child")`` raises when ``parent`` itself is absent.
+        # Probe in two stages so an untouched installation still returns a useful
+        # status payload for the settings page.
+        native_reranker_installed = False
+        if importlib.util.find_spec("llama_cpp") is not None:
+            native_reranker_installed = importlib.util.find_spec("llama_cpp.llama_embedding") is not None
+        native_reranker = {
+            "status": "ready" if native_reranker_installed else "missing",
+            "error": None if native_reranker_installed else (
+                "Native GGUF reranking requires a llama-cpp-python build with LlamaEmbedding pooling=rank support"
+            ),
+        }
         return {
             "embedding": {"backend": backend, "models": embedding_models},
-            "reranker": {"backends": {"llama_cpp": backend, "crispembed": crispembed}, "models": reranker_models},
+            "reranker": {"backends": {"llama_cpp_rank": native_reranker}, "models": reranker_models},
             # Legacy shape retained for the existing local-embedding endpoint/UI.
             "backend_installed": backend_installed,
             "backend": backend,

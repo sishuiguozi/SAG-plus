@@ -41,17 +41,17 @@ MODEL_SPECS = (
         "embedding", 2560, 4280,
     ),
     ModelSpec(
-        "bge-reranker-v2-m3-q8_0.gguf", "BGE Reranker v2 M3 Q8", ModelKind.RERANKER, "crispembed",
+        "bge-reranker-v2-m3-q8_0.gguf", "BGE Reranker v2 M3 Q8", ModelKind.RERANKER, "llama_cpp_rank",
         "https://huggingface.co/cstr/bge-reranker-v2-m3-GGUF/resolve/main/bge-reranker-v2-m3-q8_0.gguf",
         "reranker", None, 582,
     ),
     ModelSpec(
-        "qwen3-reranker-0.6b-q8_0.gguf", "Qwen3 Reranker 0.6B Q8", ModelKind.RERANKER, "llama_cpp",
+        "qwen3-reranker-0.6b-q8_0.gguf", "Qwen3 Reranker 0.6B Q8", ModelKind.RERANKER, "llama_cpp_rank",
         "https://huggingface.co/ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/resolve/main/qwen3-reranker-0.6b-q8_0.gguf",
         "reranker", None, 639,
     ),
     ModelSpec(
-        "Qwen3-Reranker-4B-Q8_0.gguf", "Qwen3 Reranker 4B Q8", ModelKind.RERANKER, "llama_cpp",
+        "Qwen3-Reranker-4B-Q8_0.gguf", "Qwen3 Reranker 4B Q8", ModelKind.RERANKER, "llama_cpp_rank",
         "https://huggingface.co/sinjab/Qwen3-Reranker-4B-Q8_0-GGUF/resolve/main/Qwen3-Reranker-4B-Q8_0.gguf",
         "reranker", None, 4280,
     ),

@@ -250,6 +250,56 @@ async def test_local_embedding_health_check_uses_unsaved_draft_values(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_local_reranker_health_check_uses_unsaved_draft_values(monkeypatch: pytest.MonkeyPatch):
+    from sag_api.api.v1 import system
+    from sag_api.main import app
+
+    class ReadyModelManager:
+        def status(self):
+            return {
+                "reranker": {
+                    "backends": {"llama_cpp_rank": {"status": "ready", "error": None}},
+                    "models": [{
+                        "file_name": "qwen3-reranker-0.6b-q8_0.gguf",
+                        "status": "ready",
+                        "model_path": "draft-reranker.gguf",
+                    }],
+                },
+            }
+
+    async def fake_test(model_path: str, *, n_ctx: int, n_threads: int | None) -> list[float]:
+        assert model_path == "draft-reranker.gguf"
+        assert n_ctx == 4096
+        assert n_threads == 6
+        return [0.9, 0.1]
+
+    monkeypatch.setattr(system, "_get_local_model_manager", lambda: ReadyModelManager())
+    monkeypatch.setattr(system, "_generate_local_reranker_test", fake_test)
+
+    transport = httpx.ASGITransport(app=app)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
+            registration = await client.post(
+                "/api/v1/auth/register",
+                json={"email": "local-reranker-health@t.com", "password": "password123"},
+            )
+            headers = {"Authorization": f"Bearer {registration.json()['access_token']}"}
+            response = await client.post(
+                "/api/v1/system/local-models/reranker/test",
+                headers=headers,
+                json={
+                    "model_file": "qwen3-reranker-0.6b-q8_0.gguf",
+                    "n_ctx": 4096,
+                    "n_threads": 6,
+                },
+            )
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+    assert response.json()["score_count"] == 2
+
+
+@pytest.mark.asyncio
 async def test_local_embedding_health_check_serializes_and_closes_temporary_clients(
     monkeypatch: pytest.MonkeyPatch,
 ):

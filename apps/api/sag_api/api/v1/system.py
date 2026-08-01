@@ -19,6 +19,7 @@ from sag_api.core.model_providers import model_provider_catalog
 from sag_api.db.models import Source, User
 from sag_api.generation import LLMClient
 from sag_api.mcp.server import MCP_TOOL_DETAILS, MCP_TOOL_NAMES
+from sag_api.sag.local_model_catalog import ModelKind, get_model_spec
 from sag_api.sag.local_model_manager import MODEL_CATALOG
 from sag_api.schemas.system import (
     LocalModelDownloadRequest,
@@ -34,6 +35,7 @@ router = APIRouter(prefix="/system", tags=["system"])
 log = get_logger("system")
 _local_model_manager = None
 _local_embedding_test_lock = asyncio.Lock()
+_local_reranker_test_lock = asyncio.Lock()
 
 
 def _get_local_model_manager():
@@ -62,6 +64,24 @@ async def _generate_local_embedding_test(
             return await client.generate("SAG-plus local embedding health check")
         finally:
             await client.close()
+
+
+async def _generate_local_reranker_test(
+    model_path: str,
+    *,
+    n_ctx: int,
+    n_threads: int | None,
+) -> list[float]:
+    """Run an unsaved native cross-encoder health check with serialized residency."""
+    from sag_api.sag.local_reranker import LocalReranker
+
+    async with _local_reranker_test_lock:
+        reranker = LocalReranker(model_path, n_ctx=n_ctx, n_threads=n_threads)
+        return await asyncio.to_thread(
+            reranker.rank,
+            "SAG-plus local reranker health check",
+            ["A relevant knowledge search passage", "An unrelated weather note"],
+        )
 
 
 def _capabilities() -> dict:
@@ -332,6 +352,45 @@ async def test_reranker_api(
     except Exception as exc:  # noqa: BLE001 - only expose sanitized client failures
         return {"ok": False, "message": str(exc).replace(body.api_key, "***")}
     return {"ok": True, "score_count": len(scores), "elapsed_ms": round((perf_counter() - started) * 1000)}
+
+
+@router.post("/local-models/reranker/test")
+async def test_local_reranker(
+    body: LocalModelTestRequest,
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Validate an unsaved local cross-encoder configuration without persistence."""
+    spec = get_model_spec(body.model_file)
+    if spec is None or spec.kind is not ModelKind.RERANKER:
+        raise ValidationError("Unsupported local reranker model")
+
+    manager_status = _get_local_model_manager().status()
+    reranker_status = manager_status.get("reranker", {})
+    backend = reranker_status.get("backends", {}).get(spec.runtime, {})
+    if backend.get("status") != "ready":
+        return {"ok": False, "message": backend.get("error") or "请先安装本地重排运行时"}
+    active_model = next(
+        (model for model in reranker_status.get("models", []) if model["file_name"] == body.model_file),
+        None,
+    )
+    if active_model is None or active_model.get("status") != "ready":
+        return {"ok": False, "message": "请先下载当前选择的本地重排模型"}
+
+    started = perf_counter()
+    try:
+        scores = await _generate_local_reranker_test(
+            active_model["model_path"],
+            n_ctx=body.n_ctx,
+            n_threads=body.n_threads or None,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "message": str(exc)}
+    return {
+        "ok": True,
+        "model_file": body.model_file,
+        "score_count": len(scores),
+        "elapsed_ms": round((perf_counter() - started) * 1000),
+    }
 
 
 @router.get("/model-providers")
