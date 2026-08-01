@@ -92,6 +92,14 @@ class ModelConfigUpdate(BaseModel):
     lancedb_fts_enabled: bool | None = None
     search_llm_rerank_enabled: bool | None = None
     search_llm_rerank_candidates: int | None = Field(default=None, ge=3, le=20)
+    search_rerank_mode: Literal["off", "local", "api", "llm"] | None = None
+    search_rerank_candidates: int | None = Field(default=None, ge=3, le=20)
+    search_local_rerank_model_file: str | None = Field(default=None, min_length=1, max_length=200)
+    search_rerank_api_url: str | None = Field(default=None, max_length=500)
+    search_rerank_api_key: str | None = Field(default=None, max_length=500)
+    search_rerank_api_model: str | None = Field(default=None, min_length=1, max_length=200)
+    search_rerank_api_instruction: str | None = Field(default=None, max_length=1000)
+    search_rerank_api_timeout_ms: int | None = Field(default=None, ge=1_000, le=120_000)
     sag_language: Literal["zh", "en"] | None = None
     # ── 向量索引与写入（SAG-OPT-30x，保存后对后续写入/检索即时生效）──
     lancedb_ann_enabled: bool | None = None

@@ -76,3 +76,18 @@ def test_call_scope_is_restored_and_isolated_between_async_tasks():
         return extract, chat, current_llm_call_scenario()
 
     assert asyncio.run(run()) == ("extract", None, None)
+
+
+def test_reranker_configuration_defaults_to_off_and_accepts_api_source():
+    settings = Settings(
+        _env_file=None,
+        search_rerank_mode="api",
+        search_rerank_candidates=12,
+        search_rerank_api_url="https://dashscope-intl.aliyuncs.com/compatible-api/v1/reranks",
+        search_rerank_api_key="secret",
+        search_rerank_api_model="qwen3-rerank",
+    )
+
+    assert Settings(_env_file=None).search_rerank_mode == "off"
+    assert settings.search_rerank_candidates == 12
+    assert settings.search_rerank_api_model == "qwen3-rerank"

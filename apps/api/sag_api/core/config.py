@@ -192,6 +192,17 @@ class Settings(BaseSettings):
     # A3：LLM Rerank（默认关闭；开启后对候选做编号重排）
     search_llm_rerank_enabled: bool = False
     search_llm_rerank_candidates: int = Field(default=8, ge=3, le=20)
+    # Rerank 来源：off=仅融合排序；local/API=Cross-Encoder；llm=旧兼容编号重排。
+    search_rerank_mode: Literal["off", "local", "api", "llm"] = "off"
+    search_rerank_candidates: int = Field(default=8, ge=3, le=20)
+    search_local_rerank_model_file: str = "qwen3-reranker-0.6b-q8_0.gguf"
+    search_rerank_api_url: str | None = None
+    search_rerank_api_key: str | None = None
+    search_rerank_api_model: str | None = None
+    search_rerank_api_instruction: str | None = (
+        "Given a web search query, retrieve relevant passages that answer the query."
+    )
+    search_rerank_api_timeout_ms: int = Field(default=30_000, ge=1_000, le=120_000)
 
     # ── 知识宇宙 ──────────────────────────────────────────────────────────
     # 服务端统一下发景深门与场景预算，前端不再散落硬编码阈值。
@@ -291,6 +302,13 @@ class Settings(BaseSettings):
         """程序内嵌 8-bit 量化模型（GGUF）路径：{data_dir 上级}/models/bge-m3/<model_file>。"""
         engine_dir = Path(self.data_dir).resolve()
         return str(engine_dir.parent / "models" / "bge-m3" / self.embedding_local_model_file)
+
+    @property
+    def effective_search_rerank_mode(self) -> Literal["off", "local", "api", "llm"]:
+        """Read legacy LLM rerank configs without overriding an explicit new mode."""
+        if self.search_rerank_mode == "off" and self.search_llm_rerank_enabled:
+            return "llm"
+        return self.search_rerank_mode
 
 
 @lru_cache

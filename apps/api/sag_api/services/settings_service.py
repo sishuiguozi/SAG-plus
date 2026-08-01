@@ -64,6 +64,14 @@ _FIELDS = frozenset(
         "lancedb_fts_enabled",
         "search_llm_rerank_enabled",
         "search_llm_rerank_candidates",
+        "search_rerank_mode",
+        "search_rerank_candidates",
+        "search_local_rerank_model_file",
+        "search_rerank_api_url",
+        "search_rerank_api_key",
+        "search_rerank_api_model",
+        "search_rerank_api_instruction",
+        "search_rerank_api_timeout_ms",
         "sag_language",
         # 向量索引与写入（SAG-OPT-30x）
         "lancedb_ann_enabled",
@@ -128,8 +136,8 @@ _FIELDS = frozenset(
         "universe_planet_radius_scale",
     }
 )
-_SECRET_FIELDS = frozenset({"llm_api_key", "embedding_api_key", "mineru_api_key"})
-_NULLABLE_FIELDS = frozenset({"llm_base_url", "embedding_base_url", "embedding_dimensions", "mineru_base_url"})
+_SECRET_FIELDS = frozenset({"llm_api_key", "embedding_api_key", "mineru_api_key", "search_rerank_api_key"})
+_NULLABLE_FIELDS = frozenset({"llm_base_url", "embedding_base_url", "embedding_dimensions", "mineru_base_url", "search_rerank_api_url"})
 
 _OPENAI_COMPATIBLE = get_model_provider("openai")
 
@@ -286,6 +294,14 @@ def effective_model_config() -> dict:
         "lancedb_fts_enabled": _settings.lancedb_fts_enabled,
         "search_llm_rerank_enabled": _settings.search_llm_rerank_enabled,
         "search_llm_rerank_candidates": _settings.search_llm_rerank_candidates,
+        "search_rerank_mode": _settings.effective_search_rerank_mode,
+        "search_rerank_candidates": _settings.search_rerank_candidates,
+        "search_local_rerank_model_file": _settings.search_local_rerank_model_file,
+        "search_rerank_api_url": _settings.search_rerank_api_url,
+        "search_rerank_api_key_set": bool(_settings.search_rerank_api_key),
+        "search_rerank_api_model": _settings.search_rerank_api_model,
+        "search_rerank_api_instruction": _settings.search_rerank_api_instruction,
+        "search_rerank_api_timeout_ms": _settings.search_rerank_api_timeout_ms,
         "sag_language": _settings.sag_language,
         # 向量索引与写入
         "lancedb_ann_enabled": _settings.lancedb_ann_enabled,
@@ -456,6 +472,9 @@ async def save_model_config(session: AsyncSession, patch: dict) -> dict:
             stored[key] = None
             continue
         stored[key] = value
+
+    if "search_rerank_mode" in patch:
+        stored["search_llm_rerank_enabled"] = patch["search_rerank_mode"] == "llm"
 
     stored = _normalize_overrides(stored)
 
