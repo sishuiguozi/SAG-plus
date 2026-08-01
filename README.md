@@ -37,6 +37,7 @@ must not be committed.
 | Context | Parent-child chunking retrieves precise child chunks while returning parent context, with duplicate suppression. |
 | Ingestion | Persistent batch/vector-write coordination gives LanceDB a single writer, retries, recovery, and idempotent work items. |
 | Storage | SQLite connection and pragma tuning, disk protection, LanceDB cleanup, index maintenance, and read/write observability reduce local-store pressure. |
+| Model calls | Four tool-calling strategies independently control reasoning for normal answers, forced tool selection, and post-tool answers across OpenCode/DeepSeek, Qwen, and other OpenAI-compatible endpoints. |
 | Evaluation | The repository includes retrieval evaluation cases and runtime timing output for measuring changes against local data. |
 
 Detailed implementation records are in
@@ -66,6 +67,11 @@ Detailed implementation records are in
    reranking. Local rerank models download separately from embeddings; their
    native rank runtime is built only after you explicitly install it, and can be
    tested without saving.
+7. Under **Settings → Model configuration → Generation parameters → Tool
+   calling strategy**, choose how reasoning behaves around tools. The recommended
+   mode keeps reasoning for normal answers, disables it only for forced tool
+   selection, and restores it for the post-tool answer. Keep-reasoning,
+   automatic-tool, and disable-all modes are also available.
 
 ## Troubleshooting
 

@@ -14,7 +14,7 @@
 | 5 | `sag_api/sag/embedding_backend.py` | 本地 bge-m3（llama-cpp）替换 zleap OpenAI embedding | `main.py` + 设置保存 | `uninstall_embedding_backend` | test_embedding_backend |
 | 6 | `sag_api/sag/chunking_compat.py` | 结构感知分块（代码块/表格不切断） | `main.py` | `uninstall_structural_chunking_patch` | test_chunking_structural |
 | 7 | `sag_api/sag/lancedb_fts.py` | BM25 独立召回（LanceDB FTS + tantivy）；同步索引/查询经 worker thread 执行，避免阻塞 API 事件循环 | 懒加载（首次检索） | — | test_lancedb_fts |
-| 8 | `sag_api/core/litellm_policy.py` | LiteLLM pre-call 策略（provider 参数） | `main.py` | `uninstall_litellm_policy` | 模型配置测试 |
+| 8 | `sag_api/core/litellm_policy.py` | LiteLLM pre-call 策略：抽取/LLM 重排作用域关闭思考，聊天四档工具选择与思考控制，按 provider 合并兼容参数 | `main.py` | `uninstall_litellm_policy` | `test_litellm_policy`、模型配置测试 |
 | 9 | `sag_api/sag/parent_child.py` | 父子分块（A4）：入库 parent_id 回填 + 父块向量过滤 + 检索父上下文 | `main.py` | `uninstall_parent_child_loader_patch` | test_parent_child |
 
 ## 本地模型管理
@@ -26,6 +26,13 @@
 `llama-cpp-python`，并可选安装提供 `LlamaEmbedding` / `pooling=rank` 的原生重排运行时。
 普通 embedding 运行时不会被误判为支持 Cross-Encoder 重排；不可用时检索保留融合排序。模型与
 后端均不会在启动时下载。
+
+## 工具调用与思考策略
+
+模型配置页提供“工具轮关闭思考（推荐）”“全程保留思考”“自动工具选择”和“全程关闭思考”
+四档。Agent 路由器仍只负责意图与 `tool_choice`；`litellm_policy.py` 在请求副本上识别指定函数或
+`required`，按当前策略关闭思考或改写为 `auto`。工具调用结束后的回答请求不会继承上一次的临时
+覆盖。入库抽取、实体事件抽取和 LLM 重排的独立关闭思考作用域始终优先保留。
 
 ## 运行期验证
 
