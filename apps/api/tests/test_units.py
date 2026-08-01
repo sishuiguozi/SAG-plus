@@ -178,6 +178,7 @@ async def test_llm_timeout_and_retries_reach_unified_client(monkeypatch):
     configured = Settings(
         _env_file=None,
         llm_api_key="provider-key",
+        llm_model="qwen3.6-flash",
         llm_timeout_ms=45_000,
         llm_max_retries=3,
     )

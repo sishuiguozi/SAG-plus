@@ -31,6 +31,19 @@ def _thinking_override(extra_body: object) -> bool | None:
     return None
 
 
+def _is_forced_tool_choice(value: object) -> bool:
+    if value == "required":
+        return True
+    if not isinstance(value, Mapping) or value.get("type") != "function":
+        return False
+    function = value.get("function")
+    return (
+        isinstance(function, Mapping)
+        and isinstance(function.get("name"), str)
+        and bool(function["name"].strip())
+    )
+
+
 def _is_openai_route(model: str, settings: Settings) -> bool:
     if "/" in model:
         return model.split("/", 1)[0].casefold() == "openai"
@@ -99,10 +112,11 @@ def apply_litellm_completion_policy(
 ) -> dict[str, Any]:
     """Return one normalized LiteLLM completion request.
 
-    User-configured request fields are preserved for normal chat calls.  Only
-    entity/event extraction and legacy LLM reranking get a scoped reasoning
-    disable override; ``allowed_openai_params`` supports custom compatible
-    endpoint model names whose capabilities LiteLLM cannot infer.
+    User-configured request fields are preserved unless the configured tool
+    strategy applies to this call. Entity/event extraction and legacy LLM
+    reranking always keep their scoped reasoning disable override;
+    ``allowed_openai_params`` supports custom compatible endpoint model names
+    whose capabilities LiteLLM cannot infer.
     """
 
     normalized = dict(request)
@@ -111,7 +125,19 @@ def apply_litellm_completion_policy(
 
     model = str(normalized.get("model") or settings.routed_llm_model)
     thinking = _thinking_override(normalized.get("extra_body"))
-    if current_llm_call_scenario() is not None:
+    tool_choice = normalized.get("tool_choice")
+    forced_tool_choice = _is_forced_tool_choice(tool_choice)
+    strategy = settings.llm_tool_choice_strategy
+
+    if strategy == "auto" and forced_tool_choice:
+        normalized["tool_choice"] = "auto"
+
+    disable_reasoning = (
+        current_llm_call_scenario() is not None
+        or strategy == "all_no_thinking"
+        or (strategy == "forced_no_thinking" and forced_tool_choice)
+    )
+    if disable_reasoning:
         _apply_scoped_reasoning_disable(normalized, model, settings)
     elif "reasoning_effort" not in normalized and thinking is False:
         normalized["reasoning_effort"] = "none"
