@@ -65,6 +65,33 @@ async def test_llm_rerank_fallback_on_error():
 
 
 @pytest.mark.asyncio
+async def test_api_rerank_orders_scored_candidates_and_keeps_ties_stable():
+    from sag_api.services.retrieval_service import _api_rerank
+
+    class FakeAPI:
+        async def rank(self, query, documents, *, limit):
+            assert query == "q"
+            assert documents == ["content 0", "content 1", "content 2"]
+            assert limit == 3
+            return [0.2, 0.9, 0.2]
+
+    result = await _api_rerank("q", _sections(3), client=FakeAPI(), limit=3)
+    assert [section.chunk_id for section in result] == ["c1", "c0", "c2"]
+
+
+@pytest.mark.asyncio
+async def test_api_rerank_falls_back_to_existing_order_on_failure():
+    from sag_api.services.retrieval_service import _api_rerank
+
+    class BrokenAPI:
+        async def rank(self, *args, **kwargs):
+            raise RuntimeError("down")
+
+    result = await _api_rerank("q", _sections(3), client=BrokenAPI(), limit=3)
+    assert [section.chunk_id for section in result] == ["c0", "c1", "c2"]
+
+
+@pytest.mark.asyncio
 async def test_retrieve_uses_llm_rerank_when_enabled(monkeypatch):
     from sag_api.core.config import settings
     from sag_api.services import retrieval_service as rs

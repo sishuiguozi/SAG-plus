@@ -315,6 +315,38 @@ async def _llm_rerank(
     return ordered[:limit]
 
 
+async def _api_rerank(
+    query: str,
+    sections: list[RetrievedSection],
+    *,
+    client: Any,
+    limit: int,
+) -> list[RetrievedSection]:
+    """Score the existing fused order; API failures must never fail search."""
+    if len(sections) <= 1:
+        return sections[:limit]
+    try:
+        scores = await client.rank(
+            query,
+            [section.content.strip() for section in sections],
+            limit=min(limit, len(sections)),
+        )
+    except Exception as error:  # noqa: BLE001 - external rerank is best effort
+        log.warning("Rerank API failed; using fused order: %s", error)
+        return sections[:limit]
+    if len(scores) != len(sections):
+        log.warning("Rerank API returned %s scores for %s sections", len(scores), len(sections))
+        return sections[:limit]
+    return [
+        section
+        for _, section in sorted(
+            enumerate(sections),
+            key=lambda item: scores[item[0]],
+            reverse=True,
+        )
+    ][:limit]
+
+
 async def retrieve_relevant_sections(
     engine_manager: Any,
     sources: list[SearchSource],
@@ -345,8 +377,24 @@ async def retrieve_relevant_sections(
         limit=requested_limit,
     )
     final_sections = reranked.sections
-    if (
-        settings.search_llm_rerank_enabled
+    rerank_mode = settings.effective_search_rerank_mode
+    if rerank_mode == "api" and all((settings.search_rerank_api_url, settings.search_rerank_api_key, settings.search_rerank_api_model)):
+        from sag_api.sag.rerank_api_client import RerankAPIClient
+
+        final_sections = await _api_rerank(
+            query,
+            reranked.sections,
+            client=RerankAPIClient(
+                url=settings.search_rerank_api_url,
+                api_key=settings.search_rerank_api_key,
+                model=settings.search_rerank_api_model,
+                instruction=settings.search_rerank_api_instruction,
+                timeout_ms=settings.search_rerank_api_timeout_ms,
+            ),
+            limit=requested_limit,
+        )
+    elif (
+        rerank_mode == "llm"
         and llm is not None
         and getattr(llm, "configured", False)
     ):
