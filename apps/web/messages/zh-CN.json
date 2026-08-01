@@ -1872,6 +1872,8 @@
       "ready": "已就绪",
       "error": "异常",
       "repairing": "修复中"
-    }
+    },
+    "downloaded": "已下载",
+    "alreadyReady": "语言包已就绪，无需重新下载"
   }
 }

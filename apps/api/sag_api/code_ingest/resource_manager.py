@@ -178,14 +178,32 @@ class TreeSitterResourceManager:
         async with self._operation_lock:
             if self._task is not None and not self._task.done():
                 return self.status()
-            # Clear stale in-memory failure once the on-disk active pack is complete.
+            # Clear stale in-memory failure once the on-disk pack is complete.
             manifest = set(self._manifest())
-            if manifest and self._installed(self.active_dir) == manifest:
+            active = self._installed(self.active_dir)
+            staging = self._installed(self.staging_dir)
+            if manifest and active == manifest:
                 self._state = "ready"
                 self._error = None
                 self.activate_if_ready()
                 self._cleanup_stale_trees()
                 return self.status()
+            # Complete staging with incomplete/missing active: promote without re-fetch.
+            if manifest and staging == manifest:
+                try:
+                    self._promote_staging()
+                    self._state = "ready"
+                    self._error = None
+                    self.activate_if_ready()
+                    return self.status()
+                except Exception as exc:  # noqa: BLE001
+                    # Fall through to download task only if promote truly failed
+                    # and languages are still missing.
+                    if self._installed(self.active_dir) == manifest:
+                        self._state = "ready"
+                        self._error = None
+                        return self.status()
+                    self._error = str(exc)
             if self.status().state == "ready":
                 return self.status()
             self._pause_requested = False
@@ -245,13 +263,62 @@ class TreeSitterResourceManager:
             return True
         return False
 
+    def _seed_staging_from_active(self) -> None:
+        """Reuse already-installed active grammars so ready packs are never re-fetched."""
+        if not self.active_dir.exists():
+            return
+        self.staging_dir.mkdir(parents=True, exist_ok=True)
+        # Only copy files staging does not already have.
+        for item in self.active_dir.iterdir():
+            if not item.is_file():
+                continue
+            target = self.staging_dir / item.name
+            if target.exists():
+                continue
+            try:
+                shutil.copy2(item, target)
+            except OSError:
+                # Locked files can still be listed by the pack adapter from active;
+                # missing copies are handled by pending-language download below.
+                continue
+
     async def _run_download(self) -> None:
         try:
             self.version_dir.mkdir(parents=True, exist_ok=True)
-            self.staging_dir.mkdir(parents=True, exist_ok=True)
             manifest = self._manifest()
-            installed = self._installed(self.staging_dir)
+            manifest_set = set(manifest)
+
+            # If active is already complete, never re-download.
+            if manifest_set and self._installed(self.active_dir) == manifest_set:
+                self._state = "ready"
+                self._error = None
+                self._best_effort_rmtree(self.staging_dir)
+                self._cleanup_stale_trees()
+                self.activate_if_ready()
+                return
+
+            self.staging_dir.mkdir(parents=True, exist_ok=True)
+            # Carry forward whatever is already installed in active/staging.
+            self._seed_staging_from_active()
+            installed = self._installed(self.staging_dir) | self._installed(self.active_dir)
+            # Reflect seeded progress immediately in checkpoint/status.
+            self._write_checkpoint(installed & manifest_set, len(manifest))
             pending = [language for language in manifest if language not in installed]
+            if not pending:
+                # Staging/active already cover the full manifest.
+                if self._installed(self.staging_dir) != manifest_set:
+                    # Ensure staging mirrors the complete set before promote.
+                    self._seed_staging_from_active()
+                if self._installed(self.staging_dir) != manifest_set and self._installed(self.active_dir) == manifest_set:
+                    self._state = "ready"
+                    self._error = None
+                    self.activate_if_ready()
+                    return
+                self._promote_staging()
+                self._state = "ready"
+                self._error = None
+                self.activate_if_ready()
+                return
             batch_size = 8
             for offset in range(0, len(pending), batch_size):
                 if self._pause_requested:
@@ -276,7 +343,17 @@ class TreeSitterResourceManager:
                         await self.adapter.download(language, self.staging_dir)
                         installed = self._installed(self.staging_dir)
                         self._write_checkpoint(installed, len(manifest))
+            # Prefer staging completeness; fall back to active+staging union so a
+            # ready active pack never fails verification after a no-op download.
+            self._seed_staging_from_active()
             verified = self._installed(self.staging_dir)
+            combined = verified | self._installed(self.active_dir)
+            if verified != set(manifest) and combined == set(manifest) and self._installed(self.active_dir) == set(manifest):
+                self._state = "ready"
+                self._error = None
+                self._best_effort_rmtree(self.staging_dir)
+                self.activate_if_ready()
+                return
             if verified != set(manifest):
                 missing = sorted(set(manifest) - verified)
                 raise RuntimeError(f"Parser verification failed; missing: {', '.join(missing[:8])}")

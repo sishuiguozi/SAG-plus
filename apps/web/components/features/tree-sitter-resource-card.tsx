@@ -35,6 +35,11 @@ export function TreeSitterResourceCard({ embedded = false }: { embedded?: boolea
   }, [status?.state, refresh]);
 
   async function run(action: "download" | "pause" | "resume" | "repair") {
+    // Ready pack: never kick off another download from the UI.
+    if (action === "download" && String(status?.state || "") === "ready") {
+      toast.message(t("alreadyReady"));
+      return;
+    }
     setBusy(true);
     try {
       const next =
@@ -46,6 +51,9 @@ export function TreeSitterResourceCard({ embedded = false }: { embedded?: boolea
               ? await api.resumeTreeSitter()
               : await api.repairTreeSitter();
       setStatus(next);
+      if (action === "download" && String(next.state) === "ready") {
+        toast.success(t("alreadyReady"));
+      }
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : t("actionFailed"));
     } finally {
@@ -53,7 +61,13 @@ export function TreeSitterResourceCard({ embedded = false }: { embedded?: boolea
     }
   }
 
-  const state = String(status?.state || "missing");
+  const rawState = String(status?.state || "missing");
+  const state = rawState === "failed" ? "error" : rawState;
+  const isReady = state === "ready";
+  const isDownloading = state === "downloading" || state === "repairing";
+  const languagesComplete =
+    Number(status?.installed_languages || 0) > 0 &&
+    Number(status?.installed_languages || 0) >= Number(status?.total_languages || 0);
   const rawProgress = Number(status?.progress || 0);
   const progress = Math.round(rawProgress > 0 && rawProgress <= 1 ? rawProgress * 100 : rawProgress);
 
@@ -90,16 +104,27 @@ export function TreeSitterResourceCard({ embedded = false }: { embedded?: boolea
         ) : null}
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" disabled={busy || state === "downloading"} onClick={() => void run("download")}>
-          {t("download")}
+        <Button
+          type="button"
+          size="sm"
+          disabled={busy || isDownloading || isReady || languagesComplete}
+          onClick={() => void run("download")}
+        >
+          {isReady || languagesComplete ? t("downloaded") : t("download")}
         </Button>
-        <Button type="button" size="sm" variant="outline" disabled={busy || state !== "downloading"} onClick={() => void run("pause")}>
+        <Button type="button" size="sm" variant="outline" disabled={busy || !isDownloading} onClick={() => void run("pause")}>
           {t("pause")}
         </Button>
         <Button type="button" size="sm" variant="outline" disabled={busy || state !== "paused"} onClick={() => void run("resume")}>
           {t("resume")}
         </Button>
-        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void run("repair")}>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={busy || isDownloading}
+          onClick={() => void run("repair")}
+        >
           {t("repair")}
         </Button>
       </div>

@@ -1872,6 +1872,8 @@
       "ready": "Ready",
       "error": "Error",
       "repairing": "Repairing"
-    }
+    },
+    "downloaded": "Downloaded",
+    "alreadyReady": "Language packs are already ready. No re-download needed."
   }
 }

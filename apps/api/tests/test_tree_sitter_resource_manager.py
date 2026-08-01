@@ -165,3 +165,38 @@ async def test_repair_short_circuits_when_active_pack_is_already_complete(tmp_pa
     assert manager.status().error is None
     assert adapter.download_calls == []
 
+@pytest.mark.asyncio
+async def test_start_download_is_noop_when_active_pack_is_ready(tmp_path: Path):
+    from sag_api.code_ingest.resource_manager import TreeSitterResourceManager
+
+    adapter = FakeLanguagePackAdapter()
+    manager = TreeSitterResourceManager(tmp_path, adapter=adapter)
+    manager.active_dir.mkdir(parents=True)
+    for language in adapter.manifest_languages():
+        (manager.active_dir / f"{language}.parser").write_bytes(language.encode())
+
+    status = await manager.start_download()
+    await manager.wait()
+
+    assert status.state == "ready"
+    assert adapter.download_calls == []
+    assert manager.status().state == "ready"
+
+
+@pytest.mark.asyncio
+async def test_download_reuses_active_languages_instead_of_refetching(tmp_path: Path):
+    from sag_api.code_ingest.resource_manager import TreeSitterResourceManager
+
+    adapter = FakeLanguagePackAdapter()
+    manager = TreeSitterResourceManager(tmp_path, adapter=adapter)
+    manager.active_dir.mkdir(parents=True)
+    # Two languages already active; only typescript is missing.
+    (manager.active_dir / "cpp.parser").write_bytes(b"cpp")
+    (manager.active_dir / "python.parser").write_bytes(b"python")
+
+    await manager.start_download()
+    await manager.wait()
+
+    assert manager.status().state == "ready"
+    assert adapter.download_calls == ["typescript"]
+
