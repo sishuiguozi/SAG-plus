@@ -43,8 +43,8 @@ MODEL_SPECS = (
     ),
     ModelSpec(
         "bge-reranker-v2-m3-q8_0.gguf", "BGE Reranker v2 M3 Q8", ModelKind.RERANKER, "llama_cpp_rank",
-        "https://huggingface.co/cstr/bge-reranker-v2-m3-GGUF/resolve/main/bge-reranker-v2-m3-q8_0.gguf",
-        "reranker", None, 582, "63e5a900e1605e3be3a96d94b6ac63f0f9f4efe66b2bef07890587b6412c443e",
+        "https://huggingface.co/klnstpr/bge-reranker-v2-m3-Q8_0-GGUF/resolve/main/bge-reranker-v2-m3-q8_0.gguf",
+        "reranker", None, 606, "a1c7499841b5f9f5d9ab2c74629293740dbdbe217ded4f0baa64f233ec34c5e4",
     ),
     ModelSpec(
         "qwen3-reranker-0.6b-q8_0.gguf", "Qwen3 Reranker 0.6B Q8", ModelKind.RERANKER, "llama_cpp_rank",

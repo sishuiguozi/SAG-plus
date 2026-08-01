@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import threading
 from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import Any, Protocol
 
 from sag_api.sag.local_model_catalog import ModelKind, get_model_spec
@@ -25,6 +26,20 @@ class _RankRuntime(Protocol):
 
 
 RuntimeFactory = Callable[..., _RankRuntime | None]
+
+
+def _repair_existing_sag_data_path(model_path: str) -> str:
+    """Repair a legacy ``<drive>\\sag.data`` typo only when its target exists."""
+    original = Path(model_path)
+    if original.is_file():
+        return str(original)
+    for malformed, corrected in (("\\sag.data\\", "\\sag\\.data\\"), ("/sag.data/", "/sag/.data/")):
+        if malformed not in model_path:
+            continue
+        candidate = Path(model_path.replace(malformed, corrected, 1))
+        if candidate.is_file():
+            return str(candidate)
+    return model_path
 
 
 def _create_native_runtime(
@@ -70,7 +85,7 @@ class LocalReranker:
         n_threads: int | None = None,
         runtime_factory: RuntimeFactory | None = None,
     ) -> None:
-        self.model_path = model_path
+        self.model_path = _repair_existing_sag_data_path(model_path)
         self.n_ctx = n_ctx
         self.n_threads = n_threads
         self._runtime_factory = runtime_factory or _create_native_runtime

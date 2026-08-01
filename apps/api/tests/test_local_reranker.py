@@ -38,6 +38,29 @@ def test_local_reranker_rejects_non_reranker_model(tmp_path):
         reranker.rank("q", ["document"])
 
 
+def test_local_reranker_repairs_a_missing_sag_data_separator(tmp_path):
+    from sag_api.sag.local_reranker import LocalReranker
+
+    model = tmp_path / "sag" / ".data" / "models" / "reranker" / "qwen3-reranker-0.6b-q8_0.gguf"
+    model.parent.mkdir(parents=True)
+    model.write_bytes(b"model")
+    malformed_path = str(tmp_path / "sag.data" / "models" / "reranker" / model.name)
+    created = []
+
+    class NativeRuntime:
+        def rank(self, _query, _documents):
+            return [0.5]
+
+    def factory(model_path, **_kwargs):
+        created.append(model_path)
+        return NativeRuntime()
+
+    reranker = LocalReranker(malformed_path, runtime_factory=factory)
+
+    assert reranker.rank("q", ["document"]) == [0.5]
+    assert created == [str(model)]
+
+
 def test_local_reranker_reports_missing_native_runtime_without_generating_text(tmp_path):
     from sag_api.sag.local_reranker import LocalReranker, LocalRerankerUnavailable
 

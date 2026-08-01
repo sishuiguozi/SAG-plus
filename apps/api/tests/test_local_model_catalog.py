@@ -16,3 +16,13 @@ def test_q8_catalog_contains_three_embedding_and_three_reranker_models():
         "Qwen3-Reranker-4B-Q8_0.gguf",
     ]
     assert [spec.dimensions for spec in embeddings] == [1024, 1024, 2560]
+
+
+def test_bge_reranker_uses_the_llama_cpp_compatible_q8_conversion():
+    bge = next(spec for spec in MODEL_SPECS if spec.file_name == "bge-reranker-v2-m3-q8_0.gguf")
+
+    assert bge.source_url == (
+        "https://huggingface.co/klnstpr/bge-reranker-v2-m3-Q8_0-GGUF/"
+        "resolve/main/bge-reranker-v2-m3-q8_0.gguf"
+    )
+    assert bge.sha256 == "a1c7499841b5f9f5d9ab2c74629293740dbdbe217ded4f0baa64f233ec34c5e4"
