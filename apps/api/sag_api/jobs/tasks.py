@@ -105,9 +105,40 @@ async def process_document(
                     prepared.cached,
                     prepared.fallback_error,
                 )
+            if prepared.provider == "tree_sitter":
+                document.relative_path = prepared.relative_path
+                document.content_sha256 = prepared.content_sha256
+                document.code_language = prepared.code_language
+                await session.commit()
+        elif (
+            document.code_language
+            and document.content_sha256
+            and document.storage_path
+        ):
+            # Resume after chunking still needs code metadata if a later stage
+            # re-enters loading, or if callers inspect prepared_document.
+            from sag_api.parsing.service import PreparedDocument
+
+            prepared = PreparedDocument(
+                path=document.storage_path,
+                provider="tree_sitter",
+                relative_path=document.relative_path or Path(document.filename).name,
+                content_sha256=document.content_sha256,
+                code_language=document.code_language,
+            )
+        code_kwargs = (
+            {"prepared_document": prepared}
+            if prepared is not None and prepared.provider == "tree_sitter"
+            else {}
+        )
+        process_path = None
+        if prepared is not None:
+            process_path = str(prepared.path)
+        elif not checkpoint.chunk_ids:
+            process_path = document.storage_path
         outcome = await engine_manager.process_document(
             source.sag_source_config_id,
-            str(prepared.path) if prepared is not None else None,
+            process_path,
             source=source,
             on_stage=on_stage,
             checkpoint=checkpoint,
@@ -115,6 +146,7 @@ async def process_document(
             should_pause=should_pause,
             max_concurrency=settings.document_extract_concurrency,
             document_title=Path(document.filename).stem.strip(),
+            **code_kwargs,
         )
         if outcome.paused:
             document.status = DocumentStatus.PAUSED

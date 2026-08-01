@@ -22,6 +22,7 @@ from zleap.sag.modules.load.parser import MarkdownParser
 from sag_api.core.config import settings
 from sag_api.core.llm_call_context import llm_call_scope
 from sag_api.core.logging import get_logger
+from sag_api.parsing.service import PreparedDocument
 from sag_api.sag.dto import ProcessCheckpoint, ProcessOutcome
 
 CheckpointCallback = Callable[[ProcessCheckpoint], Awaitable[None]]
@@ -215,6 +216,8 @@ class IncrementalDocumentProcessor:
         chunk_mode: Literal["standard", "heading_strict"] = "standard",
         document_title: str | None = None,
         enable_strict_filtering: bool = False,
+        prepared_document: PreparedDocument | None = None,
+        code_source_id: str | None = None,
     ) -> None:
         self._engine = engine
         self._source_config_id = source_config_id
@@ -223,6 +226,8 @@ class IncrementalDocumentProcessor:
         self._chunk_mode = chunk_mode
         self._document_title = (document_title or "").strip()
         self._enable_strict_filtering = enable_strict_filtering
+        self._prepared_document = prepared_document
+        self._code_source_id = code_source_id or source_config_id
 
     async def process(
         self,
@@ -239,17 +244,33 @@ class IncrementalDocumentProcessor:
                 raise RuntimeError("文档尚未切片，无法从断点继续")
             if on_stage:
                 await on_stage("loading")
-            loader = (
-                DocumentLoader(parser=_FallbackTitleMarkdownParser(self._document_title))
-                if self._document_title
-                else DocumentLoader()
+            if self._prepared_document is not None and self._prepared_document.provider == "tree_sitter":
+                from sag_api.code_ingest.loader import create_code_document_loader
+
+                loader = create_code_document_loader(
+                    self._prepared_document,
+                    source_id=self._code_source_id,
+                    max_child_tokens=self._chunk_max_tokens,
+                )
+            else:
+                loader = (
+                    DocumentLoader(parser=_FallbackTitleMarkdownParser(self._document_title))
+                    if self._document_title
+                    else DocumentLoader()
+                )
+            # zleap DocumentLoadConfig only accepts a subset of app chunk modes.
+            # parent_child/regex are applied via app-level patches/settings, not here.
+            load_chunk_mode = (
+                self._chunk_mode
+                if self._chunk_mode in {"standard", "heading_strict", "overlap"}
+                else "standard"
             )
             loaded = await loader.load(
                 DocumentLoadConfig(
                     path=str(path),
                     source_config_id=self._source_config_id,
                     max_tokens=self._chunk_max_tokens,
-                    chunk_mode=self._chunk_mode,
+                    chunk_mode=load_chunk_mode,
                     embedding_batch_size=settings.source_chunk_vector_embedding_batch_size,
                     es_bulk_index_size=settings.source_chunk_vector_index_batch_size,
                 )

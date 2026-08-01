@@ -738,6 +738,7 @@ class EngineManager:
         should_pause: PauseCheck | None = None,
         max_concurrency: int | None = None,
         document_title: str | None = None,
+        prepared_document: "PreparedDocument | None" = None,
     ) -> ProcessOutcome:
         """独立处理一篇文档；同源文档可并行，chunk 完成即保存断点。"""
 
@@ -757,6 +758,8 @@ class EngineManager:
                     chunk_mode=self._settings.document_chunk_mode,
                     document_title=document_title,
                     enable_strict_filtering=self._settings.document_strict_filtering,
+                    prepared_document=prepared_document,
+                    code_source_id=source.id if source is not None else source_config_id,
                 )
                 return await processor.process(
                     path,

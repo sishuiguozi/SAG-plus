@@ -20,6 +20,8 @@ log = get_logger("sag.parent_child")
 
 _patch_installed = False
 _original: dict[str, Any] = {}
+_PARENT_CHUNK_TYPES = {"parent", "code_parent"}
+_CHILD_CHUNK_TYPES = {"child", "code_child"}
 
 
 # ───────────────────────── 1. 入库 parent_id 回填 ─────────────────────────
@@ -43,7 +45,7 @@ async def _backfill_parent_ids(chunk_ids: list[str], chunking_result: Any) -> No
     parent_ids: dict[Any, str] = {}
     for chunk_id, draft in zip(chunk_ids, drafts):
         meta = draft.metadata or {}
-        if meta.get("chunk_type") == "parent" and meta.get("parent_group") is not None:
+        if meta.get("chunk_type") in _PARENT_CHUNK_TYPES and meta.get("parent_group") is not None:
             parent_ids[meta["parent_group"]] = chunk_id
     if not parent_ids:
         return
@@ -51,7 +53,7 @@ async def _backfill_parent_ids(chunk_ids: list[str], chunking_result: Any) -> No
     updates: list[tuple[str, str]] = []
     for chunk_id, draft in zip(chunk_ids, drafts):
         meta = draft.metadata or {}
-        if meta.get("chunk_type") != "child":
+        if meta.get("chunk_type") not in _CHILD_CHUNK_TYPES:
             continue
         parent_id = parent_ids.get(meta.get("parent_group"))
         if parent_id and parent_id != chunk_id:
@@ -104,7 +106,7 @@ def _filtered_batch_index_chunks(
         chunks = [
             c
             for c in chunks
-            if (getattr(c, "extra_data", None) or {}).get("chunk_type") != "parent"
+            if (getattr(c, "extra_data", None) or {}).get("chunk_type") not in _PARENT_CHUNK_TYPES
         ]
     return original(
         self,
@@ -152,7 +154,7 @@ async def enrich_parent_context(sections: list) -> list:
     parent_id_by_child: dict[str, str] = {}
     for sec in candidates:
         extra = info.get(sec.chunk_id, ({}, "", ""))[0]
-        if extra.get("chunk_type") == "child" and extra.get("parent_id"):
+        if extra.get("chunk_type") in _CHILD_CHUNK_TYPES and extra.get("parent_id"):
             parent_id_by_child[sec.chunk_id] = str(extra["parent_id"])
     if not parent_id_by_child:
         return sections
@@ -161,7 +163,7 @@ async def enrich_parent_context(sections: list) -> list:
     # 结果中已存在的父块也要取内容（用于去重判断）
     for sec in candidates:
         extra = info.get(sec.chunk_id, ({}, "", ""))[0]
-        if extra.get("chunk_type") == "parent" and sec.chunk_id:
+        if extra.get("chunk_type") in _PARENT_CHUNK_TYPES and sec.chunk_id:
             parent_ids.add(sec.chunk_id)
 
     parent_info: dict[str, tuple[str, str]] = {}
@@ -188,7 +190,7 @@ async def enrich_parent_context(sections: list) -> list:
         sec.chunk_id
         for sec in candidates
         if sec.chunk_id in parent_ids
-        and (info.get(sec.chunk_id, ({}, "", ""))[0]).get("chunk_type") == "parent"
+        and (info.get(sec.chunk_id, ({}, "", ""))[0]).get("chunk_type") in _PARENT_CHUNK_TYPES
     }
 
     enriched: list = []
@@ -227,19 +229,18 @@ def install_parent_child_loader_patch() -> None:
         else:
             _original.setdefault("save_to_database", current_save)
 
-        async def patched_save_to_database(self: Any, *args: Any, **kwargs: Any) -> Any:
-            original = (
-                _original.get(f"save_to_database::{type(self).__name__}")
-                or _original.get("save_to_database")
-            )
-            result = await original(self, *args, **kwargs)
-            chunk_ids = result[1] if isinstance(result, tuple) and len(result) >= 2 else []
-            chunking_result = _extract_chunking_result(args, kwargs)
-            await _backfill_parent_ids(chunk_ids, chunking_result)
-            return result
+        def wrap_save(original_save):
+            async def patched_save_to_database(self: Any, *args: Any, **kwargs: Any) -> Any:
+                result = await original_save(self, *args, **kwargs)
+                chunk_ids = result[1] if isinstance(result, tuple) and len(result) >= 2 else []
+                chunking_result = _extract_chunking_result(args, kwargs)
+                await _backfill_parent_ids(chunk_ids, chunking_result)
+                return result
 
-        patched_save_to_database._sag_api_parent_child = True  # type: ignore[attr-defined]
-        setattr(owner, "_save_to_database", patched_save_to_database)
+            patched_save_to_database._sag_api_parent_child = True  # type: ignore[attr-defined]
+            return patched_save_to_database
+
+        setattr(owner, "_save_to_database", wrap_save(current_save))
 
     index_current = getattr(BaseLoader, "_batch_index_chunks", None)
     if callable(index_current) and not getattr(index_current, "_sag_api_parent_child_filter", False):
