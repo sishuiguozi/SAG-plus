@@ -27,6 +27,14 @@ class LocalModelDownloadRequest(BaseModel):
     files: list[str] = Field(min_length=1, max_length=5)
 
 
+class LocalModelTestRequest(BaseModel):
+    """An unsaved local embedding configuration to validate."""
+
+    model_file: str = Field(min_length=1, max_length=200)
+    n_ctx: int = Field(ge=256, le=8192)
+    n_threads: int = Field(ge=0, le=128)
+
+
 class SystemPreferencesUpdate(BaseModel):
     timezone: str = Field(min_length=1, max_length=100)
 
