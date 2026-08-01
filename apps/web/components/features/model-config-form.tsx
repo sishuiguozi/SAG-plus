@@ -26,6 +26,7 @@ import { api, ApiError } from "@/lib/api";
 import {
   isLocalEmbeddingTestDisabled,
   isLocalModelDownloadDisabled,
+  localEmbeddingTestDraftKey,
   toggleLocalModelSelection,
   type LocalModelAction,
 } from "@/lib/local-model-manager";
@@ -112,6 +113,16 @@ export function ModelConfigForm() {
   const [testingLocalEmbedding, setTestingLocalEmbedding] = React.useState(false);
   const [localEmbeddingTestResult, setLocalEmbeddingTestResult] =
     React.useState<LocalEmbeddingTestResult | null>(null);
+  const localEmbeddingDraftKey = localEmbeddingTestDraftKey(
+    embProvider,
+    embLocalModelFile,
+    embLocalNCtx,
+    embLocalNThreads,
+  );
+
+  React.useEffect(() => {
+    setLocalEmbeddingTestResult(null);
+  }, [localEmbeddingDraftKey]);
 
   const hydrate = React.useCallback((config: ModelConfig) => {
     setCfg(config);

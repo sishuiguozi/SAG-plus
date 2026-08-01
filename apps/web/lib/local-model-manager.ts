@@ -2,6 +2,15 @@ import type { LocalModelManagerStatus, ModelConfig } from "./types";
 
 export type LocalModelAction = "backend" | "download" | null;
 
+export function localEmbeddingTestDraftKey(
+  embeddingProvider: ModelConfig["embedding_provider"],
+  modelFile: string,
+  nCtx: number,
+  nThreads: number,
+): string {
+  return JSON.stringify([embeddingProvider, modelFile, nCtx, nThreads]);
+}
+
 export function toggleLocalModelSelection(
   selected: string[],
   fileName: string,

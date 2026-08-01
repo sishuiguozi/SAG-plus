@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  localEmbeddingTestDraftKey,
   isLocalEmbeddingTestDisabled,
   isLocalModelDownloadDisabled,
   toggleLocalModelSelection,
@@ -14,6 +15,15 @@ const status = (backend: LocalModelManagerStatus["backend"]["status"]): LocalMod
 });
 
 describe("local model manager controls", () => {
+  it("changes the embedding test draft identity when any test input changes", () => {
+    const draft = localEmbeddingTestDraftKey("local", "bge-m3-Q6_K.gguf", 4096, 8);
+
+    expect(localEmbeddingTestDraftKey("api", "bge-m3-Q6_K.gguf", 4096, 8)).not.toBe(draft);
+    expect(localEmbeddingTestDraftKey("local", "bge-m3-Q8_0.gguf", 4096, 8)).not.toBe(draft);
+    expect(localEmbeddingTestDraftKey("local", "bge-m3-Q6_K.gguf", 2048, 8)).not.toBe(draft);
+    expect(localEmbeddingTestDraftKey("local", "bge-m3-Q6_K.gguf", 4096, 0)).not.toBe(draft);
+  });
+
   it("keeps model selection multi-selectable without duplicate files", () => {
     expect(toggleLocalModelSelection(["bge-m3-Q8_0.gguf"], "bge-m3-Q6_K.gguf", true)).toEqual([
       "bge-m3-Q8_0.gguf",
