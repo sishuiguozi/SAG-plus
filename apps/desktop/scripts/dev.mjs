@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
@@ -12,6 +13,23 @@ const webUrl = "http://127.0.0.1:3000";
 const webAltUrl = "http://127.0.0.1:3001";
 const children = [];
 let stopping = false;
+
+// 开发模式下与 Electron 使用同一份数据位置配置（{userData}/data-root.json），
+// 用户通过 设置 → 系统 → 知识库数据位置 保存后，重启 dev 会注入给 API。
+function devDataRootOverride() {
+  try {
+    const productName = require(path.join(desktopRoot, "package.json")).productName || "SAG";
+    const userDataDir = path.join(process.env.APPDATA || "", `${productName} Development`);
+    const file = path.join(userDataDir, "data-root.json");
+    const parsed = JSON.parse(readFileSync(file, "utf8"));
+    if (parsed && typeof parsed.root === "string" && parsed.root.trim()) {
+      return parsed.root.trim();
+    }
+  } catch {
+    // 未保存过数据位置：继续使用 apps/api/.env 的默认路径。
+  }
+  return null;
+}
 
 async function reachable(url) {
   try {
@@ -102,7 +120,16 @@ if (!(await reachable(apiUrl))) {
       "--port",
       "8000",
     ],
-    { cwd: apiRoot, env: { ...process.env, SAG_ENVIRONMENT: "dev" } },
+    {
+      cwd: apiRoot,
+      env: {
+        ...process.env,
+        ...(devDataRootOverride()
+          ? { SAG_DATA_ROOT: devDataRootOverride() }
+          : {}),
+        SAG_ENVIRONMENT: "dev",
+      },
+    },
   );
 }
 

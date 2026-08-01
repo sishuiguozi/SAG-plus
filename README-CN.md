@@ -55,8 +55,9 @@ npm run dev
   重启应用生效。
 - 切换位置不会自动搬迁旧数据；若要沿用现有知识库，请先把旧根目录内容复制
   到新位置再重启。
-- 开发模式下也可在 `apps/api/.env` 设置 `SAG_DATA_ROOT`，效果一致：
-  自动派生 `SAG_DATABASE_URL`（`{root}/sag.db`）、`SAG_DATA_DIR`
+- 开发模式（`npm run dev`）同样生效：界面保存的位置会在下次启动时注入
+  API；也可直接在 `apps/api/.env` 设置 `SAG_DATA_ROOT`。
+- 设置后自动派生 `SAG_DATABASE_URL`（`{root}/sag.db`）、`SAG_DATA_DIR`
   （`{root}/engine`）与 `SAG_UPLOAD_DIR`（`{root}/uploads`），模型目录
   为 `{root}/models`。
 
