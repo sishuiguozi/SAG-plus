@@ -132,7 +132,7 @@ export function KnowledgeSourceWorkspace({
               ) : (
                 <RefreshCw className="size-3.5" />
               )}
-              {isFileSource ? "添加内容" : t("syncSource")}
+              {isFileSource ? t("addContent") : t("syncSource")}
             </Button>
             <Button
               type="button"

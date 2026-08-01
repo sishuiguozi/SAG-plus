@@ -421,7 +421,8 @@
     "syncDialogDescription": "抓取连接器中的最新内容并更新信息源。",
     "sourceGone": "这个信源已不存在",
     "sourceContentFailed": "信源内容加载失败",
-    "loadFailed": "知识库加载失败"
+    "loadFailed": "知识库加载失败",
+    "addContent": "添加内容"
   },
   "SearchStrategies": {
     "vectorLabel": "快速",
@@ -1801,7 +1802,7 @@
   },
   "CodeFolderImport": {
     "title": "导入代码文件夹",
-    "description": "选择本地代码目录，增量扫描后仅上传新增和变更文件。本地缺失文件不会自动删除。",
+    "description": "选择本地代码目录后，只会上传新增和变更文件；本地删除不会自动删库。",
     "chooseFolder": "选择文件夹",
     "scanning": "正在扫描文件夹…",
     "scanProgress": "已扫描 {done}/{total}",
@@ -1821,11 +1822,12 @@
   },
   "SourceCodeConfig": {
     "title": "代码抽取策略",
-    "description": "仅影响后续代码入库与重处理，不会追溯修改已有事件。",
+    "description": "仅影响后续代码入库与重处理，不会追溯修改已有事件。默认“仅注释”。",
     "recommended": "推荐",
     "saved": "代码抽取配置已保存",
     "saveFailed": "保存失败",
-    "loadFailed": "加载失败",
+    "loadFailed": "加载代码抽取配置失败",
+    "current": "当前：{mode}",
     "mode": {
       "off": "关闭",
       "comments": "仅注释",

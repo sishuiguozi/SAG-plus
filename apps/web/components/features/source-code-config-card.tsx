@@ -8,11 +8,7 @@ import { Button } from "@/components/ui/button";
 import { api, ApiError } from "@/lib/api";
 import type { CodeLlmExtractionMode, SourceCodeConfig } from "@/lib/types";
 
-const MODES: Array<{ id: CodeLlmExtractionMode; label: string; hint?: string }> = [
-  { id: "off", label: "关闭" },
-  { id: "comments", label: "仅注释", hint: "推荐" },
-  { id: "all", label: "全部子块" },
-];
+const MODES: CodeLlmExtractionMode[] = ["off", "comments", "all"];
 
 export function SourceCodeConfigCard({ sourceId }: { sourceId: string }) {
   const t = useTranslations("SourceCodeConfig");
@@ -34,9 +30,7 @@ export function SourceCodeConfigCard({ sourceId }: { sourceId: string }) {
         }
       } catch (err) {
         if (!cancelled) {
-          const message =
-            err instanceof ApiError ? err.message : "加载代码抽取配置失败";
-          setError(message);
+          setError(err instanceof ApiError ? err.message : t("loadFailed"));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -45,7 +39,7 @@ export function SourceCodeConfigCard({ sourceId }: { sourceId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [sourceId]);
+  }, [sourceId, t]);
 
   async function save(mode: CodeLlmExtractionMode) {
     setSaving(true);
@@ -67,24 +61,22 @@ export function SourceCodeConfigCard({ sourceId }: { sourceId: string }) {
 
   return (
     <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-      <div className="mb-1 text-sm font-semibold">代码抽取策略</div>
-      <p className="mb-3 text-xs leading-5 text-muted-foreground">
-        仅影响后续代码入库与重处理，不会追溯修改已有事件。默认“仅注释”。
-      </p>
+      <div className="mb-1 text-sm font-semibold">{t("title")}</div>
+      <p className="mb-3 text-xs leading-5 text-muted-foreground">{t("description")}</p>
       <div className="flex flex-wrap gap-2">
         {MODES.map((mode) => {
-          const active = config.llm_extraction_mode === mode.id;
+          const active = config.llm_extraction_mode === mode;
           return (
             <Button
-              key={mode.id}
+              key={mode}
               type="button"
               size="sm"
               variant={active ? "default" : "outline"}
               disabled={loading || saving}
-              onClick={() => void save(mode.id)}
+              onClick={() => void save(mode)}
             >
-              {mode.label}
-              {mode.hint ? `（${mode.hint}）` : ""}
+              {t(`mode.${mode}`)}
+              {mode === "comments" ? ` (${t("recommended")})` : ""}
             </Button>
           );
         })}
@@ -92,7 +84,7 @@ export function SourceCodeConfigCard({ sourceId }: { sourceId: string }) {
       {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}
       {!loading && !error ? (
         <p className="mt-2 text-[11px] text-muted-foreground">
-          当前：{MODES.find((m) => m.id === config.llm_extraction_mode)?.label || config.llm_extraction_mode}
+          {t("current", { mode: t(`mode.${config.llm_extraction_mode}`) })}
         </p>
       ) : null}
     </div>

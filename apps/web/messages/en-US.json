@@ -421,7 +421,8 @@
     "syncDialogDescription": "Fetch the latest connector content and update this source.",
     "sourceGone": "This source no longer exists",
     "sourceContentFailed": "Failed to load source content",
-    "loadFailed": "Failed to load knowledge"
+    "loadFailed": "Failed to load knowledge",
+    "addContent": "Add content"
   },
   "SearchStrategies": {
     "vectorLabel": "Fast",
@@ -1801,7 +1802,7 @@
   },
   "CodeFolderImport": {
     "title": "Import code folder",
-    "description": "Scan a local code directory and upload only new or changed files. Missing local files are never deleted automatically.",
+    "description": "Choose a local code directory. Only new and changed files are uploaded; local deletes never remove library data.",
     "chooseFolder": "Choose folder",
     "scanning": "Scanning folder…",
     "scanProgress": "Scanned {done}/{total}",
@@ -1821,11 +1822,12 @@
   },
   "SourceCodeConfig": {
     "title": "Code extraction policy",
-    "description": "Applies only to future code ingestion and reprocessing. Existing events are not rewritten.",
+    "description": "Applies only to future code ingestion and reprocessing. Existing events are not rewritten. Default is comments-only.",
     "recommended": "Recommended",
     "saved": "Code extraction settings saved",
     "saveFailed": "Save failed",
-    "loadFailed": "Failed to load",
+    "loadFailed": "Failed to load code extraction settings",
+    "current": "Current: {mode}",
     "mode": {
       "off": "Off",
       "comments": "Comments only",

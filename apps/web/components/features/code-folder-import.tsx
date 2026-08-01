@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { FolderOpen } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ type LocalFile = {
 };
 
 export function CodeFolderImport({ sourceId, onImported }: Props) {
+  const t = useTranslations("CodeFolderImport");
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [busy, setBusy] = React.useState(false);
   const [phase, setPhase] = React.useState("");
@@ -52,7 +54,7 @@ export function CodeFolderImport({ sourceId, onImported }: Props) {
     setRootName(root);
     setPlan(null);
     setBusy(true);
-    setPhase("正在扫描文件夹…");
+    setPhase(t("scanning"));
     try {
       const classified = classifyLocalCandidates(
         arr.map((f) => ({
@@ -85,11 +87,11 @@ export function CodeFolderImport({ sourceId, onImported }: Props) {
           selected: true,
         });
         if ((i + 1) % 20 === 0) {
-          setPhase(`已扫描 ${i + 1}/${arr.length}`);
+          setPhase(t("scanProgress", { done: i + 1, total: arr.length }));
         }
       }
       setFiles(locals);
-      setPhase("正在生成增量计划…");
+      setPhase(t("planning"));
       const planRes = await api.planCodeFolder(sourceId, {
         root_name: root,
         items: locals.map((f) => ({
@@ -101,7 +103,7 @@ export function CodeFolderImport({ sourceId, onImported }: Props) {
       setPlan(planRes);
       setPhase("");
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "扫描失败");
+      toast.error(err instanceof ApiError ? err.message : t("scanFailed"));
       setPhase("");
     } finally {
       setBusy(false);
@@ -119,7 +121,7 @@ export function CodeFolderImport({ sourceId, onImported }: Props) {
       for (const rel of wanted) {
         const local = byPath.get(rel);
         if (!local?.sha256) continue;
-        setPhase(`上传中：${rel}`);
+        setPhase(t("uploadingOne", { name: rel }));
         await api.uploadCodeFolderFile(sourceId, {
           file: local.file,
           relative_path: rel,
@@ -129,13 +131,13 @@ export function CodeFolderImport({ sourceId, onImported }: Props) {
         ok += 1;
       }
       if (ok > 0) {
-        toast.success(`已上传 ${ok} 个代码文件，后台处理中`);
+        toast.success(t("uploaded", { count: ok }));
         onImported?.();
       } else {
-        toast.message("没有需要上传的变更");
+        toast.message(t("nothingToUpload"));
       }
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "上传失败");
+      toast.error(err instanceof ApiError ? err.message : t("uploadFailed"));
     } finally {
       setBusy(false);
       setPhase("");
@@ -148,10 +150,8 @@ export function CodeFolderImport({ sourceId, onImported }: Props) {
     <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
       <div className="mb-1 flex items-center justify-between gap-2">
         <div>
-          <div className="text-sm font-semibold">导入代码文件夹</div>
-          <p className="text-xs leading-5 text-muted-foreground">
-            选择本地代码目录后，只会上传新增和变更文件；本地删除不会自动删库。
-          </p>
+          <div className="text-sm font-semibold">{t("title")}</div>
+          <p className="text-xs leading-5 text-muted-foreground">{t("description")}</p>
         </div>
         <Button
           type="button"
@@ -161,7 +161,7 @@ export function CodeFolderImport({ sourceId, onImported }: Props) {
           onClick={() => inputRef.current?.click()}
         >
           <FolderOpen className="mr-1 size-4" />
-          选择文件夹
+          {t("chooseFolder")}
         </Button>
         <input
           ref={inputRef}
@@ -175,14 +175,14 @@ export function CodeFolderImport({ sourceId, onImported }: Props) {
       {summary ? (
         <div className="mt-3 space-y-2 text-xs">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Stat label="新增" value={summary.counts.new} />
-            <Stat label="变更" value={summary.counts.changed} />
-            <Stat label="未变化" value={summary.counts.unchanged} />
-            <Stat label="已拒绝" value={summary.counts.rejected} />
+            <Stat label={t("new")} value={summary.counts.new} />
+            <Stat label={t("changed")} value={summary.counts.changed} />
+            <Stat label={t("unchanged")} value={summary.counts.unchanged} />
+            <Stat label={t("rejected")} value={summary.counts.rejected} />
           </div>
           <div className="flex items-center justify-between gap-2">
             <span className="text-muted-foreground">
-              将上传 {summary.uploadable.length} 个文件
+              {t("uploadHint", { count: summary.uploadable.length })}
             </span>
             <Button
               type="button"
@@ -190,7 +190,7 @@ export function CodeFolderImport({ sourceId, onImported }: Props) {
               disabled={busy || summary.uploadable.length === 0}
               onClick={() => void uploadPlan()}
             >
-              开始上传
+              {t("startUpload")}
             </Button>
           </div>
         </div>
