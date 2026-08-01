@@ -276,6 +276,14 @@ async def install_local_model_backend(
     return await _get_local_model_manager().install_backend()
 
 
+@router.post("/local-models/reranker-backend/install")
+async def install_local_reranker_backend(
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Install the optional native GGUF cross-encoder runtime in the background."""
+    return await _get_local_model_manager().install_reranker_backend()
+
+
 @router.post("/local-models/download")
 async def download_local_models(
     body: LocalModelDownloadRequest,

@@ -4,6 +4,7 @@ import {
   isLocalEmbeddingTestResponseCurrent,
   localEmbeddingTestDraftKey,
   isLocalEmbeddingTestDisabled,
+  isLocalRerankerTestDisabled,
   isLocalModelDownloadDisabled,
   toggleLocalModelSelection,
 } from "./local-model-manager";
@@ -61,5 +62,21 @@ describe("local model manager controls", () => {
     expect(isLocalEmbeddingTestDisabled("api", draftModelFile, readyStatus, null, false)).toBe(true);
     expect(isLocalEmbeddingTestDisabled("local", draftModelFile, readyStatus, "download", false)).toBe(true);
     expect(isLocalEmbeddingTestDisabled("local", draftModelFile, readyStatus, null, true)).toBe(true);
+  });
+
+  it("enables a native reranker test only for a ready reranker runtime and model", () => {
+    const draftModelFile = "qwen3-reranker-0.6b-q8_0.gguf";
+    const readyStatus = {
+      ...status("ready"),
+      reranker: {
+        backends: { llama_cpp_rank: { status: "ready", error: null } },
+        models: [{ file_name: draftModelFile, status: "ready" }],
+      },
+    } as unknown as LocalModelManagerStatus;
+
+    expect(isLocalRerankerTestDisabled(draftModelFile, readyStatus, null, false)).toBe(false);
+    expect(isLocalRerankerTestDisabled("missing.gguf", readyStatus, null, false)).toBe(true);
+    expect(isLocalRerankerTestDisabled(draftModelFile, readyStatus, "download", false)).toBe(true);
+    expect(isLocalRerankerTestDisabled(draftModelFile, readyStatus, null, true)).toBe(true);
   });
 });

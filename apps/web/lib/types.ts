@@ -164,6 +164,9 @@ export interface ModelProviderSpec {
 export interface LocalEmbeddingModelStatus {
   file_name: string;
   label: string;
+  kind?: "embedding" | "reranker";
+  runtime?: string;
+  dimensions?: number | null;
   status: "missing" | "downloading" | "ready" | "failed";
   downloaded_bytes: number;
   total_bytes: number | null;
@@ -179,6 +182,14 @@ export interface LocalModelManagerStatus {
     error: string | null;
   };
   models: LocalEmbeddingModelStatus[];
+  embedding?: {
+    backend: LocalModelManagerStatus["backend"];
+    models: LocalEmbeddingModelStatus[];
+  };
+  reranker?: {
+    backends: Record<string, LocalModelManagerStatus["backend"]>;
+    models: LocalEmbeddingModelStatus[];
+  };
 }
 
 export interface LocalEmbeddingTestResult {
@@ -193,6 +204,14 @@ export interface LocalEmbeddingTestRequest {
   model_file: string;
   n_ctx: number;
   n_threads: number;
+}
+
+export interface LocalRerankerTestResult {
+  ok: boolean;
+  message?: string;
+  model_file?: string;
+  score_count?: number;
+  elapsed_ms?: number;
 }
 
 export interface ModelConfig {
@@ -229,6 +248,16 @@ export interface ModelConfig {
   search_top_k: number;
   search_cache_ttl_seconds: number;
   lancedb_fts_enabled: boolean;
+  search_llm_rerank_enabled: boolean;
+  search_llm_rerank_candidates: number;
+  search_rerank_mode: "off" | "local" | "api" | "llm";
+  search_rerank_candidates: number;
+  search_local_rerank_model_file: string;
+  search_rerank_api_url: string | null;
+  search_rerank_api_key_set: boolean;
+  search_rerank_api_model: string | null;
+  search_rerank_api_instruction: string | null;
+  search_rerank_api_timeout_ms: number;
   sag_language: "zh" | "en";
   // 向量索引与写入
   lancedb_ann_enabled: boolean;
@@ -328,6 +357,14 @@ export type ModelConfigPatch = Partial<{
   search_top_k: number;
   search_cache_ttl_seconds: number;
   lancedb_fts_enabled: boolean;
+  search_rerank_mode: ModelConfig["search_rerank_mode"];
+  search_rerank_candidates: number;
+  search_local_rerank_model_file: string;
+  search_rerank_api_url: string | null;
+  search_rerank_api_key: string;
+  search_rerank_api_model: string;
+  search_rerank_api_instruction: string | null;
+  search_rerank_api_timeout_ms: number;
   sag_language: "zh" | "en";
   lancedb_ann_enabled: boolean;
   lancedb_search_refine_factor: number;

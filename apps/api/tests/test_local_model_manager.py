@@ -140,6 +140,36 @@ async def test_installs_llama_backend_in_the_running_python_environment(tmp_path
 
 
 @pytest.mark.asyncio
+async def test_installs_native_reranker_runtime_only_when_requested(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    manager = LocalModelManager(tmp_path)
+    installed = [False]
+    command: list[str] = []
+
+    def fake_find_spec(name: str):
+        if name == "llama_cpp":
+            return object()
+        if name == "llama_cpp.llama_embedding":
+            return object() if installed[0] else None
+        return None
+
+    monkeypatch.setattr("sag_api.sag.local_model_manager.importlib.util.find_spec", fake_find_spec)
+
+    def fake_run(args: list[str], **_: object) -> None:
+        command.extend(args)
+        installed[0] = True
+
+    monkeypatch.setattr("sag_api.sag.local_model_manager.subprocess.run", fake_run)
+
+    await manager.install_reranker_backend()
+    assert manager._reranker_backend_task is not None
+    await manager._reranker_backend_task
+
+    assert command[:4] == [sys.executable, "-m", "pip", "install"]
+    assert any("JamePeng/llama-cpp-python" in str(arg) for arg in command)
+    assert manager.status()["reranker"]["backends"]["llama_cpp_rank"]["status"] == "ready"
+
+
+@pytest.mark.asyncio
 async def test_local_model_endpoints_require_auth_and_return_catalog(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     from sag_api.api.v1 import system
     from sag_api.main import app

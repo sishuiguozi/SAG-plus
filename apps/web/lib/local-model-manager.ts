@@ -1,6 +1,6 @@
 import type { LocalModelManagerStatus, ModelConfig } from "./types";
 
-export type LocalModelAction = "backend" | "download" | null;
+export type LocalModelAction = "backend" | "rerankerBackend" | "download" | null;
 
 export function localEmbeddingTestDraftKey(
   embeddingProvider: ModelConfig["embedding_provider"],
@@ -51,6 +51,23 @@ export function isLocalEmbeddingTestDisabled(
     action !== null ||
     embeddingProvider !== "local" ||
     status.backend.status !== "ready" ||
+    activeModel?.status !== "ready"
+  );
+}
+
+export function isLocalRerankerTestDisabled(
+  modelFile: string,
+  status: LocalModelManagerStatus,
+  action: LocalModelAction,
+  testing: boolean,
+): boolean {
+  const reranker = status.reranker;
+  const activeModel = reranker?.models.find((model) => model.file_name === modelFile);
+  const nativeBackend = reranker?.backends.llama_cpp_rank;
+  return (
+    testing ||
+    action !== null ||
+    nativeBackend?.status !== "ready" ||
     activeModel?.status !== "ready"
   );
 }

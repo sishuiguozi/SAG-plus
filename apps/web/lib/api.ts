@@ -21,6 +21,7 @@ import type {
   LocalModelManagerStatus,
   LocalEmbeddingTestRequest,
   LocalEmbeddingTestResult,
+  LocalRerankerTestResult,
   ModelProviderSpec,
   ModelSetupStatus,
   KnowledgeMcpDescriptor,
@@ -470,6 +471,10 @@ export const api = {
     request<LocalModelManagerStatus>("/api/v1/system/local-models/backend/install", {
       method: "POST",
     }),
+  installLocalRerankerBackend: () =>
+    request<LocalModelManagerStatus>("/api/v1/system/local-models/reranker-backend/install", {
+      method: "POST",
+    }),
   downloadLocalModels: (files: string[]) =>
     request<LocalModelManagerStatus>("/api/v1/system/local-models/download", {
       method: "POST",
@@ -477,6 +482,11 @@ export const api = {
     }),
   testLocalEmbedding: (body: LocalEmbeddingTestRequest) =>
     request<LocalEmbeddingTestResult>("/api/v1/system/local-models/test", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  testLocalReranker: (body: LocalEmbeddingTestRequest) =>
+    request<LocalRerankerTestResult>("/api/v1/system/local-models/reranker/test", {
       method: "POST",
       body: JSON.stringify(body),
     }),

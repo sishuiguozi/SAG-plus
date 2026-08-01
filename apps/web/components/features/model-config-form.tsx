@@ -25,6 +25,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { api, ApiError } from "@/lib/api";
 import {
   isLocalEmbeddingTestDisabled,
+  isLocalRerankerTestDisabled,
   isLocalEmbeddingTestResponseCurrent,
   isLocalModelDownloadDisabled,
   localEmbeddingTestDraftKey,
@@ -103,6 +104,14 @@ export function ModelConfigForm() {
   const [mineruVersion, setMineruVersion] =
     React.useState<ModelConfig["mineru_version"]>("2.5");
   const [mineruKey, setMineruKey] = React.useState("");
+  const [rerankMode, setRerankMode] = React.useState<ModelConfig["search_rerank_mode"]>("off");
+  const [rerankCandidates, setRerankCandidates] = React.useState(8);
+  const [localRerankModelFile, setLocalRerankModelFile] = React.useState("qwen3-reranker-0.6b-q8_0.gguf");
+  const [rerankApiUrl, setRerankApiUrl] = React.useState("");
+  const [rerankApiKey, setRerankApiKey] = React.useState("");
+  const [rerankApiModel, setRerankApiModel] = React.useState("");
+  const [rerankApiInstruction, setRerankApiInstruction] = React.useState("");
+  const [rerankApiTimeoutMs, setRerankApiTimeoutMs] = React.useState(30_000);
   const [recommended, setRecommended] = React.useState<
     Record<string, number | boolean | string | null | undefined>
   >({});
@@ -114,6 +123,13 @@ export function ModelConfigForm() {
   const [testingLocalEmbedding, setTestingLocalEmbedding] = React.useState(false);
   const [localEmbeddingTestResult, setLocalEmbeddingTestResult] =
     React.useState<LocalEmbeddingTestResult | null>(null);
+  const [testingLocalReranker, setTestingLocalReranker] = React.useState(false);
+  const [localRerankerTestResult, setLocalRerankerTestResult] = React.useState<{
+    ok: boolean;
+    message?: string;
+    score_count?: number;
+    elapsed_ms?: number;
+  } | null>(null);
   const localEmbeddingDraftKey = localEmbeddingTestDraftKey(
     embProvider,
     embLocalModelFile,
@@ -147,9 +163,17 @@ export function ModelConfigForm() {
     setDocumentParser(config.document_parser);
     setMineruBaseUrl(config.mineru_base_url ?? "");
     setMineruVersion(config.mineru_version);
+    setRerankMode(config.search_rerank_mode);
+    setRerankCandidates(config.search_rerank_candidates);
+    setLocalRerankModelFile(config.search_local_rerank_model_file);
+    setRerankApiUrl(config.search_rerank_api_url ?? "");
+    setRerankApiModel(config.search_rerank_api_model ?? "");
+    setRerankApiInstruction(config.search_rerank_api_instruction ?? "");
+    setRerankApiTimeoutMs(config.search_rerank_api_timeout_ms);
     setLlmKey("");
     setEmbKey("");
     setMineruKey("");
+    setRerankApiKey("");
     setRecommended(config.recommended ?? {});
     setLocalEmbeddingTestResult(null);
   }, []);
@@ -188,7 +212,9 @@ export function ModelConfigForm() {
   React.useEffect(() => {
     const updating =
       localModels?.backend.status === "installing" ||
-      localModels?.models.some((model) => model.status === "downloading");
+      localModels?.models.some((model) => model.status === "downloading") ||
+      localModels?.reranker?.backends.llama_cpp_rank?.status === "installing" ||
+      localModels?.reranker?.models.some((model) => model.status === "downloading");
     if (!updating) return;
     const timer = window.setInterval(() => void refreshLocalModels(), 1500);
     return () => window.clearInterval(timer);
@@ -214,10 +240,18 @@ export function ModelConfigForm() {
       document_parser: documentParser,
       mineru_base_url: mineruBaseUrl.trim() || null,
       mineru_version: mineruVersion,
+      search_rerank_mode: rerankMode,
+      search_rerank_candidates: rerankCandidates,
+      search_local_rerank_model_file: localRerankModelFile.trim(),
+      search_rerank_api_url: rerankApiUrl.trim() || null,
+      search_rerank_api_model: rerankApiModel.trim(),
+      search_rerank_api_instruction: rerankApiInstruction.trim() || null,
+      search_rerank_api_timeout_ms: rerankApiTimeoutMs,
     };
     if (llmKey.trim()) patch.llm_api_key = llmKey.trim();
     if (embKey.trim()) patch.embedding_api_key = embKey.trim();
     if (mineruKey.trim()) patch.mineru_api_key = mineruKey.trim();
+    if (rerankApiKey.trim()) patch.search_rerank_api_key = rerankApiKey.trim();
     return patch;
   }
 
@@ -281,6 +315,15 @@ export function ModelConfigForm() {
       setDocumentParser(parser);
     }
     if (typeof rec.mineru_base_url === "string") setMineruBaseUrl(rec.mineru_base_url);
+    if (rec.search_rerank_mode === "off" || rec.search_rerank_mode === "local" || rec.search_rerank_mode === "api" || rec.search_rerank_mode === "llm") {
+      setRerankMode(rec.search_rerank_mode);
+    }
+    if (typeof rec.search_rerank_candidates === "number") setRerankCandidates(rec.search_rerank_candidates);
+    if (typeof rec.search_local_rerank_model_file === "string") setLocalRerankModelFile(rec.search_local_rerank_model_file);
+    if (typeof rec.search_rerank_api_url === "string") setRerankApiUrl(rec.search_rerank_api_url);
+    if (typeof rec.search_rerank_api_model === "string") setRerankApiModel(rec.search_rerank_api_model);
+    if (typeof rec.search_rerank_api_instruction === "string") setRerankApiInstruction(rec.search_rerank_api_instruction);
+    if (typeof rec.search_rerank_api_timeout_ms === "number") setRerankApiTimeoutMs(rec.search_rerank_api_timeout_ms);
     const mineruVersion = rec.mineru_version;
     if (mineruVersion === "2.0" || mineruVersion === "2.5") {
       setMineruVersion(mineruVersion);
@@ -288,6 +331,7 @@ export function ModelConfigForm() {
     setLlmKey("");
     setEmbKey("");
     setMineruKey("");
+    setRerankApiKey("");
     setTestResult(null);
     toast.success(t("resetApplied"));
   }
@@ -412,6 +456,39 @@ export function ModelConfigForm() {
       });
     } finally {
       setTestingLocalEmbedding(false);
+    }
+  }
+
+  async function installLocalRerankerBackend() {
+    setLocalModelAction("rerankerBackend");
+    try {
+      setLocalModels(await api.installLocalRerankerBackend());
+      toast.success(t("localRerankerRuntimeInstallStarted"));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t("localRerankerRuntimeInstallFailed"));
+    } finally {
+      setLocalModelAction(null);
+    }
+  }
+
+  async function testLocalReranker() {
+    setTestingLocalReranker(true);
+    setLocalRerankerTestResult(null);
+    try {
+      const result = await api.testLocalReranker({
+        model_file: localRerankModelFile.trim(),
+        n_ctx: embLocalNCtx,
+        n_threads: embLocalNThreads,
+      });
+      setLocalRerankerTestResult(result);
+      if (result.ok) toast.success(t("localRerankerTestSucceeded"));
+    } catch (error) {
+      setLocalRerankerTestResult({
+        ok: false,
+        message: error instanceof ApiError ? error.message : t("localRerankerTestFailed"),
+      });
+    } finally {
+      setTestingLocalReranker(false);
     }
   }
 
@@ -906,6 +983,117 @@ export function ModelConfigForm() {
                   }
                 />
               </Field>
+            </div>
+          </SettingsRow>
+        )}
+      </SettingsSection>
+
+      <SettingsSection title={t("rerankerTitle")} description={t("rerankerDescription")}>
+        <SettingsRow title={t("rerankerSourceTitle")} description={t(`rerankerModeDescription.${rerankMode}`)}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="rerank-mode">
+                {t("rerankerSource")}
+                <RecommendedBadge t={translate} value={recommended.search_rerank_mode} />
+              </FieldLabel>
+              <Select value={rerankMode} onValueChange={(value) => setRerankMode(value as ModelConfig["search_rerank_mode"])}>
+                <SelectTrigger id="rerank-mode"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="off">{t("rerankerModeOff")}</SelectItem>
+                  <SelectItem value="local">{t("rerankerModeLocal")}</SelectItem>
+                  <SelectItem value="api">{t("rerankerModeApi")}</SelectItem>
+                  <SelectItem value="llm">{t("rerankerModeLlm")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="rerank-candidates">
+                {t("rerankerCandidates")}
+                <RecommendedBadge t={translate} value={recommended.search_rerank_candidates} />
+              </FieldLabel>
+              <Input
+                id="rerank-candidates"
+                type="number"
+                min={3}
+                max={20}
+                value={rerankCandidates}
+                onChange={(event) => setRerankCandidates(Math.min(20, Math.max(3, Number(event.target.value) || 8)))}
+              />
+              <FieldDescription>{t("rerankerCandidatesHint")}</FieldDescription>
+            </Field>
+          </div>
+        </SettingsRow>
+
+        {rerankMode === "local" && (
+          <SettingsRow title={t("localRerankerTitle")} description={t("localRerankerDescription")}>
+            <div className="grid gap-3">
+              {!localModels?.reranker ? (
+                <Alert><AlertTitle>{t("localModelUnknown")}</AlertTitle><AlertDescription>{t("localModelUnknownHint")}</AlertDescription></Alert>
+              ) : (
+                <>
+                  <div className="rounded-md border p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="font-medium">{t("localRerankerRuntimeTitle")}</p>
+                        <p className="text-sm text-muted-foreground">{t("localRerankerRuntimeDescription")}</p>
+                        {localModels.reranker.backends.llama_cpp_rank?.error && (
+                          <p className="mt-1 text-sm text-destructive">{localModels.reranker.backends.llama_cpp_rank.error}</p>
+                        )}
+                      </div>
+                      <Button type="button" variant="outline" size="sm" disabled={localModels.reranker.backends.llama_cpp_rank?.status === "ready" || localModelAction !== null} onClick={() => void installLocalRerankerBackend()}>
+                        {localModelAction === "rerankerBackend" || localModels.reranker.backends.llama_cpp_rank?.status === "installing" ? <Spinner /> : <Plug />}
+                        {localModels.reranker.backends.llama_cpp_rank?.status === "ready" ? t("localRerankerRuntimeReady") : t("localRerankerRuntimeInstall")}
+                      </Button>
+                    </div>
+                  </div>
+                  <Field>
+                    <FieldLabel htmlFor="local-rerank-file">{t("localRerankerModelFile")}</FieldLabel>
+                    <Select value={localRerankModelFile} onValueChange={setLocalRerankModelFile}>
+                      <SelectTrigger id="local-rerank-file"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {localModels.reranker.models.map((model) => (
+                          <SelectItem key={model.file_name} value={model.file_name}>{model.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <div className="grid gap-2">
+                    {localModels.reranker.models.map((model) => {
+                      const ready = model.status === "ready";
+                      const downloading = model.status === "downloading";
+                      return (
+                        <label key={model.file_name} className="grid gap-1 rounded-md border p-3 sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-3">
+                          <Checkbox checked={selectedLocalModels.includes(model.file_name)} onCheckedChange={(checked) => toggleLocalModel(model.file_name, checked === true)} aria-label={model.file_name} />
+                          <span><span className="block font-medium">{model.label}</span><span className="block text-sm text-muted-foreground">{model.file_name}</span>{downloading && <span className="mt-1 block h-1.5 overflow-hidden rounded bg-muted"><span className="block h-full bg-primary" style={{ width: `${model.progress}%` }} /></span>}{model.error && <span className="block text-sm text-destructive">{model.error}</span>}</span>
+                          <span className={ready ? "text-sm text-emerald-600 dark:text-emerald-400" : "text-sm text-muted-foreground"}>{ready ? t("localModelReady") : downloading ? `${model.progress}%` : t("localModelNotReady")}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button type="button" variant="outline" size="sm" disabled={isLocalModelDownloadDisabled(localModels, selectedLocalModels, localModelAction)} onClick={() => void downloadSelectedLocalModels()}>
+                      {localModelAction === "download" ? <Spinner /> : <Save />}{t("localModelDownload")}
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" disabled={isLocalRerankerTestDisabled(localRerankModelFile, localModels, localModelAction, testingLocalReranker)} onClick={() => void testLocalReranker()}>
+                      {testingLocalReranker ? <Spinner /> : <Check />}{testingLocalReranker ? t("localModelTesting") : t("localRerankerTest")}
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => void refreshLocalModels()}><RotateCw />{t("localModelRefresh")}</Button>
+                  </div>
+                  {localRerankerTestResult && <p className={cn("text-sm", localRerankerTestResult.ok ? "text-success" : "text-destructive")}>{localRerankerTestResult.ok ? t("localRerankerTestResult", { scoreCount: localRerankerTestResult.score_count ?? 0, elapsed: localRerankerTestResult.elapsed_ms ?? 0 }) : localRerankerTestResult.message ?? t("localRerankerTestFailed")}</p>}
+                </>
+              )}
+            </div>
+          </SettingsRow>
+        )}
+
+        {rerankMode === "api" && (
+          <SettingsRow title={t("rerankerApiTitle")} description={t("rerankerApiDescription")}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field><FieldLabel htmlFor="rerank-api-url">{t("rerankerApiUrl")}</FieldLabel><Input id="rerank-api-url" value={rerankApiUrl} onChange={(event) => setRerankApiUrl(event.target.value)} placeholder="https://dashscope-intl.aliyuncs.com/compatible-api/v1/reranks" /></Field>
+              <Field><FieldLabel htmlFor="rerank-api-model">{t("model")}</FieldLabel><Input id="rerank-api-model" value={rerankApiModel} onChange={(event) => setRerankApiModel(event.target.value)} placeholder="qwen3-rerank" /></Field>
+              <Field><FieldLabel htmlFor="rerank-api-key">{t("optionalApiKey")}</FieldLabel><Input id="rerank-api-key" type="password" autoComplete="off" value={rerankApiKey} onChange={(event) => setRerankApiKey(event.target.value)} placeholder={cfg.search_rerank_api_key_set ? t("keyConfigured") : "sk-…"} /></Field>
+              <Field><FieldLabel htmlFor="rerank-api-timeout">{t("timeout")}</FieldLabel><Input id="rerank-api-timeout" type="number" min={1000} max={120000} value={rerankApiTimeoutMs} onChange={(event) => setRerankApiTimeoutMs(Math.min(120000, Math.max(1000, Number(event.target.value) || 30000)))} /></Field>
+              <Field className="sm:col-span-2"><FieldLabel htmlFor="rerank-api-instruction">{t("rerankerApiInstruction")}</FieldLabel><Input id="rerank-api-instruction" value={rerankApiInstruction} onChange={(event) => setRerankApiInstruction(event.target.value)} /></Field>
             </div>
           </SettingsRow>
         )}

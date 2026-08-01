@@ -24,6 +24,8 @@ class LocalModelManager:
         self._state: dict[str, dict[str, Any]] = {}
         self._backend_task: asyncio.Task[None] | None = None
         self._backend_state: dict[str, Any] = {"status": "missing", "error": None}
+        self._reranker_backend_task: asyncio.Task[None] | None = None
+        self._reranker_backend_state: dict[str, Any] = {"status": "missing", "error": None}
 
     def _model_path(self, spec: ModelSpec) -> Path:
         return self.model_dir / spec.relative_dir / spec.file_name
@@ -68,12 +70,10 @@ class LocalModelManager:
         # ``find_spec("parent.child")`` raises when ``parent`` itself is absent.
         # Probe in two stages so an untouched installation still returns a useful
         # status payload for the settings page.
-        native_reranker_installed = False
-        if importlib.util.find_spec("llama_cpp") is not None:
-            native_reranker_installed = importlib.util.find_spec("llama_cpp.llama_embedding") is not None
+        native_reranker_installed = self._native_reranker_installed()
         native_reranker = {
-            "status": "ready" if native_reranker_installed else "missing",
-            "error": None if native_reranker_installed else (
+            "status": "ready" if native_reranker_installed else self._reranker_backend_state["status"],
+            "error": None if native_reranker_installed else self._reranker_backend_state["error"] or (
                 "Native GGUF reranking requires a llama-cpp-python build with LlamaEmbedding pooling=rank support"
             ),
         }
@@ -85,6 +85,13 @@ class LocalModelManager:
             "backend": backend,
             "models": embedding_models,
         }
+
+    @staticmethod
+    def _native_reranker_installed() -> bool:
+        """Check the optional native rank adapter without importing the heavy library."""
+        if importlib.util.find_spec("llama_cpp") is None:
+            return False
+        return importlib.util.find_spec("llama_cpp.llama_embedding") is not None
 
     async def install_backend(self) -> dict[str, Any]:
         """Install llama-cpp-python into the Python environment running the API."""
@@ -103,6 +110,45 @@ class LocalModelManager:
             self._backend_state = {"status": "failed", "error": str(exc)}
         finally:
             self._backend_task = None
+
+    async def install_reranker_backend(self) -> dict[str, Any]:
+        """Install the opt-in native GGUF rank runtime in the API environment."""
+        if self._native_reranker_installed():
+            return self.status()
+        if self._reranker_backend_task is None:
+            self._reranker_backend_state = {"status": "installing", "error": None}
+            self._reranker_backend_task = asyncio.create_task(self._install_reranker_backend())
+        return self.status()
+
+    async def _install_reranker_backend(self) -> None:
+        try:
+            await asyncio.to_thread(self._install_reranker_backend_sync)
+            self._reranker_backend_state = {"status": "ready", "error": None}
+        except Exception as exc:  # noqa: BLE001
+            self._reranker_backend_state = {"status": "failed", "error": str(exc)}
+        finally:
+            self._reranker_backend_task = None
+
+    @staticmethod
+    def _install_reranker_backend_sync() -> None:
+        # The upstream wheel exposes embedding but not the native ``pooling=rank``
+        # interface.  This explicit, opt-in source build adds that interface for
+        # BGE/Qwen reranker GGUFs; it can require CMake and a C++ compiler.
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--upgrade",
+                "--force-reinstall",
+                "--no-cache-dir",
+                "llama-cpp-python @ git+https://github.com/JamePeng/llama-cpp-python.git",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
 
     @staticmethod
     def _install_backend_sync() -> None:
