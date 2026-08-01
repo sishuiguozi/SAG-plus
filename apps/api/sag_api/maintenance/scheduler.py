@@ -24,6 +24,7 @@ from urllib.parse import urlparse
 
 from sag_api.maintenance.audit_sag_storage import _lancedb_summary
 from sag_api.maintenance.auto_maintenance import run as run_auto_maintenance
+from sag_api.maintenance.sag_maintenance_guard import find_sag_runtime_processes
 
 log = logging.getLogger("sag.maintenance.scheduler")
 
@@ -154,6 +155,15 @@ def maintenance_status(settings: Any) -> dict[str, Any]:
             "reason": reason,
         }
 
+    active_processes = [
+        {
+            "pid": item["pid"],
+            "name": item.get("name") or "",
+            "command_line": item["command_line"],
+        }
+        for item in find_sag_runtime_processes()
+    ]
+
     python = sys.executable or "python"
     scripts_entry = str(Path(__file__).resolve().parents[2] / "scripts" / "auto_maintenance.py")
     base_args = [
@@ -187,6 +197,7 @@ def maintenance_status(settings: Any) -> dict[str, Any]:
         "next_due_at": next_due.isoformat(timespec="seconds") if next_due else None,
         "due_now": bool(due),
         "pending_restart": has_pending(data_dir),
+        "active_processes": active_processes,
         "lancedb_dir": str(data_dir / "lancedb"),
         "tables": tables,
         "triggered_tables": triggers,

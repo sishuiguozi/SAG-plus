@@ -358,6 +358,22 @@ function MaintenanceSection() {
               </Alert>
             )}
 
+            {status.active_processes.length > 0 && (
+              <Alert variant="destructive">
+                <AlertTitle>{t("maintenanceBlockedTitle")}</AlertTitle>
+                <AlertDescription>
+                  {t("maintenanceBlockedDescription")}
+                  <ul className="mt-1 list-inside list-disc font-mono text-xs">
+                    {status.active_processes.map((item) => (
+                      <li key={item.pid}>
+                        pid={item.pid} {item.name}
+                      </li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="rounded-lg border p-3">
               <div className="mb-2 text-sm font-medium text-foreground">
                 {t("maintenanceTablesTitle")}

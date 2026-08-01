@@ -1052,7 +1052,9 @@
     "maintenanceRunNow": "立即维护（重启后执行）",
     "maintenanceRunNowScheduled": "已安排：下次启动应用时执行维护",
     "maintenanceRunNowFailed": "安排维护失败",
-    "maintenanceCopyFailed": "复制命令失败"
+    "maintenanceCopyFailed": "复制命令失败",
+    "maintenanceBlockedTitle": "检测到活动 API 进程",
+    "maintenanceBlockedDescription": "为避免文件占用冲突，维护已被跳过。请关闭其它正在运行的 SAG API 进程后重启应用。"
   },
   "AgentSettings": {
     "saved": "助手设定已保存",

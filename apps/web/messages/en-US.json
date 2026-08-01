@@ -1052,7 +1052,9 @@
     "maintenanceRunNow": "Run now (on next startup)",
     "maintenanceRunNowScheduled": "Scheduled: maintenance will run on next app startup",
     "maintenanceRunNowFailed": "Failed to schedule maintenance",
-    "maintenanceCopyFailed": "Failed to copy command"
+    "maintenanceCopyFailed": "Failed to copy command",
+    "maintenanceBlockedTitle": "Active API process detected",
+    "maintenanceBlockedDescription": "Maintenance was skipped to avoid file-lock conflicts. Close other running SAG API processes, then restart the app."
   },
   "AgentSettings": {
     "saved": "Assistant settings saved",

@@ -73,7 +73,7 @@ def _process_rows() -> list[dict[str, Any]]:
                     "-Command",
                     (
                         "Get-CimInstance Win32_Process | "
-                        "Select-Object ProcessId,CommandLine | "
+                        "Select-Object ProcessId,Name,CommandLine | "
                         "ConvertTo-Json -Compress"
                     ),
                 ],
@@ -97,6 +97,7 @@ def _process_rows() -> list[dict[str, Any]]:
             rows.append(
                 {
                     "pid": int(item.get("ProcessId") or 0),
+                    "name": str(item.get("Name") or ""),
                     "command_line": str(item.get("CommandLine") or ""),
                 }
             )
@@ -139,10 +140,19 @@ def find_sag_runtime_processes(
     """
 
     current_pid = os.getpid()
+    # 只把真正的 Python / sag-api 运行器当作“活动 API”。Windows 上 cmd/pwsh
+    # 等壳进程的命令行里也可能包含 uvicorn 字样，但不是 API 本体，不拦截。
+    _RUNNER_NAMES = {
+        "python.exe", "python", "python3.exe", "python3",
+        "sag-api.exe", "sag-api",
+    }
     matches: list[dict[str, Any]] = []
     for row in rows if rows is not None else _process_rows():
         pid = int(row.get("pid") or 0)
         if pid == current_pid:
+            continue
+        name = str(row.get("name") or "")
+        if name and name.lower() not in _RUNNER_NAMES:
             continue
         command_line = str(row.get("command_line") or "")
         normalized = command_line.replace("\\", "/").lower()

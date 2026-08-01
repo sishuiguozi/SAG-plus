@@ -1045,6 +1045,11 @@ export interface LancedbMaintenanceStatus {
   next_due_at: string | null;
   due_now: boolean;
   pending_restart: boolean;
+  active_processes: {
+    pid: number;
+    name: string;
+    command_line: string;
+  }[];
   lancedb_dir: string;
   tables: Record<string, LancedbMaintenanceTable>;
   triggered_tables: string[];

@@ -111,7 +111,7 @@ def test_maintenance_guard_refuses_live_runtime_process(tmp_path: Path, monkeypa
         con.close()
 
     monkeypatch.setattr(
-        "sag_maintenance_guard.find_sag_runtime_processes",
+        "sag_api.maintenance.sag_maintenance_guard.find_sag_runtime_processes",
         lambda: [{"pid": 10, "command_line": "python -m uvicorn sag_api.main:app"}],
     )
 
