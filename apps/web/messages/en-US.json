@@ -695,7 +695,12 @@
     "localModelTesting": "Testing…",
     "localModelTestSucceeded": "Local model inference works",
     "localModelTestFailed": "Local model test failed",
-    "localModelTestResult": "Test passed: {model} · {dimensions} dims · {elapsed} ms"
+    "localModelTestResult": "Test passed: {model} · {dimensions} dims · {elapsed} ms",
+    "parserActiveLabel": "Active parser",
+    "parserActiveAuto": "Automatic · currently using {engine}",
+    "parserActiveMineru": "MinerU {version}",
+    "parserActiveMarkitdown": "MarkItDown",
+    "parserMineruKeyMissing": "MinerU API key is not configured, so parsing falls back to MarkItDown."
   },
   "SystemConfig": {
     "title": "System & Performance",

@@ -114,6 +114,9 @@ export function ModelConfigForm() {
   const [embDims, setEmbDims] = React.useState("");
   const [documentParser, setDocumentParser] =
     React.useState<ModelConfig["document_parser"]>("auto");
+  const [effectiveDocumentParser, setEffectiveDocumentParser] = React.useState<
+    ModelConfig["effective_document_parser"]
+  >("markitdown");
   const [mineruBaseUrl, setMineruBaseUrl] = React.useState("");
   const [mineruVersion, setMineruVersion] =
     React.useState<ModelConfig["mineru_version"]>("2.5");
@@ -177,9 +180,10 @@ export function ModelConfigForm() {
     setEmbModel(config.embedding_model);
     setEmbBaseUrl(config.embedding_base_url ?? "");
     setEmbDims(config.embedding_dimensions != null ? String(config.embedding_dimensions) : "");
-    setDocumentParser(config.document_parser);
+    setDocumentParser(config.document_parser ?? "auto");
+    setEffectiveDocumentParser(config.effective_document_parser ?? "markitdown");
     setMineruBaseUrl(config.mineru_base_url ?? "");
-    setMineruVersion(config.mineru_version);
+    setMineruVersion(config.mineru_version ?? "2.5");
     setRerankMode(config.search_rerank_mode);
     setRerankCandidates(config.search_rerank_candidates);
     setLocalRerankModelFile(config.search_local_rerank_model_file);
@@ -1235,19 +1239,41 @@ export function ModelConfigForm() {
       >
         <SettingsRow title={t("parserEngine")} description={t("parserEngineDescription")}>
           <div className="grid gap-4 sm:grid-cols-2">
+            <Field className="sm:col-span-2">
+              <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                <div className="font-medium">{t("parserActiveLabel")}</div>
+                <div className="mt-1 text-muted-foreground">
+                  {documentParser === "auto"
+                    ? t("parserActiveAuto", {
+                        engine:
+                          effectiveDocumentParser === "mineru"
+                            ? `MinerU ${mineruVersion}`
+                            : "MarkItDown",
+                      })
+                    : documentParser === "mineru"
+                      ? t("parserActiveMineru", { version: mineruVersion })
+                      : t("parserActiveMarkitdown")}
+                </div>
+                {documentParser !== "markitdown" && !cfg.mineru_api_key_set && !mineruKey.trim() && (
+                  <div className="mt-1 text-amber-600 dark:text-amber-400">
+                    {t("parserMineruKeyMissing")}
+                  </div>
+                )}
+              </div>
+            </Field>
             <Field>
               <FieldLabel htmlFor="document-parser">
                   {t("parserMethod")}
                   <RecommendedBadge t={translate} value={recommended.document_parser} />
                 </FieldLabel>
               <Select
-                value={documentParser}
+                value={documentParser || "auto"}
                 onValueChange={(value) =>
                   setDocumentParser(value as ModelConfig["document_parser"])
                 }
               >
                 <SelectTrigger id="document-parser">
-                  <SelectValue />
+                  <SelectValue placeholder={t("autoRecommended")} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="auto">{t("autoRecommended")}</SelectItem>

@@ -695,7 +695,12 @@
     "localModelTesting": "测试中…",
     "localModelTestSucceeded": "本地模型推理正常",
     "localModelTestFailed": "本地模型测试失败",
-    "localModelTestResult": "测试成功：{model} · {dimensions} 维 · {elapsed} ms"
+    "localModelTestResult": "测试成功：{model} · {dimensions} 维 · {elapsed} ms",
+    "parserActiveLabel": "当前解析模型",
+    "parserActiveAuto": "自动 · 当前生效：{engine}",
+    "parserActiveMineru": "MinerU {version}",
+    "parserActiveMarkitdown": "MarkItDown",
+    "parserMineruKeyMissing": "尚未配置 MinerU API Key，当前会回退到 MarkItDown。"
   },
   "SystemConfig": {
     "title": "系统与性能",
