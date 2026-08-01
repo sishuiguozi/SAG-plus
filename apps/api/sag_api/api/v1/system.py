@@ -175,7 +175,6 @@ async def create_upgrade_checkpoint(request: Request) -> dict:
     校验 ``X-SAG-INTERNAL`` 头等于运行密钥，防止局域网内其它进程滥用。
     """
     import json
-    import shutil
     import sqlite3
     from datetime import UTC, datetime
 
@@ -213,7 +212,14 @@ async def create_upgrade_checkpoint(request: Request) -> dict:
             log.info("更新检查点：%s -> %s（%.1f MB）", label, dest, dest.stat().st_size / 1e6)
         except Exception as e:  # noqa: BLE001
             log.error("更新检查点失败：%s 备份异常：%s", label, e)
-            files.append({"label": label, "name": dest.name if dest.exists() else label, "size_bytes": 0, "error": str(e)})
+            files.append(
+                {
+                    "label": label,
+                    "name": dest.name if dest.exists() else label,
+                    "size_bytes": 0,
+                    "error": str(e),
+                }
+            )
 
     lancedb_dir = data_dir / "lancedb"
     lancedb_bytes = 0

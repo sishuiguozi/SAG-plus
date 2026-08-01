@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sag_api.schemas.code_folder import CodeFolderPlanRequest, CodeFolderPlanItemIn, CodeFolderUploadOut
+from sag_api.schemas.code_folder import CodeFolderPlanRequest, CodeFolderUploadOut
 
 
 def test_plan_schema_defaults():

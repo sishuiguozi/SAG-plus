@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from sag_api.core.logging import get_logger
 
 if TYPE_CHECKING:
-    from sag_api.core.config import Settings
+    pass
 
 log = get_logger("sag.sqlite_pragmas")
 

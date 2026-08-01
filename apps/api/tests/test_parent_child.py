@@ -110,6 +110,7 @@ async def test_backfill_parent_ids_writes_child_parent_id(zleap_runtime):
     from zleap.sag.db import get_session_factory
     from zleap.sag.db.models import SourceChunk
     from zleap.sag.modules.load.chunking.types import ChunkingResult
+
     from sag_api.sag.parent_child import _backfill_parent_ids
 
     await _clear_chunks()
@@ -157,6 +158,7 @@ async def test_enrich_parent_context_skips_legacy_data(zleap_runtime):
 async def test_enrich_parent_context_replaces_child_with_parent(zleap_runtime):
     from zleap.sag.db import get_session_factory
     from zleap.sag.db.models import SourceChunk
+
     from sag_api.sag.dto import RetrievedSection
     from sag_api.sag.parent_child import enrich_parent_context
 
@@ -190,6 +192,7 @@ async def test_enrich_parent_context_deduplicates_parent_hit(zleap_runtime):
     """父块已作为独立命中 → 丢弃重复子块，保留父块完整结果。"""
     from zleap.sag.db import get_session_factory
     from zleap.sag.db.models import SourceChunk
+
     from sag_api.sag.dto import RetrievedSection
     from sag_api.sag.parent_child import enrich_parent_context
 
@@ -226,6 +229,7 @@ async def test_real_loader_save_links_children_to_parents(zleap_runtime):
     from zleap.sag.db.models import Article, ArticleParseStatus, SourceChunk
     from zleap.sag.modules.load.loader import DocumentLoader
     from zleap.sag.modules.load.parser import MarkdownParser
+
     from sag_api.core.config import settings
     from sag_api.sag.chunking_compat import install_structural_chunking_patch
     from sag_api.sag.parent_child import install_parent_child_loader_patch

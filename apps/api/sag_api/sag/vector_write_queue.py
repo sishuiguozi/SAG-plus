@@ -379,7 +379,11 @@ async def enqueue_event_vector_sync(
                     parent_batch_id=parent_batch_id,
                     record_count=len(batch_payload["event_ids"]),
                     max_attempts=8,
-                    next_run_at=(_now() + timedelta(seconds=flush_window)) if is_tail_batch and flush_window > 0 else None,
+                    next_run_at=(
+                        (_now() + timedelta(seconds=flush_window))
+                        if is_tail_batch and flush_window > 0
+                        else None
+                    ),
                 )
             )
             owned_jobs.append((job_id, list(batch_payload["event_ids"])))

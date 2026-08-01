@@ -14,7 +14,7 @@ from typing import Any
 
 from sqlalchemy import event
 from sqlalchemy.orm import Session
-from sqlalchemy.sql.sqltypes import BigInteger, Integer, JSON
+from sqlalchemy.sql.sqltypes import JSON, BigInteger, Integer
 
 from sag_api.core.config import get_settings as get_sag_settings
 from sag_api.core.logging import get_logger
@@ -97,7 +97,7 @@ def _coerce_sqlite_integer_column(obj: Any, attr_name: str, *, nullable: bool) -
     # Keep the original machine constant searchable when zleap-sag stores a typed
     # entity value, while avoiding SQLite's 64-bit INTEGER binding failure.
     if attr_name == "int_value" and hasattr(obj, "value_raw") and not getattr(obj, "value_raw", None):
-        setattr(obj, "value_raw", str(value))
+        obj.value_raw = str(value)
     return 1
 
 

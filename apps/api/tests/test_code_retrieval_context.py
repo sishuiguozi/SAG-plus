@@ -107,7 +107,6 @@ async def test_generic_parent_enrichment_still_replaces_markdown_child(monkeypat
         raise RuntimeError("db down")
 
     # If DB fails, function returns original sections.
-    import sag_api.sag.parent_child as pc
     # call with empty runtime-safe path
     out = await enrich_parent_context([section])
     assert out == [section]

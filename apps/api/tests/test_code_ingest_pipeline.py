@@ -79,9 +79,9 @@ async def test_code_parent_context_enrichment_uses_code_chunk_types(tmp_path: Pa
     from zleap.sag.db import get_session_factory
     from zleap.sag.db.models import SourceChunk, SourceConfig
 
+    from sag_api.core.config import settings
     from sag_api.sag.dto import RetrievedSection
     from sag_api.sag.engine_manager import EngineManager
-    from sag_api.core.config import settings
     from sag_api.sag.parent_child import enrich_parent_context
 
     manager = EngineManager(settings)

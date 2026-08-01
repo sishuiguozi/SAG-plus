@@ -1,10 +1,7 @@
 """BM25 FTS 稀疏召回：优先 FTS、失败回退 grep 通道。"""
 
-import asyncio
 
 import pytest
-
-from sag_api.sag.dto import RetrievedSection
 
 
 class _FakeEngine:
@@ -31,8 +28,8 @@ class _Source:
 
 @pytest.mark.asyncio
 async def test_fts_channel_used_when_available(monkeypatch):
-    from sag_api.core.config import settings
     import sag_api.sag.lancedb_fts as fts_mod
+    from sag_api.core.config import settings
 
     engine = _FakeEngine()
     settings.lancedb_fts_enabled = True
@@ -58,9 +55,9 @@ async def test_fts_channel_used_when_available(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_fts_channel_runs_in_worker_thread(monkeypatch):
-    from sag_api.core.config import settings
     import sag_api.sag.lancedb_fts as fts_mod
     import sag_api.services.retrieval_service as retrieval_mod
+    from sag_api.core.config import settings
 
     engine = _FakeEngine()
     settings.lancedb_fts_enabled = True
@@ -80,8 +77,8 @@ async def test_fts_channel_runs_in_worker_thread(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_fallback_to_grep_when_fts_empty(monkeypatch):
-    from sag_api.core.config import settings
     import sag_api.sag.lancedb_fts as fts_mod
+    from sag_api.core.config import settings
 
     engine = _FakeEngine(grep_rows=[{"chunk_id": "g-1", "heading": "biao ti", "snippet": "content"}])
     settings.lancedb_fts_enabled = True

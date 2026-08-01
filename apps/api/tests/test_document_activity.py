@@ -96,7 +96,11 @@ async def test_source_activity_snapshot_fields_and_order():
                 ).status_code == 404
     finally:
         async with SessionLocal() as s:
-            await s.execute(delete(Document).where(Document.source_id.in_(select(Source.id).where(Source.name == "activity-src"))))
+            await s.execute(
+                delete(Document).where(
+                    Document.source_id.in_(select(Source.id).where(Source.name == "activity-src"))
+                )
+            )
             await s.execute(delete(Source).where(Source.name == "activity-src"))
             await s.execute(delete(User).where(User.email.like("activity-%@t.com")))
             await s.commit()

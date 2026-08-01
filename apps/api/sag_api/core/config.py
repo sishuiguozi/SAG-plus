@@ -23,7 +23,8 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from sag_api.core.model_providers import ModelProviderId, get_model_provider
 from sag_api.enums import (
-    ReasoningHistoryCompat, JsonSchemaCompat,
+    JsonSchemaCompat,
+    ReasoningHistoryCompat,
     SearchStrategy,
     ToolChoiceStrategy,
     normalize_search_strategy,
@@ -306,7 +307,7 @@ class Settings(BaseSettings):
         return self.embedding_base_url or (self.llm_base_url if provider.can_reuse_embedding_credentials else None)
 
     @model_validator(mode="after")
-    def apply_data_root(self) -> "Settings":
+    def apply_data_root(self) -> Settings:
         """When data_root is set, derive the SQLite/engine/upload layout under it."""
         raw = (self.data_root or "").strip()
         if not raw:

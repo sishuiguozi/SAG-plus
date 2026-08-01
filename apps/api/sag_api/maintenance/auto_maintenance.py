@@ -27,9 +27,7 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
-import subprocess
-import sys
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -76,7 +74,7 @@ def _queue_idle(meta_db: Path) -> tuple[bool, dict[str, int]]:
             if has_vec:
                 for r in con.execute(
                     "SELECT status, count(*) n FROM vector_write_jobs "
-                    "WHERE status IN (%s) GROUP BY status" % ",".join("?" * len(_VECTOR_ACTIVE)),
+                    "WHERE status IN ({}) GROUP BY status".format(",".join("?" * len(_VECTOR_ACTIVE))),
                     _VECTOR_ACTIVE,
                 ).fetchall():
                     counts[f"vector:{r['status']}"] = r["n"]
@@ -85,8 +83,8 @@ def _queue_idle(meta_db: Path) -> tuple[bool, dict[str, int]]:
             ).fetchone()
             if has_jobs:
                 for r in con.execute(
-                    "SELECT status, count(*) n FROM jobs WHERE status IN (%s) GROUP BY status"
-                    % ",".join("?" * len(_JOB_ACTIVE)),
+                    "SELECT status, count(*) n FROM jobs "
+                    "WHERE status IN ({}) GROUP BY status".format(",".join("?" * len(_JOB_ACTIVE))),
                     _JOB_ACTIVE,
                 ).fetchall():
                     counts[f"job:{r['status']}"] = r["n"]

@@ -121,11 +121,17 @@ async def test_extract_chunk_comments_rewrites_section_content(monkeypatch):
             return []
 
     monkeypatch.setattr("sag_api.sag.incremental_processor.EventExtractor", FakeExtractor)
-    monkeypatch.setattr("sag_api.sag.incremental_processor._llm_chat_owner", lambda client: SimpleNamespace(chat=client.chat))
+    monkeypatch.setattr(
+        "sag_api.sag.incremental_processor._llm_chat_owner",
+        lambda client: SimpleNamespace(chat=client.chat),
+    )
     monkeypatch.setattr("sag_api.sag.incremental_processor._response_token_usage", lambda response: 3)
     monkeypatch.setattr("sag_api.sag.incremental_processor._normalize_extraction_response", lambda *a, **k: 0)
     monkeypatch.setattr("sag_api.sag.incremental_processor._entity_types_from_messages", lambda messages: [])
-    monkeypatch.setattr("sag_api.sag.incremental_processor.llm_call_scope", lambda *_a, **_k: __import__("contextlib").nullcontext())
+    monkeypatch.setattr(
+        "sag_api.sag.incremental_processor.llm_call_scope",
+        lambda *_a, **_k: __import__("contextlib").nullcontext(),
+    )
 
     event_ids, tokens = await processor._extract_chunk("c1")
     assert event_ids == ["e1"]
@@ -175,11 +181,17 @@ async def test_extract_chunk_all_skips_parent_keeps_child_source(monkeypatch):
         return created["ext"]
 
     monkeypatch.setattr("sag_api.sag.incremental_processor.EventExtractor", factory)
-    monkeypatch.setattr("sag_api.sag.incremental_processor._llm_chat_owner", lambda client: SimpleNamespace(chat=client.chat))
+    monkeypatch.setattr(
+        "sag_api.sag.incremental_processor._llm_chat_owner",
+        lambda client: SimpleNamespace(chat=client.chat),
+    )
     monkeypatch.setattr("sag_api.sag.incremental_processor._response_token_usage", lambda response: 2)
     monkeypatch.setattr("sag_api.sag.incremental_processor._normalize_extraction_response", lambda *a, **k: 0)
     monkeypatch.setattr("sag_api.sag.incremental_processor._entity_types_from_messages", lambda messages: [])
-    monkeypatch.setattr("sag_api.sag.incremental_processor.llm_call_scope", lambda *_a, **_k: __import__("contextlib").nullcontext())
+    monkeypatch.setattr(
+        "sag_api.sag.incremental_processor.llm_call_scope",
+        lambda *_a, **_k: __import__("contextlib").nullcontext(),
+    )
 
     parent_events, parent_tokens = await processor._extract_chunk("parent")
     assert parent_events == []

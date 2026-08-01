@@ -20,8 +20,8 @@ from sag_api.sag.vector_write_items import (
     register_job_items,
 )
 from sag_api.sag.vector_write_queue import (
-    enqueue_event_vector_sync,
     VectorWriteQueue,
+    enqueue_event_vector_sync,
 )
 
 

@@ -43,6 +43,7 @@ async def _map_sag_config_to_app_source(config_ids: Iterable[str]) -> dict[str, 
     if not ids:
         return {}
     from sqlalchemy import select
+
     from sag_api.core.db import SessionLocal
     from sag_api.db.models import Source
 
@@ -67,6 +68,7 @@ async def _current_code_hash_map(pairs: Iterable[tuple[str, str]]) -> dict[tuple
     if not items:
         return {}
     from sqlalchemy import select
+
     from sag_api.core.db import SessionLocal
     from sag_api.db.models import Document
 

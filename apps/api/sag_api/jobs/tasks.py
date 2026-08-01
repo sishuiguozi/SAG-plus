@@ -161,8 +161,14 @@ async def process_document(
                 job.payload = payload
                 await session.commit()
         elif (
-            (getattr(document, "code_language", None) or (replacement.get("new_code_language") if replacement else None))
-            and (getattr(document, "content_sha256", None) or (replacement.get("new_content_sha256") if replacement else None))
+            (
+                getattr(document, "code_language", None)
+                or (replacement.get("new_code_language") if replacement else None)
+            )
+            and (
+                getattr(document, "content_sha256", None)
+                or (replacement.get("new_content_sha256") if replacement else None)
+            )
             and process_storage_path
         ):
             from sag_api.parsing.service import PreparedDocument

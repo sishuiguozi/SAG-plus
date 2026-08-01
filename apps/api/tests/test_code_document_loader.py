@@ -65,8 +65,9 @@ async def test_precomputed_parser_returns_code_sections_without_markdown_split(t
 
 @pytest.mark.asyncio
 async def test_code_loader_forces_precomputed_parser_path(monkeypatch, tmp_path: Path):
-    from sag_api.code_ingest.loader import CodeDocumentLoader, PrecomputedCodeParser
     from zleap.sag.modules.load.config import DocumentLoadConfig
+
+    from sag_api.code_ingest.loader import CodeDocumentLoader, PrecomputedCodeParser
 
     monkeypatch.setattr(
         "zleap.sag.modules.load.loader.get_session_factory",

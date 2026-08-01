@@ -1,6 +1,5 @@
 """检索结果 TTL 缓存：相同查询命中缓存、TTL 过期失效、深拷贝隔离。"""
 
-import asyncio
 
 import pytest
 

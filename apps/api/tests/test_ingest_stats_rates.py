@@ -12,8 +12,6 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import pytest
-
 from sag_api.services.source_service import _derive_stalled_reason, _recent_engine_counts
 
 

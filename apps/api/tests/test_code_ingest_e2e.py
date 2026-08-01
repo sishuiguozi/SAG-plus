@@ -5,11 +5,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from sag_api.schemas.code_folder import CodeFolderPlanItemIn, CodeFolderPlanRequest
-from sag_api.services import code_folder_service as folder_svc
 from sag_api.sag import code_context as cc
 from sag_api.sag.dto import RetrievedSection
 from sag_api.sag.incremental_processor import IncrementalDocumentProcessor
+from sag_api.schemas.code_folder import CodeFolderPlanItemIn, CodeFolderPlanRequest
+from sag_api.services import code_folder_service as folder_svc
 
 
 @pytest.mark.asyncio

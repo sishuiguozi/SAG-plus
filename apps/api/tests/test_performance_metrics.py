@@ -7,8 +7,6 @@
 
 from __future__ import annotations
 
-import time
-
 import httpx
 import pytest
 
@@ -30,7 +28,7 @@ def test_performance_ring_summary():
     assert summary["by_path"][0]["route"] == "GET /api/v1/test"
 
     # 窗口裁剪
-    for i in range(200):
+    for _ in range(200):
         ring.record(duration_ms=1.0, method="GET", path="/x", status=200, request_id="w")
     assert ring.summary()["sample_count"] == 128
 

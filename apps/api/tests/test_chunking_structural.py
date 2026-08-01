@@ -1,6 +1,5 @@
 """结构感知分块：代码块/表格保持完整，不按标点/段落切断。"""
 
-import asyncio
 
 import pytest
 

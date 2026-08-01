@@ -51,7 +51,9 @@ def test_patched_vector_search_returns_cosine_results(compat_module, tmp_path: P
     async def scenario() -> dict:
         await store.bulk_index("tbl", [{"_id": r["id"], **r} for r in rows])
         out = await store.vector_search("tbl", "vector", rows[0]["vector"], size=5)
-        out_l2 = await store.vector_search("tbl", "vector", rows[0]["vector"], size=5, filter_query={"term": {"sc": "s0"}})
+        out_l2 = await store.vector_search(
+            "tbl", "vector", rows[0]["vector"], size=5, filter_query={"term": {"sc": "s0"}}
+        )
         return {"plain": out, "filtered": out_l2}
 
     result = _run(scenario())

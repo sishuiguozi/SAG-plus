@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
 
-
 DEFAULT_ENGINE_TABLES = (
     "article",
     "article_section",
@@ -193,7 +192,7 @@ def _vector_queue_summary(meta_db: Path) -> dict[str, Any]:
             }
             item_active_rows = con.execute(
                 "select table_name, count(*) from vector_write_items "
-                f"where status in ({', '.join(f"'{s}'" for s in VECTOR_ITEM_ACTIVE_STATUSES)}) "
+                f"where status in ({', '.join(repr(s) for s in VECTOR_ITEM_ACTIVE_STATUSES)}) "
                 "group by table_name"
             ).fetchall()
             items_summary = {
@@ -432,7 +431,8 @@ def _print_text(report: dict[str, Any]) -> None:
                 else "-"
             )
             print(f"      index {index_name}: type={ist.get('index_type', '-')} "
-                  f"distance={ist.get('distance_type', '-')} covered={covered} unindexed={ist.get('num_unindexed_rows', '-')} ({pct})")
+                  f"distance={ist.get('distance_type', '-')} covered={covered} "
+                  f"unindexed={ist.get('num_unindexed_rows', '-')} ({pct})")
     print()
 
 

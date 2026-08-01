@@ -80,7 +80,8 @@ async def related_questions(
     except Exception:  # noqa: BLE001 - 相关追问是锦上添花，失败静默返回空
         return RelatedQuestionsResponse(questions=[])
     questions = [
-        line.strip().lstrip("0123456789.-、) .").strip()
+        # 按字符集剥离序号前缀，属预期行为（B005）
+        line.strip().lstrip("0123456789.-、) .").strip()  # noqa: B005
         for line in (raw or "").splitlines()
         if line.strip()
     ]

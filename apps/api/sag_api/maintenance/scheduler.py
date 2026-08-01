@@ -15,12 +15,10 @@ from __future__ import annotations
 
 import json
 import logging
-import shutil
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 from sag_api.maintenance.audit_sag_storage import _lancedb_summary
 from sag_api.maintenance.auto_maintenance import run as run_auto_maintenance

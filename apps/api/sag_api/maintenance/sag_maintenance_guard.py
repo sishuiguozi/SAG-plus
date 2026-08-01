@@ -7,10 +7,11 @@ import socket
 import sqlite3
 import subprocess
 import uuid
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 
 def _now() -> datetime:

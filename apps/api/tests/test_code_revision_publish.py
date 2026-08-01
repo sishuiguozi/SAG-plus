@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -116,7 +115,7 @@ async def test_stage_code_replacement_keeps_old_file_and_sets_pending(tmp_path: 
 
 @pytest.mark.asyncio
 async def test_publish_code_replacement_swaps_file_and_enqueues_cleanup(tmp_path: Path):
-    from sag_api.db.models import Document, Job, Source
+    from sag_api.db.models import Document, Source
     from sag_api.enums import DocumentStatus, JobType
     from sag_api.services.document_service import publish_code_replacement
 

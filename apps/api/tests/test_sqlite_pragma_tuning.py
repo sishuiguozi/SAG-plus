@@ -8,7 +8,6 @@
 - API 元数据库引擎的 connect event 确实把调优项应用到新连接。
 """
 
-import asyncio
 
 import pytest
 from sqlalchemy import event

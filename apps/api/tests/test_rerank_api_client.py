@@ -70,7 +70,10 @@ async def test_rerank_api_test_endpoint_uses_unsaved_credentials(monkeypatch):
     transport = httpx.ASGITransport(app=app)
     async with app.router.lifespan_context(app):
         async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
-            registration = await client.post("/api/v1/auth/register", json={"email": "rerank-api@t.com", "password": "password123"})
+            registration = await client.post(
+                "/api/v1/auth/register",
+                json={"email": "rerank-api@t.com", "password": "password123"},
+            )
             headers = {"Authorization": f"Bearer {registration.json()['access_token']}"}
             response = await client.post("/api/v1/system/reranker-api/test", headers=headers, json={
                 "url": "https://example.test/reranks", "api_key": "draft-secret", "model": "qwen3-rerank",
