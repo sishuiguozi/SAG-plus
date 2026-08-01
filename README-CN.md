@@ -108,6 +108,20 @@ cd /e/SAG-plus/apps/desktop
 npm run dev
 ```
 
+在命令提示符（cmd）中运行：
+
+```cmd
+cd /d E:\SAG-plus\apps\desktop
+npm run dev
+```
+
+在 PowerShell 中运行：
+
+```powershell
+cd E:\SAG-plus\apps\desktop
+npm run dev
+```
+
 桌面脚本会启动或复用本地 API（`127.0.0.1:8000`）、Web（`127.0.0.1:3000` 或 `3001`）和 Electron 窗口。首次运行会自动检查依赖、在需要时执行 `npm ci`、创建 `apps/api/.venv` 并安装 API 包。按 `Ctrl+C` 停止。
 
 首次使用：填写名字创建本地身份 → 在 **设置 → 模型** 配置任意 OpenAI 兼容的 LLM 与 Embedding 接口 → 创建信源并上传文档，等待状态变为**就绪** → 开始检索、打开原文或进行带引用的对话。没有模型密钥时，界面和服务仍可启动。

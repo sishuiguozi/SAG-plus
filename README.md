@@ -139,6 +139,20 @@ cd /e/SAG-plus/apps/desktop
 npm run dev
 ```
 
+In Command Prompt (cmd), run:
+
+```cmd
+cd /d E:\SAG-plus\apps\desktop
+npm run dev
+```
+
+In PowerShell, run:
+
+```powershell
+cd E:\SAG-plus\apps\desktop
+npm run dev
+```
+
 The desktop script starts or reuses the local API (`127.0.0.1:8000`), Web UI
 (`127.0.0.1:3000` or `3001`), and Electron window. On the first run it also
 checks dependencies, runs `npm ci` where needed, creates `apps/api/.venv`, and
