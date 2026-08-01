@@ -566,6 +566,15 @@
       "auto": "Convert named and required tool choices to auto so the model decides whether to call a tool; reasoning settings stay unchanged.",
       "all_no_thinking": "Disable reasoning for normal answers, tool calls, and post-tool answers."
     },
+    "reasoningHistoryCompat": "Reasoning history compatibility",
+    "reasoningHistoryCompatAuto": "Automatic (recommended)",
+    "reasoningHistoryCompatAlways": "Always enable",
+    "reasoningHistoryCompatOff": "Off",
+    "reasoningHistoryCompatDescription": {
+      "auto": "Fill reasoning history fields only for routes identified as DeepSeek.",
+      "always": "Fill reasoning history fields for every model, including compatible endpoints that use model aliases.",
+      "off": "Do not change history messages; use this when the endpoint rejects reasoning_content."
+    },
     "embeddingDescription": "Used for document embeddings and semantic retrieval.",
     "modelAndConnection": "Model and connection",
     "embeddingConnectionDescription": "Leave the endpoint or key blank to reuse the generation model settings.",

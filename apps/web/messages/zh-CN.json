@@ -566,6 +566,15 @@
       "auto": "将指定工具和 required 改为 auto，由模型决定是否调用工具，不改变思考设置。",
       "all_no_thinking": "普通回答、工具调用和工具后的回答全部关闭思考。"
     },
+    "reasoningHistoryCompat": "推理历史兼容",
+    "reasoningHistoryCompatAuto": "自动（推荐）",
+    "reasoningHistoryCompatAlways": "始终启用",
+    "reasoningHistoryCompatOff": "关闭",
+    "reasoningHistoryCompatDescription": {
+      "auto": "仅在识别为 DeepSeek 路由时补齐工具调用历史中的推理字段。",
+      "always": "对所有模型补齐推理历史字段，适用于使用模型别名的兼容接口。",
+      "off": "不修改历史消息；接口不接受 reasoning_content 时使用。"
+    },
     "embeddingDescription": "用于文档向量化和语义检索。",
     "modelAndConnection": "模型与连接",
     "embeddingConnectionDescription": "端点或密钥留空时复用生成模型配置。",

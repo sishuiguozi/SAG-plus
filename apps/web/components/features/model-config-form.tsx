@@ -32,7 +32,10 @@ import {
   toggleLocalModelSelection,
   type LocalModelAction,
 } from "@/lib/local-model-manager";
-import { isLlmToolChoiceStrategy } from "@/lib/tool-choice-strategy";
+import {
+  isLlmReasoningHistoryCompat,
+  isLlmToolChoiceStrategy,
+} from "@/lib/tool-choice-strategy";
 import type {
   ModelConfig,
   ModelConfigPatch,
@@ -93,6 +96,9 @@ export function ModelConfigForm() {
   const [toolChoiceStrategy, setToolChoiceStrategy] = React.useState<
     ModelConfig["llm_tool_choice_strategy"]
   >("forced_no_thinking");
+  const [reasoningHistoryCompat, setReasoningHistoryCompat] = React.useState<
+    ModelConfig["llm_reasoning_history_compat"]
+  >("auto");
   const [ctxWindow, setCtxWindow] = React.useState(128000);
   const [embProvider, setEmbProvider] = React.useState<"api" | "local">("api");
   const [embLocalModelFile, setEmbLocalModelFile] = React.useState("bge-m3-Q8_0.gguf");
@@ -157,6 +163,7 @@ export function ModelConfigForm() {
     setTimeoutMs(config.llm_timeout_ms ?? 60_000);
     setMaxRetries(config.llm_max_retries ?? 2);
     setToolChoiceStrategy(config.llm_tool_choice_strategy);
+    setReasoningHistoryCompat(config.llm_reasoning_history_compat);
     setCtxWindow(config.llm_context_window ?? 128000);
     setEmbProvider(config.embedding_provider);
     setEmbLocalModelFile(config.embedding_local_model_file);
@@ -235,6 +242,7 @@ export function ModelConfigForm() {
       llm_timeout_ms: timeoutMs,
       llm_max_retries: maxRetries,
       llm_tool_choice_strategy: toolChoiceStrategy,
+      llm_reasoning_history_compat: reasoningHistoryCompat,
       llm_context_window: ctxWindow,
       embedding_provider: embProvider,
       embedding_local_model_file: embLocalModelFile.trim(),
@@ -300,6 +308,9 @@ export function ModelConfigForm() {
     if (typeof rec.llm_max_retries === "number") setMaxRetries(rec.llm_max_retries);
     if (isLlmToolChoiceStrategy(rec.llm_tool_choice_strategy)) {
       setToolChoiceStrategy(rec.llm_tool_choice_strategy);
+    }
+    if (isLlmReasoningHistoryCompat(rec.llm_reasoning_history_compat)) {
+      setReasoningHistoryCompat(rec.llm_reasoning_history_compat);
     }
     if (typeof rec.llm_context_window === "number") setCtxWindow(rec.llm_context_window);
     if (rec.embedding_provider === "api" || rec.embedding_provider === "local") {
@@ -750,6 +761,37 @@ export function ModelConfigForm() {
               </Select>
               <FieldDescription>
                 {t(`toolStrategyDescription.${toolChoiceStrategy}`)}
+              </FieldDescription>
+            </Field>
+            <Field className="sm:col-span-2">
+              <FieldLabel htmlFor="llm-reasoning-history-compat">
+                {t("reasoningHistoryCompat")}
+                <RecommendedBadge
+                  t={translate}
+                  value={recommended.llm_reasoning_history_compat}
+                />
+              </FieldLabel>
+              <Select
+                value={reasoningHistoryCompat}
+                onValueChange={(value) =>
+                  setReasoningHistoryCompat(
+                    value as ModelConfig["llm_reasoning_history_compat"],
+                  )
+                }
+              >
+                <SelectTrigger id="llm-reasoning-history-compat">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">{t("reasoningHistoryCompatAuto")}</SelectItem>
+                  <SelectItem value="always">
+                    {t("reasoningHistoryCompatAlways")}
+                  </SelectItem>
+                  <SelectItem value="off">{t("reasoningHistoryCompatOff")}</SelectItem>
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                {t(`reasoningHistoryCompatDescription.${reasoningHistoryCompat}`)}
               </FieldDescription>
             </Field>
           </div>
