@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import importlib.util
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -15,6 +17,12 @@ from sag_api.sag.local_model_catalog import ModelKind, ModelSpec, get_model_spec
 
 # Kept for callers that previously rendered the embedding picker directly.
 MODEL_CATALOG = {spec.file_name: spec.label for spec in specs_for(ModelKind.EMBEDDING)}
+
+_CUDA_RANK_RUNTIME_WHEEL = (
+    "https://github.com/JamePeng/llama-cpp-python/releases/download/"
+    "v0.3.45-cu131-win-20260801/"
+    "llama_cpp_python-0.3.45%2Bcu131-cp312-cp312-win_amd64.whl"
+)
 
 
 class LocalModelManager:
@@ -134,6 +142,50 @@ class LocalModelManager:
         # The upstream wheel exposes embedding but not the native ``pooling=rank``
         # interface.  This explicit, opt-in source build adds that interface for
         # BGE/Qwen reranker GGUFs; it can require CMake and a C++ compiler.
+        # Prefer the fork's Windows CUDA wheel where it can be used.  It avoids a
+        # multi-gigabyte Visual C++ build-tool install and enables GPU ranking.
+        # CPU-only machines retain the explicit source-build fallback below.
+        if sys.platform == "win32" and sys.version_info[:2] == (3, 12) and shutil.which("nvidia-smi"):
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "--upgrade",
+                    "--force-reinstall",
+                    "--no-cache-dir",
+                    _CUDA_RANK_RUNTIME_WHEEL,
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            return
+
+        runtime_scripts = str(Path(sys.executable).resolve().parent)
+        build_env = os.environ.copy()
+        build_env["PATH"] = runtime_scripts + os.pathsep + build_env.get("PATH", "")
+        # llama.cpp 的子模块中包含超长文件名。只对本次 pip/Git 子进程启用
+        # Windows long paths，避免修改用户的全局 Git 配置。
+        build_env["GIT_CONFIG_COUNT"] = "1"
+        build_env["GIT_CONFIG_KEY_0"] = "core.longpaths"
+        build_env["GIT_CONFIG_VALUE_0"] = "true"
+        # CMake has a Windows wheel and is installed into the same venv first;
+        # this keeps the optional source build self-contained for desktop users.
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "cmake>=3.27",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=build_env,
+        )
         subprocess.run(
             [
                 sys.executable,
@@ -148,6 +200,7 @@ class LocalModelManager:
             check=True,
             capture_output=True,
             text=True,
+            env=build_env,
         )
 
     @staticmethod

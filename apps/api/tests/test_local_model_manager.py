@@ -1,11 +1,11 @@
 import asyncio
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import httpx
 import pytest
 
-from sag_api.sag.local_model_manager import LocalModelManager, MODEL_CATALOG
+from sag_api.sag.local_model_manager import MODEL_CATALOG, LocalModelManager
 
 
 def test_model_catalog_exposes_the_three_supported_embedding_variants():
@@ -114,7 +114,10 @@ def test_deletes_partial_file_when_download_length_verification_fails(
 
 
 @pytest.mark.asyncio
-async def test_installs_llama_backend_in_the_running_python_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+async def test_installs_llama_backend_in_the_running_python_environment(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
     manager = LocalModelManager(tmp_path)
     installed = [False]
     command: list[str] = []
@@ -140,10 +143,12 @@ async def test_installs_llama_backend_in_the_running_python_environment(tmp_path
 
 
 @pytest.mark.asyncio
-async def test_installs_native_reranker_runtime_only_when_requested(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+async def test_prefers_prebuilt_cuda_rank_runtime_when_nvidia_is_available(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     manager = LocalModelManager(tmp_path)
     installed = [False]
-    command: list[str] = []
+    commands: list[list[str]] = []
 
     def fake_find_spec(name: str):
         if name == "llama_cpp":
@@ -153,9 +158,10 @@ async def test_installs_native_reranker_runtime_only_when_requested(tmp_path: Pa
         return None
 
     monkeypatch.setattr("sag_api.sag.local_model_manager.importlib.util.find_spec", fake_find_spec)
+    monkeypatch.setattr("sag_api.sag.local_model_manager.shutil.which", lambda _: "nvidia-smi")
 
     def fake_run(args: list[str], **_: object) -> None:
-        command.extend(args)
+        commands.append(args)
         installed[0] = True
 
     monkeypatch.setattr("sag_api.sag.local_model_manager.subprocess.run", fake_run)
@@ -164,8 +170,45 @@ async def test_installs_native_reranker_runtime_only_when_requested(tmp_path: Pa
     assert manager._reranker_backend_task is not None
     await manager._reranker_backend_task
 
-    assert command[:4] == [sys.executable, "-m", "pip", "install"]
-    assert any("JamePeng/llama-cpp-python" in str(arg) for arg in command)
+    assert len(commands) == 1
+    assert any("cu131-cp312-cp312-win_amd64.whl" in str(arg) for arg in commands[0])
+    assert manager.status()["reranker"]["backends"]["llama_cpp_rank"]["status"] == "ready"
+
+
+@pytest.mark.asyncio
+async def test_installs_native_reranker_runtime_only_when_requested(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    manager = LocalModelManager(tmp_path)
+    installed = [False]
+    commands: list[list[str]] = []
+    environments: list[dict[str, str]] = []
+
+    def fake_find_spec(name: str):
+        if name == "llama_cpp":
+            return object()
+        if name == "llama_cpp.llama_embedding":
+            return object() if installed[0] else None
+        return None
+
+    monkeypatch.setattr("sag_api.sag.local_model_manager.importlib.util.find_spec", fake_find_spec)
+    monkeypatch.setattr("sag_api.sag.local_model_manager.shutil.which", lambda _: None)
+
+    def fake_run(args: list[str], **kwargs: object) -> None:
+        commands.append(args)
+        environments.append(dict(kwargs["env"]))
+        if any("JamePeng/llama-cpp-python" in str(arg) for arg in args):
+            installed[0] = True
+
+    monkeypatch.setattr("sag_api.sag.local_model_manager.subprocess.run", fake_run)
+
+    await manager.install_reranker_backend()
+    assert manager._reranker_backend_task is not None
+    await manager._reranker_backend_task
+
+    assert commands[0][:4] == [sys.executable, "-m", "pip", "install"]
+    assert "cmake>=3.27" in commands[0]
+    assert any("JamePeng/llama-cpp-python" in str(arg) for arg in commands[1])
+    assert environments[1]["GIT_CONFIG_KEY_0"] == "core.longpaths"
+    assert environments[1]["GIT_CONFIG_VALUE_0"] == "true"
     assert manager.status()["reranker"]["backends"]["llama_cpp_rank"]["status"] == "ready"
 
 
