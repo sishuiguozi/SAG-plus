@@ -9,6 +9,7 @@ import { useApp } from "@/components/features/app-shell";
 import { SettingsRow, SettingsSection } from "@/components/features/settings-section";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,9 +23,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { Spinner } from "@/components/ui/spinner";
 import { api, ApiError } from "@/lib/api";
+import {
+  isLocalModelDownloadDisabled,
+  toggleLocalModelSelection,
+  type LocalModelAction,
+} from "@/lib/local-model-manager";
 import type {
   ModelConfig,
   ModelConfigPatch,
+  LocalModelManagerStatus,
   ModelProviderId,
   ModelProviderSpec,
 } from "@/lib/types";
@@ -61,7 +68,7 @@ export function ModelConfigForm() {
     (key) => t(key as never),
     [t],
   );
-  const { capabilities, refreshCapabilities } = useApp();
+  const { refreshCapabilities } = useApp();
   const [cfg, setCfg] = React.useState<ModelConfig | null>(null);
   const [providers, setProviders] = React.useState<ModelProviderSpec[]>([]);
   const [loadError, setLoadError] = React.useState<string | null>(null);
@@ -95,6 +102,11 @@ export function ModelConfigForm() {
   const [recommended, setRecommended] = React.useState<
     Record<string, number | boolean | string | null | undefined>
   >({});
+  const [localModels, setLocalModels] = React.useState<LocalModelManagerStatus | null>(null);
+  const [selectedLocalModels, setSelectedLocalModels] = React.useState<string[]>([
+    "bge-m3-Q8_0.gguf",
+  ]);
+  const [localModelAction, setLocalModelAction] = React.useState<LocalModelAction>(null);
 
   const hydrate = React.useCallback((config: ModelConfig) => {
     setCfg(config);
@@ -125,14 +137,16 @@ export function ModelConfigForm() {
   const load = React.useCallback(async () => {
     setLoadError(null);
     try {
-      const [config, providerCatalog] = await Promise.all([
+      const [config, providerCatalog, modelStatus] = await Promise.all([
         api.getModelConfig(),
         api.getModelProviders(),
+        api.getLocalModelStatus(),
       ]);
       if (!providerCatalog.some((provider) => provider.id === config.llm_provider)) {
         throw new Error("Configured model provider is missing from the provider catalog");
       }
       setProviders(providerCatalog);
+      setLocalModels(modelStatus);
       hydrate(config);
     } catch (error) {
       setLoadError(error instanceof ApiError ? error.message : t("loadFailed"));
@@ -142,6 +156,23 @@ export function ModelConfigForm() {
   React.useEffect(() => {
     void load();
   }, [load]);
+
+  const refreshLocalModels = React.useCallback(async () => {
+    try {
+      setLocalModels(await api.getLocalModelStatus());
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t("localModelStatusFailed"));
+    }
+  }, [t]);
+
+  React.useEffect(() => {
+    const updating =
+      localModels?.backend.status === "installing" ||
+      localModels?.models.some((model) => model.status === "downloading");
+    if (!updating) return;
+    const timer = window.setInterval(() => void refreshLocalModels(), 1500);
+    return () => window.clearInterval(timer);
+  }, [localModels, refreshLocalModels]);
 
   function currentPatch(): ModelConfigPatch {
     const patch: ModelConfigPatch = {
@@ -299,6 +330,38 @@ export function ModelConfigForm() {
       toast.error(error instanceof ApiError ? error.message : t("mineruFailed"));
     } finally {
       setSaving(false);
+    }
+  }
+
+  function toggleLocalModel(fileName: string, checked: boolean) {
+    setSelectedLocalModels((selected) => toggleLocalModelSelection(selected, fileName, checked));
+  }
+
+  async function installLocalBackend() {
+    setLocalModelAction("backend");
+    try {
+      setLocalModels(await api.installLocalModelBackend());
+      toast.success(t("localBackendInstallStarted"));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t("localBackendInstallFailed"));
+    } finally {
+      setLocalModelAction(null);
+    }
+  }
+
+  async function downloadSelectedLocalModels() {
+    if (selectedLocalModels.length === 0) {
+      toast.error(t("localModelSelectRequired"));
+      return;
+    }
+    setLocalModelAction("download");
+    try {
+      setLocalModels(await api.downloadLocalModels(selectedLocalModels));
+      toast.success(t("localModelDownloadStarted"));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t("localModelDownloadFailed"));
+    } finally {
+      setLocalModelAction(null);
     }
   }
 
@@ -564,49 +627,78 @@ export function ModelConfigForm() {
           <>
           <SettingsRow title={t("localModelTitle")} description={t("localModelDescription")}>
             <div className="grid gap-3">
-              {(() => {
-                const local = capabilities?.local_embedding;
-                if (!local) {
-                  return (
-                    <Alert>
-                      <AlertTitle>{t("localModelUnknown")}</AlertTitle>
-                      <AlertDescription>{t("localModelUnknownHint")}</AlertDescription>
-                    </Alert>
-                  );
-                }
-                return (
-                  <>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                      <span className="font-medium text-foreground">
-                        {t("localModel")}: bge-m3 (Q8_0)
-                      </span>
-                      {local.model_size_mb != null && (
-                        <span className="text-muted-foreground">
-                          {t("localModelSize", { size: local.model_size_mb })}
-                        </span>
+              {!localModels ? (
+                <Alert>
+                  <AlertTitle>{t("localModelUnknown")}</AlertTitle>
+                  <AlertDescription>{t("localModelUnknownHint")}</AlertDescription>
+                </Alert>
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+                    <div>
+                      <p className="font-medium">{t("localBackendTitle")}</p>
+                      <p className="text-sm text-muted-foreground">{t("localBackendDescription")}</p>
+                      {localModels.backend.error && (
+                        <p className="mt-1 text-sm text-destructive">{localModels.backend.error}</p>
                       )}
-                      <span
-                        className={
-                          local.ready
-                            ? "rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400"
-                            : "rounded bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400"
-                        }
-                      >
-                        {local.ready ? t("localModelReady") : t("localModelNotReady")}
-                      </span>
                     </div>
-                    <p className="break-all rounded-md bg-muted/50 px-3 py-2 font-mono text-xs text-muted-foreground">
-                      {local.model_path}
-                    </p>
-                    {local.error && (
-                      <Alert variant="destructive">
-                        <AlertTitle>{t("localModelError")}</AlertTitle>
-                        <AlertDescription>{local.error}</AlertDescription>
-                      </Alert>
-                    )}
-                  </>
-                );
-              })()}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={localModels.backend.status === "ready" || localModelAction !== null}
+                      onClick={() => void installLocalBackend()}
+                    >
+                      {localModelAction === "backend" || localModels.backend.status === "installing" ? <Spinner /> : <Plug />}
+                      {localModels.backend.status === "ready" ? t("localBackendReady") : t("localBackendInstall")}
+                    </Button>
+                  </div>
+                  <div className="grid gap-2">
+                    {localModels.models.map((model) => {
+                      const downloading = model.status === "downloading";
+                      const ready = model.status === "ready";
+                      return (
+                        <label key={model.file_name} className="grid gap-1 rounded-md border p-3 sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-3">
+                          <Checkbox
+                            checked={selectedLocalModels.includes(model.file_name)}
+                            onCheckedChange={(checked) => toggleLocalModel(model.file_name, checked === true)}
+                            aria-label={model.file_name}
+                          />
+                          <span className="min-w-0">
+                            <span className="block font-medium">bge-m3 · {model.file_name.replace("bge-m3-", "").replace(".gguf", "")}</span>
+                            <span className="block text-sm text-muted-foreground">{model.label}</span>
+                            {downloading && (
+                              <span className="mt-1 block h-1.5 overflow-hidden rounded bg-muted">
+                                <span className="block h-full bg-primary" style={{ width: `${model.progress}%` }} />
+                              </span>
+                            )}
+                            {model.error && <span className="block text-sm text-destructive">{model.error}</span>}
+                          </span>
+                          <span className={ready ? "text-sm text-emerald-600 dark:text-emerald-400" : "text-sm text-muted-foreground"}>
+                            {ready ? t("localModelReady") : downloading ? `${model.progress}%` : t("localModelNotReady")}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isLocalModelDownloadDisabled(localModels, selectedLocalModels, localModelAction)}
+                      onClick={() => void downloadSelectedLocalModels()}
+                    >
+                      {localModelAction === "download" ? <Spinner /> : <Save />}
+                      {t("localModelDownload")}
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => void refreshLocalModels()}>
+                      <RotateCw />
+                      {t("localModelRefresh")}
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </SettingsRow>
           <SettingsRow title={t("localParamsTitle")} description={t("localParamsDescription")}>
@@ -616,12 +708,19 @@ export function ModelConfigForm() {
                   {t("localModelFile")}
                   <RecommendedBadge t={translate} value={recommended.embedding_local_model_file} />
                 </FieldLabel>
-                <Input
-                  id="emb-local-file"
-                  value={embLocalModelFile}
-                  onChange={(event) => setEmbLocalModelFile(event.target.value)}
-                  placeholder="bge-m3-Q8_0.gguf"
-                />
+                <Select value={embLocalModelFile} onValueChange={setEmbLocalModelFile}>
+                  <SelectTrigger id="emb-local-file"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(localModels?.models ?? []).map((model) => (
+                      <SelectItem key={model.file_name} value={model.file_name}>
+                        {model.file_name}
+                      </SelectItem>
+                    ))}
+                    {!localModels?.models.some((model) => model.file_name === embLocalModelFile) && (
+                      <SelectItem value={embLocalModelFile}>{embLocalModelFile}</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
                 <FieldDescription>{t("localModelFileHint")}</FieldDescription>
               </Field>
               <Field>

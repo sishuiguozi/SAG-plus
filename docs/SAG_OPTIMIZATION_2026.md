@@ -14,7 +14,7 @@
 - **混合检索已有基础**：`services/retrieval_service.py` 的 `rerank_sections`（语义+词法融合、相关性门控）、`_lexical_sections`（词法通道）、`query_terms`（去噪）
 - 向量写入：`vector_write_queue.py` 队列化、批处理、租约、幂等（SAG-OPT-103/105/106）
 - 图谱/宇宙：`universe_service.py`(1487L) + `engine_manager` 的 universe_* 方法（singleflight + 缓存）
-- 本地嵌入：`embedding_backend.py`（llama-cpp bge-m3 Q8_0，CPU）
+- 本地嵌入：`embedding_backend.py`（llama-cpp bge-m3，CPU）；设置页按需安装 CPU 后端并下载 Q4/Q5/Q6/Q8/FP16 GGUF，启动时不下载权重
 - 结构感知分块：`chunking_compat.py`（代码块/表格保持完整，已完成）
 - 应用层补丁共 9 个模块，详见 `docs/ARCHITECTURE_PATCHES.md`；升级上游依赖前先运行该表所列回归测试。
 
@@ -67,7 +67,7 @@
 |---|---|---|---|---|
 | D1 | 测试覆盖 | 后端 ~60 用例 | 补检索缓存/分块/向量队列基准 | P1 |
 | D2 | ~~备份自动化~~ **已完成** | `scripts/backup_data.py`（快照+保留 N 份+跳过可重建缓存） | — | — |
-| D3 | ~~模型版本化~~ **已完成** | `local_embedding_status` 增加 `model_file`/`model_fingerprint`（size+mtime） | — | — |
+| D3 | ~~模型版本化与按需下载~~ **已完成** | `local_embedding_status` 增加 `model_file`/`model_fingerprint`；`local_model_manager.py` 维护五种固定 bge-m3 GGUF、后台安装 llama-cpp-python、临时文件校验与原子提交 | — | — |
 | D4 | 崩溃自愈报告 | 队列恢复有 | **基本已有**（启动自检+恢复日志），UI 报告已规划 | P2 |
 
 ### E. UX 与功能

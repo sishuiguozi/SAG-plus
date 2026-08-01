@@ -18,6 +18,7 @@ import type {
   MessagePage,
   ModelConfig,
   ModelConfigPatch,
+  LocalModelManagerStatus,
   ModelProviderSpec,
   ModelSetupStatus,
   KnowledgeMcpDescriptor,
@@ -462,6 +463,16 @@ export const api = {
 
   // 模型与检索配置
   getModelConfig: () => request<ModelConfig>("/api/v1/system/model-config"),
+  getLocalModelStatus: () => request<LocalModelManagerStatus>("/api/v1/system/local-models"),
+  installLocalModelBackend: () =>
+    request<LocalModelManagerStatus>("/api/v1/system/local-models/backend/install", {
+      method: "POST",
+    }),
+  downloadLocalModels: (files: string[]) =>
+    request<LocalModelManagerStatus>("/api/v1/system/local-models/download", {
+      method: "POST",
+      body: JSON.stringify({ files }),
+    }),
   getModelProviders: () =>
     request<ModelProviderSpec[]>("/api/v1/system/model-providers"),
   modelSetupStatus: () =>

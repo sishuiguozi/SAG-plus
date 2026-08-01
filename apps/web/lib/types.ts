@@ -161,6 +161,26 @@ export interface ModelProviderSpec {
   api_key_placeholder: string;
 }
 
+export interface LocalEmbeddingModelStatus {
+  file_name: string;
+  label: string;
+  status: "missing" | "downloading" | "ready" | "failed";
+  downloaded_bytes: number;
+  total_bytes: number | null;
+  progress: number;
+  error: string | null;
+  model_path: string;
+}
+
+export interface LocalModelManagerStatus {
+  backend_installed: boolean;
+  backend: {
+    status: "missing" | "installing" | "ready" | "failed";
+    error: string | null;
+  };
+  models: LocalEmbeddingModelStatus[];
+}
+
 export interface ModelConfig {
   llm_provider: ModelProviderId;
   llm_base_url: string | null;

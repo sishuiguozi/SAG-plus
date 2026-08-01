@@ -10,8 +10,7 @@ development mode.
 Requirements:
 
 - Node.js 20 or later.
-- Desktop, Web, and API dependencies are already installed. In particular,
-  `apps/api/.venv` and `apps/web/node_modules` must exist.
+- Python 3.11 or later, available as `python` (or set `SAG_PYTHON` to its path).
 
 In Git Bash, run:
 
@@ -21,7 +20,9 @@ npm run dev
 ```
 
 The desktop script starts or reuses the local API (`127.0.0.1:8000`), Web UI
-(`127.0.0.1:3000` or `3001`), and Electron window. Stop it with `Ctrl+C`.
+(`127.0.0.1:3000` or `3001`), and Electron window. On the first run it also
+checks dependencies, runs `npm ci` where needed, creates `apps/api/.venv`, and
+installs the API package. Stop it with `Ctrl+C`.
 
 If this repository was moved from `E:\sag-dev`, keep using the existing local
 data and development dependencies until they have been deliberately migrated.
@@ -51,15 +52,20 @@ Detailed implementation records are in
 4. Select **Parent-child** chunking for newly ingested documents when you want
    child-level recall with broader parent context. Existing documents are not
    changed until they are processed again.
+5. To run embeddings fully locally, open **Settings → Model configuration →
+   Local embedding**, click **Download inference backend**, select one or more
+   bge-m3 GGUF variants, then download them. Weights are never downloaded
+   automatically; select a completed model and save the configuration.
 
 ## Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
-| API does not start | Confirm `apps/api/.venv` exists and port 8000 is not already occupied by an unrelated process. |
-| Web does not start | Confirm `apps/web/node_modules` exists; the desktop launcher can use port 3000 or 3001. |
+| API does not start | Confirm Python 3.11+ is available and port 8000 is not already occupied by an unrelated process. The launcher recreates its virtual environment when needed. |
+| Web does not start | The launcher installs missing Web dependencies; it can use port 3000 or 3001. |
 | Electron closes immediately | Run the command from `E:\SAG-plus\apps\desktop` and read the first failing API or Web process in the terminal. |
 | Old knowledge is missing | Local data was not copied by Git. Verify the intended local data directory before creating a new index. |
+| Local embeddings are unavailable | In Settings, install the llama-cpp-python backend, download a selected model, choose that file, then save. |
 
 ## Development references
 

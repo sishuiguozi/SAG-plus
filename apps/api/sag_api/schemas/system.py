@@ -21,6 +21,12 @@ class QuickModelSetupRequest(BaseModel):
         return value
 
 
+class LocalModelDownloadRequest(BaseModel):
+    """A user-selected subset of the supported local embedding files."""
+
+    files: list[str] = Field(min_length=1, max_length=5)
+
+
 class SystemPreferencesUpdate(BaseModel):
     timezone: str = Field(min_length=1, max_length=100)
 

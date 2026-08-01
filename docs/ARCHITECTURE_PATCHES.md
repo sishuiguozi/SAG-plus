@@ -17,6 +17,13 @@
 | 8 | `sag_api/core/litellm_policy.py` | LiteLLM pre-call 策略（provider 参数） | `main.py` | `uninstall_litellm_policy` | 模型配置测试 |
 | 9 | `sag_api/sag/parent_child.py` | 父子分块（A4）：入库 parent_id 回填 + 父块向量过滤 + 检索父上下文 | `main.py` | `uninstall_parent_child_loader_patch` | test_parent_child |
 
+## 本地模型管理
+
+`sag_api/sag/local_model_manager.py` 是应用层服务而不是第三方兼容补丁，因此不计入上表。
+它只接受固定的 `gpustack/bge-m3-GGUF` 五种 GGUF 文件，使用 `.part` 临时文件、长度与
+ETag 校验后原子提交。`/system/local-models*` 端点要求已登录用户；设置页可按需安装当前
+API 虚拟环境内的 CPU 版 `llama-cpp-python`，并多选下载模型。模型与后端均不会在启动时下载。
+
 ## 运行期验证
 
 - `apps/api/scripts/eval_retrieval.py` 是 A5 检索评估入口。它会在调用者上下文预热引擎，再执行并发检索，避免 zleap-sag 的跨 `ContextVar` 关闭警告；输出每条用例的命中数与耗时。

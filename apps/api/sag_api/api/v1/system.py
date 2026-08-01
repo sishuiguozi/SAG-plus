@@ -11,13 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sag_api.core.config import settings
 from sag_api.core.db import SessionLocal, get_session
 from sag_api.core.deps import get_current_user
-from sag_api.core.errors import ApiError, ConflictError, ForbiddenError
+from sag_api.core.errors import ApiError, ConflictError, ForbiddenError, ValidationError
 from sag_api.core.logging import get_logger
 from sag_api.core.model_providers import model_provider_catalog
 from sag_api.db.models import Source, User
 from sag_api.generation import LLMClient
 from sag_api.mcp.server import MCP_TOOL_DETAILS, MCP_TOOL_NAMES
 from sag_api.schemas.system import (
+    LocalModelDownloadRequest,
     ModelConfigUpdate,
     QuickModelSetupRequest,
     SystemPreferencesUpdate,
@@ -26,6 +27,18 @@ from sag_api.services import settings_service
 
 router = APIRouter(prefix="/system", tags=["system"])
 log = get_logger("system")
+_local_model_manager = None
+
+
+def _get_local_model_manager():
+    """Keep download state in-process while following a changed data directory."""
+    from sag_api.sag.local_model_manager import LocalModelManager
+
+    global _local_model_manager
+    model_dir = Path(settings.embedding_local_model_path()).parent
+    if _local_model_manager is None or _local_model_manager.model_dir != model_dir:
+        _local_model_manager = LocalModelManager(model_dir)
+    return _local_model_manager
 
 
 def _capabilities() -> dict:
@@ -202,6 +215,34 @@ async def get_model_config(
 ) -> dict:
     """当前生效的模型与检索配置（密钥脱敏为 *_set 布尔）。"""
     return settings_service.effective_model_config()
+
+
+@router.get("/local-models")
+async def get_local_model_status(
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Local embedding model and llama-cpp-python installation status."""
+    return _get_local_model_manager().status()
+
+
+@router.post("/local-models/backend/install")
+async def install_local_model_backend(
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Install llama-cpp-python into this API's virtual environment in the background."""
+    return await _get_local_model_manager().install_backend()
+
+
+@router.post("/local-models/download")
+async def download_local_models(
+    body: LocalModelDownloadRequest,
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Start downloads for selected BGE-M3 GGUF variants; status is polled separately."""
+    try:
+        return await _get_local_model_manager().download(body.files)
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
 
 
 @router.get("/model-providers")
