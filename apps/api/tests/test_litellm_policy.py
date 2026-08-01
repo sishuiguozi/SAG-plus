@@ -91,3 +91,14 @@ def test_reranker_configuration_defaults_to_off_and_accepts_api_source():
     assert Settings(_env_file=None).search_rerank_mode == "off"
     assert settings.search_rerank_candidates == 12
     assert settings.search_rerank_api_model == "qwen3-rerank"
+
+
+def test_local_reranker_save_allows_an_empty_unused_api_model() -> None:
+    from sag_api.schemas.system import ModelConfigUpdate
+
+    patch = ModelConfigUpdate(
+        search_rerank_mode="local",
+        search_rerank_api_model="",
+    )
+
+    assert patch.search_rerank_api_model == ""

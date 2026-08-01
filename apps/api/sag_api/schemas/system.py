@@ -105,7 +105,8 @@ class ModelConfigUpdate(BaseModel):
     search_local_rerank_model_file: str | None = Field(default=None, min_length=1, max_length=200)
     search_rerank_api_url: str | None = Field(default=None, max_length=500)
     search_rerank_api_key: str | None = Field(default=None, max_length=500)
-    search_rerank_api_model: str | None = Field(default=None, min_length=1, max_length=200)
+    # API 重排未启用时，设置页会提交空字符串；它不应阻止本地/关闭模式保存。
+    search_rerank_api_model: str | None = Field(default=None, max_length=200)
     search_rerank_api_instruction: str | None = Field(default=None, max_length=1000)
     search_rerank_api_timeout_ms: int | None = Field(default=None, ge=1_000, le=120_000)
     sag_language: Literal["zh", "en"] | None = None
@@ -186,7 +187,9 @@ class ModelConfigUpdate(BaseModel):
             raise ValueError("解析器与 MinerU 版本不能为 null")
         return value
 
-    @field_validator("job_concurrency", "document_extract_concurrency", "document_chunk_max_tokens", "parent_chunk_max_tokens")
+    @field_validator(
+        "job_concurrency", "document_extract_concurrency", "document_chunk_max_tokens", "parent_chunk_max_tokens"
+    )
     @classmethod
     def reject_null_document_numbers(cls, value: int | None) -> int:
         if value is None:
