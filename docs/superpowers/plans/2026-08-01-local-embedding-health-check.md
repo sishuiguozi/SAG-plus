@@ -28,7 +28,7 @@
 - 修改：`apps/api/tests/test_local_model_manager.py`
 - 修改：`apps/api/sag_api/api/v1/system.py`
 
-- [ ] **步骤 1：编写失败的端点测试**
+- [x] **步骤 1：编写失败的端点测试**
 
 在现有认证测试旁增加三个行为：未认证仍为 401；API embedding 模式返回可读失败；本地模式下
 模拟 `_local_client().generate()` 后返回维度、当前模型文件和非负耗时。
@@ -48,7 +48,7 @@ assert result.json() == {
 `sag_api.sag.embedding_backend._local_client` 替换为 `async generate()` 返回 `[0.1, 0.2, 0.3]`
 的最小假客户端；测试完成后恢复全局 settings。
 
-- [ ] **步骤 2：运行测试确认失败**
+- [x] **步骤 2：运行测试确认失败**
 
 运行：
 
@@ -59,7 +59,7 @@ cd apps/api
 
 预期：失败，原因是 `POST /api/v1/system/local-models/test` 尚不存在（404）。
 
-- [ ] **步骤 3：实现最少端点逻辑**
+- [x] **步骤 3：实现最少端点逻辑**
 
 在 `system.py` 增加 `POST /local-models/test`。实现逻辑：
 
@@ -88,7 +88,7 @@ return {
 端点保留 `get_current_user` 依赖。使用 `local_embedding_status` 让缺后端与文件状态沿用现有错误
 文本；不写入数据库、不访问检索引擎、不改 settings。
 
-- [ ] **步骤 4：运行端点测试确认通过**
+- [x] **步骤 4：运行端点测试确认通过**
 
 运行：
 
@@ -99,7 +99,7 @@ cd apps/api
 
 预期：全部通过。
 
-- [ ] **步骤 5：提交后端行为**
+- [x] **步骤 5：提交后端行为**
 
 ```bash
 git add apps/api/sag_api/api/v1/system.py apps/api/tests/test_local_model_manager.py
@@ -117,7 +117,7 @@ git commit -m "feat(api): test local embeddings"
 - 修改：`apps/web/messages/zh-CN.json`
 - 修改：`apps/web/messages/en-US.json`
 
-- [ ] **步骤 1：编写失败的测试按钮条件测试**
+- [x] **步骤 1：编写失败的测试按钮条件测试**
 
 在 `local-model-manager.test.ts` 定义 `isLocalEmbeddingTestDisabled`。它接受当前
 `ModelConfig`、`LocalModelManagerStatus`、进行中的 `LocalModelAction` 和测试中布尔值；
@@ -129,7 +129,7 @@ expect(isLocalEmbeddingTestDisabled(apiConfig, readyStatus, null, false)).toBe(t
 expect(isLocalEmbeddingTestDisabled(localConfig, missingCurrentFile, null, false)).toBe(true);
 ```
 
-- [ ] **步骤 2：运行测试确认失败**
+- [x] **步骤 2：运行测试确认失败**
 
 运行：
 
@@ -140,7 +140,7 @@ npm run test:unit -- lib/local-model-manager.test.ts
 
 预期：失败，原因是 `isLocalEmbeddingTestDisabled` 尚未导出。
 
-- [ ] **步骤 3：实现前端类型、API 与纯判断函数**
+- [x] **步骤 3：实现前端类型、API 与纯判断函数**
 
 在 `types.ts` 增加：
 
@@ -171,7 +171,7 @@ export function isLocalEmbeddingTestDisabled(
 }
 ```
 
-- [ ] **步骤 4：接入表单按钮与结果**
+- [x] **步骤 4：接入表单按钮与结果**
 
 在 `model-config-form.tsx` 添加 `localEmbeddingTestResult` 和 `testingLocalEmbedding` 状态。按钮
 调用 `api.testLocalEmbedding()`；成功时显示 `{model_file} · {dimensions} dims · {elapsed_ms} ms`，
@@ -181,7 +181,7 @@ export function isLocalEmbeddingTestDisabled(
 在两个 message JSON 的 `ModelConfig` 下新增 `localModelTest`、`localModelTesting`、
 `localModelTestFailed`、`localModelTestResult`、`localModelTestPrerequisite` 的中英文文本。
 
-- [ ] **步骤 5：运行 Web 验证**
+- [x] **步骤 5：运行 Web 验证**
 
 运行：
 
@@ -195,7 +195,7 @@ npm run i18n:check
 
 预期：单测、类型检查、lint 和 i18n 检查全部通过。
 
-- [ ] **步骤 6：提交前端行为**
+- [x] **步骤 6：提交前端行为**
 
 ```bash
 git add apps/web
@@ -208,12 +208,12 @@ git commit -m "feat(web): test local embedding model"
 - 修改：`README.md`
 - 修改：`README-CN.md`
 
-- [ ] **步骤 1：更新本地嵌入使用说明**
+- [x] **步骤 1：更新本地嵌入使用说明**
 
 在现有“安装后端、下载模型、保存配置”说明后补充：点击“测试本地模型”会生成一次临时向量，
 显示模型、维度与耗时；不会上传文本、访问 API 或写入知识库。
 
-- [ ] **步骤 2：运行跨层回归**
+- [x] **步骤 2：运行跨层回归**
 
 运行：
 
@@ -234,7 +234,7 @@ git diff --check
 
 预期：全部通过。
 
-- [ ] **步骤 3：提交并推送完整功能**
+- [x] **步骤 3：提交并推送完整功能**
 
 ```bash
 git add README.md README-CN.md apps docs
