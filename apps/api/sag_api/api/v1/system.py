@@ -18,6 +18,7 @@ from sag_api.core.model_providers import model_provider_catalog
 from sag_api.db.models import Source, User
 from sag_api.generation import LLMClient
 from sag_api.mcp.server import MCP_TOOL_DETAILS, MCP_TOOL_NAMES
+from sag_api.sag.local_model_manager import MODEL_CATALOG
 from sag_api.schemas.system import (
     LocalModelDownloadRequest,
     LocalModelTestRequest,
@@ -253,6 +254,9 @@ async def test_local_embedding(
     _user: User = Depends(get_current_user),
 ) -> dict:
     """Validate an unsaved local embedding configuration without persisting it."""
+    if body.model_file not in MODEL_CATALOG:
+        raise ValidationError("Unsupported local embedding model")
+
     manager_status = _get_local_model_manager().status()
     backend = manager_status["backend"]
     if backend["status"] != "ready":

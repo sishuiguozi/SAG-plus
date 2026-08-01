@@ -159,7 +159,12 @@ async def test_local_embedding_health_check_uses_unsaved_draft_values(monkeypatc
                         "file_name": "bge-m3-Q6_K.gguf",
                         "status": "ready",
                         "model_path": "draft-q6.gguf",
-                    }
+                    },
+                    {
+                        "file_name": "unknown.gguf",
+                        "status": "ready",
+                        "model_path": "not-in-catalog.gguf",
+                    },
                 ],
             }
 
@@ -208,3 +213,9 @@ async def test_local_embedding_health_check_uses_unsaved_draft_values(monkeypatc
     assert response.json()["dimensions"] == 3
     assert response.json()["elapsed_ms"] >= 0
     assert unsupported.status_code == 422
+    assert unsupported.json() == {
+        "error": {
+            "code": "validation_error",
+            "message": "Unsupported local embedding model",
+        }
+    }
