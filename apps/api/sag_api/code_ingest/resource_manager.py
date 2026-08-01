@@ -35,7 +35,7 @@ import sys
 import tree_sitter_language_pack as pack
 
 target, operation, language = sys.argv[1:4]
-pack.init(pack.PackConfig(cache_dir=target))
+pack.init(pack.PackConfig(cache_dir=target, languages=[]))
 if operation == "download":
     pack.download([language])
 print(json.dumps(pack.downloaded_languages()))
@@ -78,7 +78,7 @@ class InstalledLanguagePackAdapter:
     def activate(target_dir: Path) -> None:
         import tree_sitter_language_pack as pack
 
-        pack.init(pack.PackConfig(cache_dir=str(target_dir)))
+        pack.init(pack.PackConfig(cache_dir=str(target_dir), languages=[]))
 
 
 class TreeSitterResourceManager:

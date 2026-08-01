@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -32,6 +33,22 @@ class FakeLanguagePackAdapter:
             await self.release_first_download.wait()
         target_dir.mkdir(parents=True, exist_ok=True)
         (target_dir / f"{language}.parser").write_bytes(language.encode())
+
+
+def test_installed_adapter_status_never_predownloads_languages(tmp_path: Path, monkeypatch):
+    from sag_api.code_ingest.resource_manager import InstalledLanguagePackAdapter
+
+    calls: list[list[str]] = []
+
+    def fake_run(args, **_kwargs):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, stdout="[]\n", stderr="")
+
+    tmp_path.mkdir(exist_ok=True)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assert InstalledLanguagePackAdapter().downloaded_languages(tmp_path) == set()
+    assert "languages=[]" in calls[0][2]
 
 
 @pytest.mark.asyncio
