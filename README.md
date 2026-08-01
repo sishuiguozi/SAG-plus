@@ -127,19 +127,6 @@ Detailed implementation records are in
 
 ### Start the desktop app (development mode)
 
-First, get the code:
-
-```bash
-git clone https://github.com/sishuiguozi/SAG-plus.git
-cd SAG-plus
-```
-
-To update later:
-
-```bash
-git pull --ff-only
-```
-
 Requirements:
 
 - Node.js 20 or later.
@@ -148,6 +135,8 @@ Requirements:
 In Git Bash, run:
 
 ```bash
+git clone https://github.com/sishuiguozi/SAG-plus.git
+cd SAG-plus
 cd /<repo-path>/apps/desktop
 npm run dev
 ```
@@ -165,6 +154,8 @@ In PowerShell, run:
 cd <repo-path>\apps\desktop
 npm run dev
 ```
+
+To update later: `git pull --ff-only`.
 
 The desktop script starts or reuses the local API (`127.0.0.1:8000`), Web UI
 (`127.0.0.1:3000` or `3001`), and Electron window. On the first run it also

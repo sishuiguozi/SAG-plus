@@ -96,19 +96,6 @@ event ↔ entities → 一条潜在超边
 
 ### 启动桌面应用（开发模式）
 
-首次运行先获取代码：
-
-```bash
-git clone https://github.com/sishuiguozi/SAG-plus.git
-cd SAG-plus
-```
-
-之后更新代码：
-
-```bash
-git pull --ff-only
-```
-
 前提条件：
 
 - Node.js 20 或更高版本。
@@ -117,6 +104,8 @@ git pull --ff-only
 在 Git Bash 中运行：
 
 ```bash
+git clone https://github.com/sishuiguozi/SAG-plus.git
+cd SAG-plus
 cd /<仓库路径>/apps/desktop
 npm run dev
 ```
@@ -134,6 +123,8 @@ npm run dev
 cd <仓库路径>\apps\desktop
 npm run dev
 ```
+
+之后更新代码：`git pull --ff-only`。
 
 桌面脚本会启动或复用本地 API（`127.0.0.1:8000`）、Web（`127.0.0.1:3000` 或 `3001`）和 Electron 窗口。首次运行会自动检查依赖、在需要时执行 `npm ci`、创建 `apps/api/.venv` 并安装 API 包。按 `Ctrl+C` 停止。
 
