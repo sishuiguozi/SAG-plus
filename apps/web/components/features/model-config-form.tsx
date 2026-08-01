@@ -375,7 +375,11 @@ export function ModelConfigForm() {
     setTestingLocalEmbedding(true);
     setLocalEmbeddingTestResult(null);
     try {
-      const result = await api.testLocalEmbedding();
+      const result = await api.testLocalEmbedding({
+        model_file: embLocalModelFile.trim(),
+        n_ctx: embLocalNCtx,
+        n_threads: embLocalNThreads,
+      });
       setLocalEmbeddingTestResult(result);
       if (result.ok) {
         toast.success(t("localModelTestSucceeded"));
@@ -722,7 +726,8 @@ export function ModelConfigForm() {
                       variant="outline"
                       size="sm"
                       disabled={isLocalEmbeddingTestDisabled(
-                        cfg,
+                        embProvider,
+                        embLocalModelFile,
                         localModels,
                         localModelAction,
                         testingLocalEmbedding,
@@ -746,7 +751,7 @@ export function ModelConfigForm() {
                     >
                       {localEmbeddingTestResult.ok
                         ? t("localModelTestResult", {
-                            model: localEmbeddingTestResult.model_file ?? cfg.embedding_local_model_file,
+                            model: localEmbeddingTestResult.model_file ?? embLocalModelFile,
                             dimensions: localEmbeddingTestResult.dimensions ?? 0,
                             elapsed: localEmbeddingTestResult.elapsed_ms ?? 0,
                           })
