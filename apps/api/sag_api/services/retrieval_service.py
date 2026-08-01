@@ -6,6 +6,7 @@ import asyncio
 import re
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Literal, Protocol
 
 from sag_api.core.config import settings
@@ -14,6 +15,7 @@ from sag_api.core.logging import get_logger
 from sag_api.sag import RetrievedSection, SearchOutcome
 
 log = get_logger("retrieval")
+_local_reranker_singleton: Any | None = None
 
 
 class SearchSource(Protocol):
@@ -347,6 +349,62 @@ async def _api_rerank(
     ][:limit]
 
 
+def _local_reranker() -> Any:
+    """Return the selected native GGUF reranker, recreating it after a setting change."""
+    from sag_api.sag.local_reranker import LocalReranker
+
+    global _local_reranker_singleton
+    model_path = (
+        Path(settings.data_dir).resolve().parent
+        / "models"
+        / "reranker"
+        / settings.search_local_rerank_model_file
+    )
+    desired = LocalReranker(
+        str(model_path),
+        n_ctx=settings.embedding_local_n_ctx,
+        n_threads=settings.embedding_local_n_threads or None,
+    )
+    if (
+        _local_reranker_singleton is None
+        or _local_reranker_singleton.fingerprint != desired.fingerprint
+    ):
+        _local_reranker_singleton = desired
+    return _local_reranker_singleton
+
+
+async def _local_rerank(
+    query: str,
+    sections: list[RetrievedSection],
+    *,
+    reranker: Any,
+    limit: int,
+) -> list[RetrievedSection]:
+    """Run a native cross-encoder without ever substituting a chat completion."""
+    if len(sections) <= 1:
+        return sections[:limit]
+    try:
+        scores = await asyncio.to_thread(
+            reranker.rank,
+            query,
+            [section.content.strip() for section in sections],
+        )
+    except Exception as error:  # noqa: BLE001 - local runtime is best effort
+        log.warning("Local reranker failed; using fused order: %s", error)
+        return sections[:limit]
+    if len(scores) != len(sections):
+        log.warning("Local reranker returned %s scores for %s sections", len(scores), len(sections))
+        return sections[:limit]
+    return [
+        section
+        for _, section in sorted(
+            enumerate(sections),
+            key=lambda item: scores[item[0]],
+            reverse=True,
+        )
+    ][:limit]
+
+
 async def retrieve_relevant_sections(
     engine_manager: Any,
     sources: list[SearchSource],
@@ -378,7 +436,14 @@ async def retrieve_relevant_sections(
     )
     final_sections = reranked.sections
     rerank_mode = settings.effective_search_rerank_mode
-    if rerank_mode == "api" and all((settings.search_rerank_api_url, settings.search_rerank_api_key, settings.search_rerank_api_model)):
+    if rerank_mode == "local":
+        final_sections = await _local_rerank(
+            query,
+            reranked.sections,
+            reranker=_local_reranker(),
+            limit=requested_limit,
+        )
+    elif rerank_mode == "api" and all((settings.search_rerank_api_url, settings.search_rerank_api_key, settings.search_rerank_api_model)):
         from sag_api.sag.rerank_api_client import RerankAPIClient
 
         final_sections = await _api_rerank(

@@ -92,6 +92,32 @@ async def test_api_rerank_falls_back_to_existing_order_on_failure():
 
 
 @pytest.mark.asyncio
+async def test_local_rerank_orders_native_scores_and_keeps_ties_stable():
+    from sag_api.services.retrieval_service import _local_rerank
+
+    class NativeReranker:
+        def rank(self, query, documents):
+            assert query == "q"
+            assert documents == ["content 0", "content 1", "content 2"]
+            return [0.4, 0.9, 0.4]
+
+    result = await _local_rerank("q", _sections(3), reranker=NativeReranker(), limit=3)
+    assert [section.chunk_id for section in result] == ["c1", "c0", "c2"]
+
+
+@pytest.mark.asyncio
+async def test_local_rerank_falls_back_to_fused_order_when_native_runtime_fails():
+    from sag_api.services.retrieval_service import _local_rerank
+
+    class BrokenReranker:
+        def rank(self, query, documents):
+            raise RuntimeError("runtime missing")
+
+    result = await _local_rerank("q", _sections(3), reranker=BrokenReranker(), limit=3)
+    assert [section.chunk_id for section in result] == ["c0", "c1", "c2"]
+
+
+@pytest.mark.asyncio
 async def test_retrieve_uses_llm_rerank_when_enabled(monkeypatch):
     from sag_api.core.config import settings
     from sag_api.services import retrieval_service as rs
