@@ -1052,6 +1052,12 @@
     "maintenanceRunNow": "Run now (on next startup)",
     "maintenanceRunNowScheduled": "Scheduled: maintenance will run on next app startup",
     "maintenanceRunNowFailed": "Failed to schedule maintenance",
+    "maintenanceCleanNow": "Clean up now (restart & remove old versions)",
+    "maintenanceCleanNowConfirmTitle": "Run cleanup now?",
+    "maintenanceCleanNowConfirmDescription": "This enables “remove old versions” and restarts the app. On startup, fragments will be compacted and old versions removed. Make sure you have a backup first — cleanup is irreversible.",
+    "maintenanceCleanNowRestarting": "Restarting the app; cleanup will run on startup",
+    "maintenanceCleanNowScheduled": "Scheduled: cleanup will run on next app startup",
+    "maintenanceCleanNowFailed": "Failed to schedule cleanup",
     "maintenanceCopyFailed": "Failed to copy command",
     "maintenanceBlockedTitle": "Active API process detected",
     "maintenanceBlockedDescription": "Maintenance was skipped to avoid file-lock conflicts. Close other running SAG API processes, then restart the app."

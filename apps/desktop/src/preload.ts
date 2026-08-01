@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-import type { DataRootInfo, UpdateState } from "./channels";
+import type { DataRootInfo, MaintenanceRestartResult, UpdateState } from "./channels";
 
 // 沙箱 preload 不支持 require() 相对模块，因此这里内联通道名。
 // 与 ./channels（主进程使用）保持一致；新增通道时两边都要改。
@@ -10,6 +10,7 @@ const UPDATE_STATE_CHANNEL = "desktop:update-state";
 const GET_DATA_ROOT_CHANNEL = "desktop:get-data-root";
 const SET_DATA_ROOT_CHANNEL = "desktop:set-data-root";
 const CHOOSE_DATA_ROOT_CHANNEL = "desktop:choose-data-root";
+const RESTART_FOR_MAINTENANCE_CHANNEL = "desktop:restart-for-maintenance";
 
 export interface SagDesktopBridge {
   readonly isDesktop: true;
@@ -20,6 +21,7 @@ export interface SagDesktopBridge {
   getDataRoot(): Promise<DataRootInfo>;
   setDataRoot(root: string): Promise<DataRootInfo>;
   chooseDataRoot(): Promise<{ canceled: boolean; dataRoot: DataRootInfo }>;
+  restartForMaintenance(): Promise<MaintenanceRestartResult>;
 }
 
 const bridge: SagDesktopBridge = Object.freeze({
@@ -37,6 +39,7 @@ const bridge: SagDesktopBridge = Object.freeze({
   getDataRoot: () => ipcRenderer.invoke(GET_DATA_ROOT_CHANNEL),
   setDataRoot: (root: string) => ipcRenderer.invoke(SET_DATA_ROOT_CHANNEL, root),
   chooseDataRoot: () => ipcRenderer.invoke(CHOOSE_DATA_ROOT_CHANNEL),
+  restartForMaintenance: () => ipcRenderer.invoke(RESTART_FOR_MAINTENANCE_CHANNEL),
 });
 
 contextBridge.exposeInMainWorld("sagDesktop", bridge);

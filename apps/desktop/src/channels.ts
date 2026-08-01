@@ -7,6 +7,7 @@ export const DESKTOP_CHANNELS = {
   getDataRoot: "desktop:get-data-root",
   setDataRoot: "desktop:set-data-root",
   chooseDataRoot: "desktop:choose-data-root",
+  restartForMaintenance: "desktop:restart-for-maintenance",
 } as const;
 
 export type UpdateState =
@@ -17,6 +18,10 @@ export type UpdateState =
   | { status: "downloading"; percent: number }
   | { status: "downloaded"; version: string }
   | { status: "error"; message: string };
+
+export type MaintenanceRestartResult =
+  | { ok: true; mode: "packaged" | "dev" }
+  | { ok: false; message: string };
 
 export interface DataRootInfo {
   root: string;

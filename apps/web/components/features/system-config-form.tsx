@@ -1,13 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Copy, RotateCcw, RotateCw, Save, Wrench } from "lucide-react";
+import { Copy, RotateCcw, RotateCw, Save, Trash2, Wrench } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { SettingsRow, SettingsSection } from "@/components/features/settings-section";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -278,6 +279,8 @@ function MaintenanceSection() {
   const t = useTranslations("SystemConfig");
   const [status, setStatus] = React.useState<LancedbMaintenanceStatus | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [cleaning, setCleaning] = React.useState(false);
+  const [confirmClean, setConfirmClean] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
 
   const load = React.useCallback(async () => {
@@ -302,6 +305,35 @@ function MaintenanceSection() {
       toast.error(error instanceof Error ? error.message : t("maintenanceRunNowFailed"));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function runCleanNow(): Promise<boolean> {
+    setCleaning(true);
+    try {
+      // 1) 开启“清理旧版本”（确认已备份，允许不可逆删除旧版本）
+      await api.saveModelConfig({ lancedb_maintenance_delete_unverified: true });
+      // 2) 写 pending：下次启动强制执行维护清理
+      await api.triggerMaintenance();
+      // 3) 桌面端请求重启（打包模式重启整个应用；dev 模式重启 API）
+      const desktop = typeof window !== "undefined" ? window.sagDesktop : undefined;
+      let restarted = false;
+      if (desktop?.restartForMaintenance) {
+        const result = await desktop.restartForMaintenance();
+        restarted = result.ok;
+      }
+      if (restarted) {
+        toast.success(t("maintenanceCleanNowRestarting"));
+      } else {
+        toast.success(t("maintenanceCleanNowScheduled"));
+      }
+      if (!restarted) await load();
+      return true;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("maintenanceCleanNowFailed"));
+      return false;
+    } finally {
+      setCleaning(false);
     }
   }
 
@@ -429,15 +461,34 @@ function MaintenanceSection() {
             <div className="flex flex-wrap items-center justify-end gap-2 border-t pt-3">
               <Button
                 type="button"
+                variant="destructive"
+                size="sm"
+                onClick={() => setConfirmClean(true)}
+                disabled={busy || cleaning}
+              >
+                {cleaning ? <Spinner /> : <Trash2 />}
+                {t("maintenanceCleanNow")}
+              </Button>
+              <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => void runNow()}
-                disabled={busy}
+                disabled={busy || cleaning}
               >
                 {busy ? <Spinner /> : <Wrench />}
                 {t("maintenanceRunNow")}
               </Button>
             </div>
+
+            <ConfirmDialog
+              open={confirmClean}
+              onOpenChange={setConfirmClean}
+              title={t("maintenanceCleanNowConfirmTitle")}
+              description={t("maintenanceCleanNowConfirmDescription")}
+              confirmLabel={t("maintenanceCleanNow")}
+              onConfirm={() => runCleanNow()}
+            />
           </>
         )}
       </div>
