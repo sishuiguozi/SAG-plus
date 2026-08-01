@@ -11,8 +11,7 @@
 <p align="center">
   <a href="https://arxiv.org/abs/2606.15971"><img alt="论文" src="https://img.shields.io/badge/paper-arXiv%3A2606.15971-18181b" /></a>
   <a href="https://pypi.org/project/zleap-sag/"><img alt="PyPI" src="https://img.shields.io/pypi/v/zleap-sag?label=zleap--sag&color=18181b" /></a>
-  <img alt="SAG 版本" src="https://img.shields.io/badge/SAG-v1.4.0-18181b" />
-  <a href="https://github.com/Zleap-AI/SAG/releases/latest"><img alt="桌面版发布" src="https://img.shields.io/github/v/release/Zleap-AI/SAG?label=desktop&color=18181b" /></a>
+  <img alt="mysag" src="https://img.shields.io/badge/mysag-%E4%BC%98%E5%8C%96%E7%BB%B4%E6%8A%A4%E5%88%86%E6%94%AF-18181b" />
   <img alt="Python" src="https://img.shields.io/badge/Python-3.11%2B-3776ab" />
   <img alt="Node" src="https://img.shields.io/badge/Node-20%2B-339933" />
   <a href="LICENSE"><img alt="许可" src="https://img.shields.io/badge/license-MIT-18181b" /></a>
@@ -44,6 +43,11 @@ https://github.com/user-attachments/assets/cae70570-3885-490f-9126-dea23dcb369c
 
 ### 更新日志
 
+**2026 年 8 月 · mysag 优化维护分支**
+
+`mysag` 是基于 [Zleap-AI/SAG](https://github.com/Zleap-AI/SAG) 的个人维护优化分支。
+它保留 SAG 的原创架构与上游署名，同时面向长期本地运行补强检索、入库、存储、运维和知识工作台体验。
+
 **2026 年 7 月 14 日**
 
 发布了基于 `zleap-sag` 包的全新版本，并采用全新 UI。原版本已归档至 `v1` 分支，不再维护。
@@ -72,6 +76,20 @@ SAG 在 HotpotQA、2WikiMultiHopQA 和 MuSiQue 的 9 项 Recall@1/2/5 指标中�
 | 对外集成   | 自托管 REST/OpenAPI、OpenAI 兼容接口、MCP 与`zleap-sag` Python 包   |
 
 产品默认面向本地单用户场景。它使用 SQLite 与 LanceDB 即可启动，不依赖外部数据库，同时保留迁移至 PostgreSQL/pgvector 等生产后端的路径。
+
+### mysag 的重点增强
+
+本分支聚焦让大型本地知识库更快入库、更安全运行、更容易核验；SAG 原有检索架构保持不变。
+
+| 领域 | 本分支的重要增强 |
+| --- | --- |
+| 检索质量 | 检索结果 TTL 缓存、LanceDB BM25 全文召回（失败回退 grep）、可选 LLM 重排、新文档父子分块，以及可重复运行的检索评估脚本 |
+| 向量入库 | 持久化的记录级队列、批量单写者 LanceDB 写入、优先追加、失败重试/恢复、关键与辅助索引分级、补齐进度可见 |
+| 存储与运维 | 向量索引基准与维护工具、自动维护门禁、磁盘空间保护、SQLite 连接池与 PRAGMA 调优、冗余索引迁移、性能指标 |
+| 知识工作台 | 文档批量删除、入库活动与速率/ETA、解析诊断、选中文本翻译、信源/文档检索增强和可配置分块 |
+| 图谱与桌面运行 | 大图谱渐进加载、缓存和状态增强、虚拟化文档列表、开发运行检查，以及桌面端生产恢复/更新保护 |
+
+实现状态见[优化路线图](docs/SAG_OPTIMIZATION_2026.md)，兼容补丁边界见[架构补丁清单](docs/ARCHITECTURE_PATCHES.md)。
 
 ---
 
@@ -158,24 +176,18 @@ SAG 内部的语义路径和结构路径都是 SAG 自己检索管线的组成�
 
 ## 用户指南
 
-### 桌面客户端（最省事）
+### 桌面客户端
 
-从 [GitHub Releases](https://github.com/Zleap-AI/SAG/releases/latest) 下载最新桌面安装包：
-
-| 平台                     | 下载文件                    | 更新方式                                                     |
-| ------------------------ | --------------------------- | ------------------------------------------------------------ |
-| macOS 15+，Apple Silicon | `SAG-*-mac-arm64.dmg`     | 已签名、公证，自动跟随稳定更新通道                           |
-| Windows 10/11，x64       | `SAG-Setup-*-win-x64.exe` | 暂不签名，Windows 可能提示“未知发布者”；仍支持稳定自动更新 |
-
-桌面客户端已经包含 Web 工作台和本地知识后端，用户无需安装 Python、Node.js 或数据库。整包更新不会覆盖系统应用数据目录中的知识库与上传文件；每个 Release 同时提供 `SHA256SUMS.txt` 完整性校验。
+本分支暂未发布预构建桌面安装包，请按[开发者指南](#开发者指南)从源码构建。
+Electron 客户端会打包 Web 工作台和本地知识后端；生产运行时将用户数据与应用包分离，并包含恢复与更新保护。
 
 ### 快速开始（Docker，自托管）
 
 准备 Docker Desktop，或 Docker Engine 与 Compose v2。
 
 ```bash
-git clone https://github.com/Zleap-AI/SAG.git
-cd SAG
+git clone https://github.com/sishuiguozi/mysag.git
+cd mysag
 docker compose up -d --build
 ```
 

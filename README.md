@@ -11,8 +11,7 @@
 <p align="center">
   <a href="https://arxiv.org/abs/2606.15971"><img alt="Paper" src="https://img.shields.io/badge/paper-arXiv%3A2606.15971-18181b" /></a>
   <a href="https://pypi.org/project/zleap-sag/"><img alt="PyPI" src="https://img.shields.io/pypi/v/zleap-sag?label=zleap--sag&color=18181b" /></a>
-  <img alt="SAG version" src="https://img.shields.io/badge/SAG-v1.4.0-18181b" />
-  <a href="https://github.com/Zleap-AI/SAG/releases/latest"><img alt="Desktop release" src="https://img.shields.io/github/v/release/Zleap-AI/SAG?label=desktop&color=18181b" /></a>
+  <img alt="mysag" src="https://img.shields.io/badge/mysag-optimized%20fork-18181b" />
   <img alt="Python" src="https://img.shields.io/badge/Python-3.11%2B-3776ab" />
   <img alt="Node" src="https://img.shields.io/badge/Node-20%2B-339933" />
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-18181b" /></a>
@@ -44,6 +43,13 @@ https://github.com/user-attachments/assets/9bb618e9-fef8-4d07-8a30-3f7d83beb0ff
 
 ### Changelog
 
+**August 2026 · mysag optimized fork**
+
+`mysag` is a personal, actively maintained optimization fork of
+[Zleap-AI/SAG](https://github.com/Zleap-AI/SAG). It preserves SAG's original
+architecture and upstream attribution while adding retrieval, ingestion,
+storage, operations, and workspace improvements for long-running local use.
+
 **July 14, 2026**
 
 Released a completely new version built on the `zleap-sag` package, featuring an entirely redesigned UI. The previous version has been archived in the `v1` branch and is no longer maintained.
@@ -72,6 +78,22 @@ Upload a document once. SAG parses it, splits it into chunks, embeds it, extract
 | Integration | Self-hosted REST/OpenAPI, OpenAI-compatible chat, MCP, and the `zleap-sag` Python package |
 
 The product is deliberately local-first and single-user. It starts with SQLite and LanceDB, requires no external database, and keeps a clear path to PostgreSQL/pgvector and other production backends.
+
+### What mysag adds
+
+This fork concentrates on making a large local knowledge base faster to ingest,
+safer to operate, and easier to inspect. The original SAG retrieval architecture
+remains intact.
+
+| Area | Important additions in this fork |
+| --- | --- |
+| Retrieval quality | TTL search-result cache, LanceDB BM25 full-text recall with grep fallback, optional LLM reranking, parent-child chunking for new documents, and a repeatable retrieval evaluation script |
+| Vector ingestion | Durable record-level queue, batched single-writer LanceDB writes, append-first writes, retry/recovery, critical-vs-auxiliary index priority, and backfill visibility |
+| Storage and operations | Vector-index benchmarks and maintenance tools, automatic maintenance guards, disk-space protection, SQLite pool/PRAGMA tuning, redundant-index migration, and performance metrics |
+| Knowledge workspace | Batch document deletion, ingestion activity and rate/ETA feedback, parsing diagnostics, selected-text translation, source/document search improvements, and configurable chunking |
+| Graph and desktop runtime | Progressive large-graph loading, cache/status improvements, virtualized document lists, development-runtime checks, and production desktop recovery/update safeguards |
+
+See [the optimization roadmap](docs/SAG_OPTIMIZATION_2026.md) for implementation status and [architecture patches](docs/ARCHITECTURE_PATCHES.md) for compatibility boundaries.
 
 ---
 
@@ -158,24 +180,21 @@ See the [paper](https://arxiv.org/abs/2606.15971) and [SAG-Benchmark](https://gi
 
 ## User Guide
 
-### Desktop app (easiest)
+### Desktop app
 
-Download the latest desktop installer from [GitHub Releases](https://github.com/Zleap-AI/SAG/releases/latest):
-
-| Platform | Download | Update behavior |
-| --- | --- | --- |
-| macOS 15+, Apple Silicon | `SAG-*-mac-arm64.dmg` | Signed, notarized, and updated through the stable channel |
-| Windows 10/11, x64 | `SAG-Setup-*-win-x64.exe` | Unsigned for now; Windows may show an unknown-publisher warning; stable automatic updates remain supported |
-
-The desktop app bundles the Web workspace and local knowledge backend, so users do not need to install Python, Node.js, or a database. Application updates preserve the knowledge base and uploads in the operating system's application-data directory. Release checksums are published as `SHA256SUMS.txt`.
+This fork does not publish prebuilt desktop installers yet. Build the desktop
+client from this repository using the instructions in the
+[Developer Guide](#developer-guide). The Electron app bundles the Web workspace
+and local knowledge backend; its production runtime keeps user data separate
+from the application bundle and includes recovery/update safeguards.
 
 ### Quick start (Docker, self-hosted)
 
 Requirements: Docker Desktop, or Docker Engine with Compose v2.
 
 ```bash
-git clone https://github.com/Zleap-AI/SAG.git
-cd SAG
+git clone https://github.com/sishuiguozi/mysag.git
+cd mysag
 docker compose up -d --build
 ```
 
