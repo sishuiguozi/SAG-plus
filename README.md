@@ -1,11 +1,132 @@
 # SAG-plus
 
-SAG-plus is a locally run, personal optimization fork of
-[Zleap-AI/SAG](https://github.com/Zleap-AI/SAG). It is maintained as a
-desktop development workspace: the supported way to run it is Electron
-development mode.
+<p align="center">
+  <strong>English</strong> · <a href="README-CN.md">简体中文</a>
+</p>
 
-## Start the desktop app
+SAG-plus is a locally run, personal optimization fork of
+[Zleap-AI/SAG](https://github.com/Zleap-AI/SAG) that turns scattered documents
+and code into searchable, related, traceable knowledge. The repository is
+maintained as a desktop development workspace, with a self-hosted Docker
+deployment kept as an alternative.
+
+## Table of contents
+
+- [Introduction](#introduction)
+- [Technical background](#technical-background)
+- [User guide](#user-guide)
+- [Developer guide](#developer-guide)
+- [Troubleshooting](#troubleshooting)
+- [Contributing and license](#contributing-and-license)
+
+---
+
+<a id="introduction"></a>
+
+## Introduction
+
+### Changelog
+
+**August 2026 · SAG-plus optimization branch**
+
+- Retrieval: LanceDB FTS/BM25 independent recall, async thread execution,
+  caching, reranking, and literal-search fallback.
+- Context: parent-child chunking with parent backfill, duplicate suppression,
+  and incremental enablement.
+- Ingestion and storage: persistent vector-write queue, single-writer
+  coordination, idempotent recovery, SQLite/LanceDB maintenance, and disk
+  protection.
+- Evaluation: retrieval evaluation cases, runtime timing output, and related
+  regression tests.
+- Desktop: converged the user-facing entry point to `npm run dev` in
+  `apps/desktop`.
+- Integration: self-hosted API, OpenAI-compatible endpoint, MCP, and the
+  `skills/sag` Agent Skill documentation.
+
+### SAG-plus in one minute
+
+SAG uses an event-entity index with query-time dynamic hyperedges to deliver
+semantic retrieval and relational reasoning in one system, without maintaining
+two RAG pipelines. SAG-plus optimizes it for local personal use: semantic
+retrieval is complemented by BM25 full-text recall and reranking, parent-child
+chunking gives precise child recall with parent context, and a single-writer
+vector queue plus maintenance cleanup keeps local storage pressure low.
+
+**Sources & documents → structured knowledge → retrieval with source
+traceability → cited agent answers → reuse via API or MCP**
+
+Upload a document once. SAG parses, chunks, embeds, and extracts events and
+entities automatically, and every retrieval result can be traced back to the
+original text. Search across sources, inspect the event-entity graph, ask
+questions with citations, or expose the same knowledge to other applications.
+
+| Capability | What it solves |
+| --- | --- |
+| Ingestion | File and code-folder sources, parsing, chunking, embedding, event/entity extraction, background processing |
+| Retrieval | Global or per-source search with `vector` (semantic) and `multi` (precise) strategies |
+| Source traceability | Every result and citation can open its original chunk |
+| Knowledge graph | Events, entities, their relations, and an explorable universe mode |
+| Agent chat | Multi-turn Q&A grounded in selected sources, with clickable citations |
+| Integration | Self-hosted REST/OpenAPI, OpenAI-compatible endpoint, MCP, and the `skills/sag` Agent Skill |
+
+The product targets a local, single-user setup by default. It runs on SQLite
+and LanceDB with no external database, while keeping a migration path to
+PostgreSQL/pgvector.
+
+---
+
+<a id="technical-background"></a>
+
+## Technical background
+
+### SAG architecture: event-entity with query-time dynamic hyperedges
+
+Dense RAG relies mostly on semantic similarity over text chunks; GraphRAG adds
+an offline graph build but pays for triple extraction, entity merging, global
+maintenance, and hard incremental updates. SAG is neither a wrapper nor a
+combination of the two:
+
+```text
+chunk → one semantically complete event
+chunk → multiple indexing entities
+event ↔ entities → one potential hyperedge
+```
+
+- **Events** carry the full semantics of a chunk instead of being split into
+  independent triples.
+- **Entities** only index and expand; they do not replace the meaning carried
+  by events.
+- **Query-time dynamic hyperedges** are formed only at retrieval time, when SQL
+  connects events sharing entities into the local structure the current query
+  needs. SAG neither prebuilds nor globally maintains these hyperedges.
+- **Original evidence** is always the output boundary: selected events map back
+  to source chunks for answers and citations.
+
+Paper: [SAG: SQL-Retrieval Augmented Generation with Query-Time Dynamic Hyperedges](https://arxiv.org/abs/2606.15971) · [Benchmark reproduction](https://github.com/Zleap-AI/SAG-Benchmark)
+
+### What SAG-plus improves
+
+| Area | Optimization in this fork |
+| --- | --- |
+| Retrieval | Semantic retrieval is complemented by LanceDB FTS/BM25, result caching, and literal-search fallback. Reranking can use a local Q8 cross-encoder, a compatible API, or an LLM, with a safe fallback. |
+| Context | Parent-child chunking retrieves precise child chunks while returning parent context, with duplicate suppression. |
+| Ingestion | Persistent batch/vector-write coordination gives LanceDB a single writer, retries, recovery, and idempotent work items. |
+| Code | Tree-sitter symbol-level parent-child chunking, incremental local code-folder sync, and three code-extraction modes with safe release. |
+| Storage | SQLite connection and pragma tuning, disk protection, LanceDB cleanup, index maintenance, and read/write observability reduce local-store pressure. |
+| Model calls | Four tool-calling strategies control reasoning around tools; three reasoning-history modes can auto-detect DeepSeek, force support for model aliases, or disable the compatibility field. |
+| Evaluation | The repository includes retrieval evaluation cases and runtime timing output for measuring changes against local data. |
+
+Detailed implementation records are in
+[the 2026 optimization status](docs/SAG_OPTIMIZATION_2026.md) and
+[architecture patches](docs/ARCHITECTURE_PATCHES.md).
+
+---
+
+<a id="user-guide"></a>
+
+## User guide
+
+### Start the desktop app (development mode)
 
 Requirements:
 
@@ -24,70 +145,289 @@ The desktop script starts or reuses the local API (`127.0.0.1:8000`), Web UI
 checks dependencies, runs `npm ci` where needed, creates `apps/api/.venv`, and
 installs the API package. Stop it with `Ctrl+C`.
 
-If this repository was moved from `E:\sag-dev`, keep using the existing local
-data and development dependencies until they have been deliberately migrated.
-`.data`, uploaded files, database files, and model caches are local data and
-must not be committed.
+### Quick start (Docker, self-hosted)
 
-## What SAG-plus improves
+Prepare Docker Desktop, or Docker Engine with Compose v2:
 
-| Area | Optimization in this fork |
-| --- | --- |
-| Retrieval | Semantic retrieval is complemented by LanceDB FTS/BM25, result caching, and literal-search fallback. Reranking can use a local Q8 cross-encoder, a compatible API, or an LLM, with a safe fallback. |
-| Context | Parent-child chunking retrieves precise child chunks while returning parent context, with duplicate suppression. |
-| Ingestion | Persistent batch/vector-write coordination gives LanceDB a single writer, retries, recovery, and idempotent work items. |
-| Storage | SQLite connection and pragma tuning, disk protection, LanceDB cleanup, index maintenance, and read/write observability reduce local-store pressure. |
-| Model calls | Four tool-calling strategies control reasoning around tools; three reasoning-history modes can auto-detect DeepSeek, force support for model aliases, or disable the compatibility field. |
-| Evaluation | The repository includes retrieval evaluation cases and runtime timing output for measuring changes against local data. |
+```bash
+git clone https://github.com/sishuiguozi/SAG-plus.git
+cd SAG-plus
+docker compose up -d --build
+```
 
-Detailed implementation records are in
-[the 2026 optimization status](docs/SAG_OPTIMIZATION_2026.md) and
-[architecture patches](docs/ARCHITECTURE_PATCHES.md).
+Once both services are healthy, open:
 
-## Code folder ingestion
+- Web app: [http://localhost:3000](http://localhost:3000)
+- API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-- Use **Import code folder** in a knowledge source to scan a local directory and upload only new/changed files.
-- Missing local files are never deleted automatically.
-- Per-source code extraction modes: off / comments (default) / all child chunks.
-- Manage Tree-sitter language packs under **Settings → Model → Parser model** (reserve about 500MB). Once ready, Download/Repair are no-ops.
+First use:
+
+1. Enter a name to create or restore a local identity.
+2. In **Settings → Model**, fill in any OpenAI-compatible LLM and Embedding
+   endpoints (Docker defaults to 302.AI).
+3. Create a source and upload documents; wait until the status becomes **ready**.
+4. Search, open the original text, or start a conversation with citations.
+
+Without a model key the UI and services still start. Embeddings are used for
+indexing and vector retrieval; the LLM is used for event extraction, query
+understanding, and answer generation.
+
+### Import knowledge
+
+After creating a source you can add Markdown, text, PDF, Office, and other
+documents, or import a local code folder. SAG normalizes documents to Markdown,
+then chunks, embeds, and extracts events and entities in the background.
+
+- PDF uses MinerU when fully configured and falls back to local MarkItDown
+  otherwise; other Office and text formats use MarkItDown by default.
+- Code folder ingestion scans a local directory and uploads only new/changed
+  files; missing local files are never deleted automatically. Per-source code
+  extraction modes: off / comments (default) / all child chunks.
+- Choose **Parent-child** chunking for newly ingested documents to get
+  child-level recall with broader parent context; existing documents are not
+  changed until processed again.
+- Manage Tree-sitter language packs under **Settings → Model → Parser model**
+  (reserve about 500MB). Once ready, Download/Repair are no-ops.
 - Details: [Code folder ingestion guide](docs/guides/CODE_FOLDER_INGESTION.md).
 
-## Daily use
+### Search and verify the original text
 
-1. Start the desktop app with `npm run dev`.
-2. Add or configure a knowledge source in **Settings → Knowledge**.
-3. Wait for ingestion to complete, then use Search or Chat with source-backed
-   answers.
-4. Select **Parent-child** chunking for newly ingested documents when you want
-   child-level recall with broader parent context. Existing documents are not
-   changed until they are processed again.
-5. To run embeddings fully locally, open **Settings → Model configuration →
-   Local embedding**, click **Download inference backend**, then choose BGE-M3
-   Q8, Qwen3-Embedding-0.6B Q8, or Qwen3-Embedding-4B Q8. Weights are never downloaded
-   automatically; select a completed model and save the configuration. Click
-   **Test local model** to test the model currently selected in the dropdown
-   against the current context or thread draft—no save is required. It generates
-   one temporary vector and shows its model, dimensions, and latency; it does
-   not change saved configuration, the knowledge base, or remote services.
-6. To enable reranking, open **Settings → Model configuration → Retrieval
-   reranking**. Choose a local BGE/Qwen Q8 cross-encoder, a compatible Rerank
-   API using its full URL (including Qwen and vLLM), or legacy LLM numbered
-   reranking. Local rerank models download separately from embeddings; their
-   native rank runtime is built only after you explicitly install it, and can be
-   tested without saving.
-7. Under **Settings → Model configuration → Generation parameters → Tool
-   calling strategy**, choose how reasoning behaves around tools. The recommended
-   mode keeps reasoning for normal answers, disables it only for forced tool
-   selection, and restores it for the post-tool answer. Keep-reasoning,
-   automatic-tool, and disable-all modes are also available. **Reasoning history
-   compatibility** defaults to DeepSeek auto-detection; use **Always enable**
-   for aliased compatible models or **Off** when an endpoint rejects
-   `reasoning_content`.
+Search across all sources or restrict to one source, with `vector` (semantic)
+and `multi` (precise) strategies. Every result can open its original chunk on
+the side, so recall quality can be verified before agents use it.
 
-## Self-hosted API
+### Ask questions with citations
 
-Browsers cannot import Python packages directly. A custom frontend should call a
-Python HTTP service that owns the `DataEngine`; the FastAPI backend in this
+The default agent retrieves from its bound sources, streams an answer, and
+attaches clickable citations. The same conversation capability is exposed
+through the OpenAI-compatible endpoint.
+
+### Explore mode
+
+Explore mode unfolds the whole knowledge base into an interactive knowledge
+universe: search events and entities, wander along relations, and open event
+details and original text at any time (a shortcut enters it directly).
+
+### View the event-entity graph
+
+Switch a source from list to graph view to inspect the events, entities, and
+relations generated by indexing.
+
+### Model configuration
+
+- **Local embedding**: open **Settings → Model configuration → Local
+  embedding**, install the inference backend, then download BGE-M3 Q8,
+  Qwen3-Embedding-0.6B Q8, or Qwen3-Embedding-4B Q8. Weights are never
+  downloaded automatically; select a completed model and save. Click **Test
+  local model** to test the currently selected model against the current
+  context—no save required; it generates one temporary vector only.
+- **Retrieval reranking**: open **Settings → Model configuration → Retrieval
+  reranking**. Choose a local BGE/Qwen Q8 cross-encoder, a compatible Rerank
+  API using its full URL (including Qwen and vLLM), or legacy LLM numbered
+  reranking. Local rerank models download separately; their native rank runtime
+  is built only after you explicitly install it.
+- **Tool calling strategy**: under **Settings → Model configuration → Generation
+  parameters → Tool calling strategy**, choose how reasoning behaves around
+  tools. The recommended mode keeps reasoning for normal answers, disables it
+  only for forced tool selection, and restores it for the post-tool answer.
+  **Reasoning history compatibility** defaults to DeepSeek auto-detection; use
+  **Always enable** for aliased compatible models or **Off** when an endpoint
+  rejects `reasoning_content`.
+
+### Knowledge base data location
+
+- The desktop app stores knowledge-base data under `data` in the application
+  data directory by default: metadata DB, engine index, uploads, and local
+  models.
+- In **Settings → System → Knowledge base data location**, choose or enter a
+  new root directory; save and restart for it to take effect.
+- Switching does not migrate old data automatically; to keep the existing
+  knowledge base, copy the old root to the new location before restarting.
+- Development mode (`npm run dev`) honors the same setting, injecting it into
+  the API on the next start; you can also set `SAG_DATA_ROOT` directly in
+  `apps/api/.env`.
+- It derives `SAG_DATABASE_URL` (`{root}/sag.db`), `SAG_DATA_DIR`
+  (`{root}/engine`), `SAG_UPLOAD_DIR` (`{root}/uploads`), and the models
+  directory (`{root}/models`).
+
+### MCP guide
+
+SAG-plus exposes the whole knowledge base (or a single source) as a standard
+read-only MCP server with 8 tools, so any MCP-capable host (Claude Desktop,
+Cursor, Dify, …) can query it.
+
+#### As an Agent Skill (Claude Code / Codex, etc.)
+
+The repository ships an official Skill ([`skills/sag/`](skills/sag/)) that
+teaches agents the 8 read-only MCP tools: confirm scope with `list_sources`
+first, then follow the `list_documents → outline → search/grep →
+get_chunk/read` exploration funnel to locate and cite knowledge. Copy the
+directory into the agent’s skills directory:
+
+```bash
+# Claude Code
+cp -R skills/sag ~/.claude/skills/sag-knowledge
+
+# Codex
+cp -R skills/sag ~/.codex/skills/sag-knowledge
+```
+
+The Skill includes a tool parameter reference
+(`references/mcp-tools.md`) and query strategies
+(`references/search-strategies.md`).
+
+#### Mount MCP directly
+
+You can also mount without the Skill. Open **Settings → Integrations →
+Knowledge base MCP** in SAG, choose HTTP or stdio, and copy the full config.
+The copied HTTP config carries the current JWT automatically, covers all
+sources by default, and can be narrowed with `?source_id=`.
+
+- **HTTP (recommended)**: `http://<host>/mcp/` (whole KB) or
+  `http://<host>/mcp/?source_id=<SOURCE_ID>` (single source), header
+  `Authorization: Bearer <TOKEN>`
+- **stdio**: `python -m sag_api.mcp.server` (whole KB by default;
+  `SAG_MCP_SOURCE_ID=<SOURCE_ID>` limits to one source; requires the `apps/api`
+  environment)
+- Descriptors: `GET /api/v1/system/mcp` (whole KB),
+  `GET /api/v1/sources/{source_id}/mcp` (single source)
+
+| Tool | Parameters | Purpose |
+| --- | --- | --- |
+| `list_sources` | — | List accessible sources and their `source_id`. |
+| `list_documents` | `source_id?` | List documents (id / status / chunk count). |
+| `outline` | `document_id` | Document outline (headings + `chunk_id`). |
+| `search` | `query, top_k=8, source_id?` | Semantic retrieval, returns numbered evidence. |
+| `grep` | `pattern, limit=20, source_id?` | Literal search (names / numbers / code). |
+| `get_chunk` | `chunk_id, source_id?` | Read one chunk’s full text. |
+| `read` | `document_id, offset=1, limit=120` | Read the original file line by line. |
+| `get_entity` | `name, source_id?` | Look up an entity (person / org / concept). |
+
+### Call an agent as a model (OpenAI-compatible)
+
+Any agent can be called like an OpenAI “model with citations”:
+
+```bash
+curl -s http://localhost:8000/api/v1/openai/<AGENT_ID>/chat/completions \
+  -H "Authorization: Bearer <SAG_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"What does this document say?"}]}'
+```
+
+It returns a standard `chat.completion` with an extra `sag.citations` field
+that standard clients ignore; set `"stream": true` for SSE chunks. This
+endpoint is stateless (no thread is persisted).
+
+### Running and updating
+
+```bash
+docker compose ps                  # api and web should show healthy
+docker compose logs -f api web     # follow logs
+docker compose restart             # restart services
+docker compose down                # stop, keeping all data
+
+git pull --ff-only                 # update local code
+docker compose up -d --build       # rebuild, keeping data volumes
+```
+
+Default persistence:
+
+| Run mode | App metadata | Knowledge engine | Location |
+| --- | --- | --- | --- |
+| Docker default | SQLite | SQLite + LanceDB | Docker volume `sagdata` |
+| Local development | SQLite | SQLite + LanceDB | app-data `data` or the configured data root |
+| PostgreSQL overlay | PostgreSQL | PostgreSQL + pgvector | `pgdata` and `sagdata` volumes |
+
+`docker compose down` keeps your data. **`docker compose down -v` permanently
+deletes the database, knowledge index, and uploaded files.**
+
+### Networking and production security
+
+By default Compose binds ports 3000 and 8000 to `127.0.0.1`. SAG is currently
+a local single-user product; do not expose these ports directly to the public
+internet.
+
+To customize ports or serve on a trusted LAN:
+
+```bash
+cp .env.example .env
+# Edit BIND_ADDRESS, WEB_PORT, API_PORT, SAG_CORS_ORIGINS, and NEXT_PUBLIC_API_BASE.
+docker compose up -d --build
+```
+
+`NEXT_PUBLIC_API_BASE` is baked into the Web image at build time, so a rebuild
+(`--build`) is required after changing it. Server deployments should also add
+HTTPS and external access controls such as a VPN, IP allowlist, or reverse-proxy
+authentication.
+
+---
+
+<a id="developer-guide"></a>
+
+## Developer guide
+
+### System boundary
+
+SAG-plus uses a Next.js frontend separated from a FastAPI backend. The backend
+is a reference application built on the public Python engine `zleap-sag`.
+Developers can keep the whole backend and build their own frontend, or embed
+`zleap-sag` directly in their own Python service.
+
+### Repository layout
+
+```text
+apps/
+├── web/                    Next.js 15 + React 19 product frontend
+├── desktop/                Electron shell, packaging, and local runtime lifecycle
+└── api/
+    ├── sag_api/
+    │   ├── api/v1/         FastAPI HTTP routes and serialization
+    │   ├── connectors/     File/web source connectors and registry
+    │   ├── parsing/        MarkItDown and MinerU document normalization
+    │   ├── jobs/           Background ingest → extract state machine
+    │   ├── sag/            The only in-app layer importing zleap-sag
+    │   ├── generation/     Retrieved evidence → streamed cited answers
+    │   ├── mcp/            Knowledge-base MCP server and HTTP mount
+    │   ├── services/       Application and domain orchestration
+    │   └── tools/          Built-in tools and remote MCP agent tools
+    └── sag_agent/          Framework-agnostic agent runtime core
+skills/sag/                 Agent Skill for exploring SAG over MCP
+scripts/                    Repository-level tooling scripts
+docs/                       Optimization status, architecture patches, and guides
+```
+
+The core dependency rule is simple: the application reaches the knowledge
+engine only through `apps/api/sag_api/sag/`; the engine knows nothing about
+FastAPI, the Web UI, users, conversations, or citations.
+
+### Local development
+
+Desktop development is the supported run entry:
+
+```bash
+cd apps/desktop
+npm run dev
+```
+
+Common checks:
+
+```bash
+cd apps/api && .venv/Scripts/python -m pytest
+cd apps/api && .venv/Scripts/python -m ruff check .
+cd apps/web && npm run typecheck
+```
+
+### Desktop client
+
+The Electron client packages the same Next.js app with a local FastAPI backend.
+Desktop development, per-platform release builds, signing, update
+configuration, and data directories are documented in
+[`apps/desktop/README.md`](apps/desktop/README.md).
+
+### Build your own frontend on the SAG backend (self-hosted API)
+
+Browsers cannot import Python packages directly. A custom frontend should call
+a Python HTTP service that owns the `DataEngine`; the FastAPI backend in this
 repository is the reference implementation and is already separated from the
 Next.js frontend.
 
@@ -115,7 +455,7 @@ Copy `access_token` from the response and send it on later requests:
 Authorization: Bearer <SAG_TOKEN>
 ```
 
-### API map
+#### API map
 
 | Area | Main routes | Purpose |
 | --- | --- | --- |
@@ -155,8 +495,8 @@ Document writes are handled by a background task queue. Check the returned
 document status or its job before expecting search results.
 
 If your custom frontend is served from a different origin, add it to
-`SAG_CORS_ORIGINS`. When the API address changes, rebuild the Web image with the
-matching `NEXT_PUBLIC_API_BASE`.
+`SAG_CORS_ORIGINS`. When the API address changes, rebuild the Web image with
+the matching `NEXT_PUBLIC_API_BASE`.
 
 ### PostgreSQL / pgvector deployment
 
@@ -175,99 +515,9 @@ docker compose -f compose.yaml -f compose.postgres.yaml up -d --build
 Before serving, set real `SAG_CORS_ORIGINS` and `NEXT_PUBLIC_API_BASE` values.
 Back up both `pgdata` and `sagdata` before upgrading.
 
-## MCP & Skill interface
+---
 
-SAG-plus exposes the whole knowledge base (or a single source) as a standard
-read-only MCP server with 8 tools, so any MCP-capable host (Claude Desktop,
-Cursor, Dify, …) can query it.
-
-### Connect
-
-- In the Web UI, open **Settings → Integrations** and copy the ready-made
-  config (HTTP or stdio, auth header included).
-- Or fetch the descriptor programmatically:
-  - Whole knowledge base: `GET /api/v1/system/mcp`
-  - Single source: `GET /api/v1/sources/{source_id}/mcp`
-- **HTTP (recommended)**: `http://<host>/mcp/` (whole KB) or
-  `http://<host>/mcp/?source_id=<SOURCE_ID>` (single source), header
-  `Authorization: Bearer <SAG_TOKEN>`.
-- **stdio**: `python -m sag_api.mcp.server` (whole KB by default; set
-  `SAG_MCP_SOURCE_ID=<SOURCE_ID>` to limit to one source; requires the
-  `apps/api` Python environment).
-
-### MCP tools (all read-only)
-
-| Tool | Parameters | Purpose |
-| --- | --- | --- |
-| `list_sources` | — | List accessible sources and their `source_id`. |
-| `list_documents` | `source_id?` | List documents (id / status / chunk count). |
-| `outline` | `document_id` | Document outline (headings + `chunk_id`). |
-| `search` | `query, top_k=8, source_id?` | Semantic retrieval, returns numbered evidence. |
-| `grep` | `pattern, limit=20, source_id?` | Literal search (names / numbers / code). |
-| `get_chunk` | `chunk_id, source_id?` | Read one chunk’s full text. |
-| `read` | `document_id, offset=1, limit=120` | Read the original file line by line. |
-| `get_entity` | `name, source_id?` | Look up an entity (person / org / concept). |
-
-Recommended call order (exploration funnel): `list_sources` →
-`list_documents` → `outline` → `search`/`grep` → `get_chunk`/`read`.
-
-### Agent tool bindings (mount sources / external MCP servers)
-
-Agents can mount knowledge sources or external MCP servers as tool sources
-(`sag_api/mcp/` client + `apps/web` “Settings → Agents”). The REST
-interface mirrors the UI:
-
-| Endpoint | Purpose |
-| --- | --- |
-| `GET /api/v1/agents` | List agents |
-| `POST /api/v1/agents` | Create an agent |
-| `GET /api/v1/agents/default` | Get the default agent |
-| `GET /api/v1/agents/{agent_id}` | Get an agent |
-| `PATCH /api/v1/agents/{agent_id}` | Update an agent |
-| `DELETE /api/v1/agents/{agent_id}` | Delete an agent |
-| `GET /api/v1/agents/{agent_id}/bindings` | List bindings |
-| `POST /api/v1/agents/{agent_id}/bindings` | Add a binding |
-| `DELETE /api/v1/agents/{agent_id}/bindings/{binding_id}` | Remove a binding |
-
-Binding body (`POST /api/v1/agents/{agent_id}/bindings`):
-
-```json
-{
-  "target_type": "source",            // or "mcp_server"
-  "target_id": "<source_id>",         // source id, or a display name for mcp_server
-  "config": {}
-}
-```
-
-- `target_type: "source"` binds a knowledge-base source (config stays empty).
-- `target_type: "mcp_server"` connects an external MCP server as a tool source;
-  `config` must provide `"url"` (streamable HTTP) or `"command"` (stdio), plus
-  optional `"args"` and `"env"`.
-
-### OpenAI-compatible chat endpoint
-
-Any agent can be called like an OpenAI “model with citations”:
-
-```
-POST /api/v1/openai/{agent_id}/chat/completions
-Authorization: Bearer <SAG_TOKEN>
-```
-
-Request body follows OpenAI Chat Completions (`messages`, `model?`, `stream?`,
-`temperature?`, `max_tokens?`). It runs the same retrieval, system prompt, and
-anti-hallucination short-circuit as in-app chat. `stream: true` returns SSE
-`chat.completion.chunk` events; otherwise it returns a standard
-`chat.completion` object with a SAG extension field `sag.citations` for
-traceable sources. This endpoint is stateless (no thread is persisted).
-
-### Built-in skill
-
-The repository ships the `skills/sag` skill (name: `sag-knowledge`). Its
-`SKILL.md` teaches an agent how to search, browse, cite, and read knowledge-base
-documents through the MCP tools above, with a funnel workflow, a tool parameter
-reference (`references/mcp-tools.md`), and query strategies
-(`references/search-strategies.md`). Point your agent’s skills directory at
-`skills/sag` to enable it.
+<a id="troubleshooting"></a>
 
 ## Troubleshooting
 
@@ -280,12 +530,22 @@ reference (`references/mcp-tools.md`), and query strategies
 | Local embeddings are unavailable | In Settings, install the llama-cpp-python backend, download a selected model, choose that file, then save. |
 | Local reranking is unavailable | In **Retrieval reranking**, download the selected model and install the native reranker runtime. Retrieval keeps its fused order if either is unavailable. |
 
+---
+
+<a id="contributing-and-license"></a>
+
+## Contributing and license
+
+- Contribution flow: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Python engine: [`zleap-sag` on PyPI](https://pypi.org/project/zleap-sag/)
+- Benchmark reproduction: [Zleap-AI/SAG-Benchmark](https://github.com/Zleap-AI/SAG-Benchmark)
+
+SAG-plus is licensed under the [MIT License](LICENSE). Upstream attribution
+remains with [Zleap-AI/SAG](https://github.com/Zleap-AI/SAG).
+
 ## Development references
 
 - [Desktop development](apps/desktop/README.md)
 - [API architecture](apps/api/README.md)
 - [Optimization status](docs/SAG_OPTIMIZATION_2026.md)
 - [Optimization plan](docs/SAG_OPTIMIZATION_PLAN.md)
-
-Licensed under [MIT](LICENSE). Upstream attribution remains with
-[Zleap-AI/SAG](https://github.com/Zleap-AI/SAG).
