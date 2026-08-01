@@ -10,33 +10,6 @@ import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 
-function appendDirSuffix(filename: string, suffix: string): string {
-  const i = filename.lastIndexOf(".");
-  if (i <= 0) return `${filename} (${suffix})`;
-  return `${filename.slice(0, i)} (${suffix})${filename.slice(i)}`;
-}
-
-/**
- * 同名文件用 webkitRelativePath 的目录段做后缀，避免重名并保留归属。
- * 唯一名保持原样；无路径信息的同名文件回退为原名。
- * 例：root/sub1/report.pdf + root/sub2/report.pdf -> report (sub1).pdf / report (sub2).pdf
- */
-function resolveUploadName(file: File, duplicate: boolean): string {
-  if (!duplicate) return file.name;
-  const rel = (file as File & { webkitRelativePath?: string }).webkitRelativePath;
-  if (rel) {
-    const parts = rel.split("/");
-    const dir =
-      parts.length > 2
-        ? parts.slice(1, -1).join("_")
-        : parts.length === 2
-          ? parts[0]
-          : "";
-    if (dir) return appendDirSuffix(file.name, dir);
-  }
-  return file.name;
-}
-
 export function UploadZone({
   sourceId,
   onUploaded,
@@ -52,32 +25,25 @@ export function UploadZone({
 }) {
   const t = useTranslations("UploadZone");
   const inputRef = React.useRef<HTMLInputElement>(null);
-  const folderInputRef = React.useRef<HTMLInputElement>(null);
   const [drag, setDrag] = React.useState(false);
-
-  React.useEffect(() => {
-    // webkitdirectory 非标准且不在 React 类型中，通过属性设置。
-    const el = folderInputRef.current;
-    if (el) {
-      el.setAttribute("webkitdirectory", "");
-      el.setAttribute("directory", "");
-    }
-  }, []);
   const [busy, setBusy] = React.useState(false);
-  const [progress, setProgress] = React.useState<{ name: string; pct: number; idx: number; total: number } | null>(null);
+  const [progress, setProgress] = React.useState<{
+    name: string;
+    pct: number;
+    idx: number;
+    total: number;
+  } | null>(null);
 
   const extOf = (name: string) => {
     const i = name.lastIndexOf(".");
     return i >= 0 ? name.slice(i).toLowerCase() : "";
   };
-  const accept = allowedExts && allowedExts.length > 0 ? allowedExts.join(",") : undefined;
+  const accept =
+    allowedExts && allowedExts.length > 0 ? allowedExts.join(",") : undefined;
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     const arr = Array.from(files);
-    // 统计 basename 出现次数，仅对同名文件加目录后缀以避免重名
-    const counts = new Map<string, number>();
-    for (const f of arr) counts.set(f.name, (counts.get(f.name) ?? 0) + 1);
     setBusy(true);
     let ok = 0;
     let skipped = 0;
@@ -85,24 +51,27 @@ export function UploadZone({
     let processed = 0;
     for (const file of arr) {
       processed += 1;
-      // 客户端先行拦截：不支持的扩展名即时跳过（文件夹批量上传时汇总提示）
-      if (allowedExts && allowedExts.length > 0 && !allowedExts.includes(extOf(file.name))) {
+      if (
+        allowedExts &&
+        allowedExts.length > 0 &&
+        !allowedExts.includes(extOf(file.name))
+      ) {
         skipped += 1;
         continue;
       }
-      const uploadName = resolveUploadName(file, (counts.get(file.name) ?? 0) > 1);
-      const payload = uploadName === file.name ? file : new File([file], uploadName, { type: file.type });
       try {
-        setProgress({ name: uploadName, pct: 0, idx: processed, total });
-        await api.uploadDocumentWithProgress(sourceId, payload, (pct) =>
+        setProgress({ name: file.name, pct: 0, idx: processed, total });
+        await api.uploadDocumentWithProgress(sourceId, file, (pct) =>
           setProgress((p) => (p ? { ...p, pct } : p)),
         );
         ok += 1;
       } catch (err) {
-        toast.error(t("fileFailed", {
-          name: uploadName,
-          error: err instanceof ApiError ? err.message : t("uploadFailed"),
-        }));
+        toast.error(
+          t("fileFailed", {
+            name: file.name,
+            error: err instanceof ApiError ? err.message : t("uploadFailed"),
+          }),
+        );
       }
     }
     setBusy(false);
@@ -121,7 +90,9 @@ export function UploadZone({
       role="button"
       tabIndex={0}
       onClick={() => inputRef.current?.click()}
-      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && inputRef.current?.click()}
+      onKeyDown={(e) =>
+        (e.key === "Enter" || e.key === " ") && inputRef.current?.click()
+      }
       onDragOver={(e) => {
         e.preventDefault();
         setDrag(true);
@@ -146,13 +117,6 @@ export function UploadZone({
         className="hidden"
         onChange={(e) => handleFiles(e.target.files)}
       />
-      <input
-        ref={folderInputRef}
-        type="file"
-        multiple
-        className="hidden"
-        onChange={(e) => handleFiles(e.target.files)}
-      />
       <div
         className={cn(
           "grid place-items-center rounded-full bg-muted text-foreground",
@@ -168,18 +132,6 @@ export function UploadZone({
       <div className="text-sm font-medium text-foreground">
         {busy ? t("uploading") : t("prompt")}
       </div>
-      {!busy && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            folderInputRef.current?.click();
-          }}
-          className="text-xs text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {t("uploadFolder")}
-        </button>
-      )}
       {busy && progress ? (
         <div className="flex w-full max-w-xs flex-col gap-1.5">
           <Progress value={progress.pct} className="h-1.5" />
