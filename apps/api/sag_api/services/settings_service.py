@@ -490,7 +490,7 @@ async def save_302_mineru_setup(session: AsyncSession) -> dict:
     """为已有 302 模型配置复用现有 Key，不把密钥回传给浏览器。"""
     candidates = (
         (_settings.llm_base_url, _settings.llm_api_key),
-        (_settings.effective_embedding_base_url, _settings.effective_embedding_api_key()),
+        (_settings.effective_embedding_base_url, _settings.effective_embedding_api_key),
     )
     for base_url, api_key in candidates:
         parsed = urlparse(base_url or "")

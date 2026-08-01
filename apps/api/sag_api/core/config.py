@@ -264,8 +264,9 @@ class Settings(BaseSettings):
         """应用当前 provider 的采样能力约束。"""
         return get_model_provider(self.llm_provider).resolve_temperature(self.llm_temperature)
 
+    @property
     def effective_embedding_api_key(self) -> str | None:
-        """优先独立 embedding key；未配置时复用 LLM key（调用方带括号）。"""
+        """优先独立 embedding key；未配置时复用 LLM key。"""
         provider = get_model_provider(self.llm_provider)
         return self.embedding_api_key or (self.llm_api_key if provider.can_reuse_embedding_credentials else None)
 
