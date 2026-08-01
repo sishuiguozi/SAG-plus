@@ -1,3 +1,5 @@
+// 注意：沙箱 preload（src/preload.ts）内联了相同的通道名；
+// 新增或改名通道时必须同步修改两处。
 export const DESKTOP_CHANNELS = {
   appInfo: "desktop:app-info",
   checkForUpdates: "desktop:check-for-updates",
