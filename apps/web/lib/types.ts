@@ -1,4 +1,9 @@
 import type { SearchStrategy } from "./retrieval-config";
+import type {
+  LlmJsonSchemaCompat,
+  LlmReasoningHistoryCompat,
+  LlmToolChoiceStrategy,
+} from "./tool-choice-strategy";
 
 export interface User {
   id: string;
@@ -161,6 +166,59 @@ export interface ModelProviderSpec {
   api_key_placeholder: string;
 }
 
+export interface LocalEmbeddingModelStatus {
+  file_name: string;
+  label: string;
+  kind?: "embedding" | "reranker";
+  runtime?: string;
+  dimensions?: number | null;
+  status: "missing" | "downloading" | "ready" | "failed";
+  downloaded_bytes: number;
+  total_bytes: number | null;
+  progress: number;
+  error: string | null;
+  model_path: string;
+}
+
+export interface LocalModelManagerStatus {
+  backend_installed: boolean;
+  backend: {
+    status: "missing" | "installing" | "ready" | "failed";
+    error: string | null;
+  };
+  models: LocalEmbeddingModelStatus[];
+  embedding?: {
+    backend: LocalModelManagerStatus["backend"];
+    models: LocalEmbeddingModelStatus[];
+  };
+  reranker?: {
+    backends: Record<string, LocalModelManagerStatus["backend"]>;
+    models: LocalEmbeddingModelStatus[];
+  };
+}
+
+export interface LocalEmbeddingTestResult {
+  ok: boolean;
+  message?: string;
+  model_file?: string;
+  dimensions?: number;
+  elapsed_ms?: number;
+}
+
+export interface LocalEmbeddingTestRequest {
+  model_file: string;
+  n_ctx: number;
+  n_threads: number;
+}
+
+export interface LocalRerankerTestResult {
+  ok: boolean;
+  message?: string;
+  model_file?: string;
+  score_count?: number;
+  elapsed_ms?: number;
+}
+
 export interface ModelConfig {
   llm_provider: ModelProviderId;
   llm_base_url: string | null;
@@ -170,6 +228,9 @@ export interface ModelConfig {
   llm_max_tokens: number;
   llm_timeout_ms: number;
   llm_max_retries: number;
+  llm_tool_choice_strategy: LlmToolChoiceStrategy;
+  llm_reasoning_history_compat: LlmReasoningHistoryCompat;
+  llm_json_schema_compat: LlmJsonSchemaCompat;
   llm_api_key_set: boolean;
   embedding_provider: "api" | "local";
   embedding_local_model_file: string;
@@ -195,6 +256,16 @@ export interface ModelConfig {
   search_top_k: number;
   search_cache_ttl_seconds: number;
   lancedb_fts_enabled: boolean;
+  search_llm_rerank_enabled: boolean;
+  search_llm_rerank_candidates: number;
+  search_rerank_mode: "off" | "local" | "api" | "llm";
+  search_rerank_candidates: number;
+  search_local_rerank_model_file: string;
+  search_rerank_api_url: string | null;
+  search_rerank_api_key_set: boolean;
+  search_rerank_api_model: string | null;
+  search_rerank_api_instruction: string | null;
+  search_rerank_api_timeout_ms: number;
   sag_language: "zh" | "en";
   // 向量索引与写入
   lancedb_ann_enabled: boolean;
@@ -271,6 +342,9 @@ export type ModelConfigPatch = Partial<{
   llm_max_tokens: number;
   llm_timeout_ms: number;
   llm_max_retries: number;
+  llm_tool_choice_strategy: ModelConfig["llm_tool_choice_strategy"];
+  llm_reasoning_history_compat: ModelConfig["llm_reasoning_history_compat"];
+  llm_json_schema_compat: ModelConfig["llm_json_schema_compat"];
   embedding_provider: "api" | "local";
   embedding_local_model_file: string;
   embedding_local_n_ctx: number;
@@ -294,6 +368,14 @@ export type ModelConfigPatch = Partial<{
   search_top_k: number;
   search_cache_ttl_seconds: number;
   lancedb_fts_enabled: boolean;
+  search_rerank_mode: ModelConfig["search_rerank_mode"];
+  search_rerank_candidates: number;
+  search_local_rerank_model_file: string;
+  search_rerank_api_url: string | null;
+  search_rerank_api_key: string;
+  search_rerank_api_model: string;
+  search_rerank_api_instruction: string | null;
+  search_rerank_api_timeout_ms: number;
   sag_language: "zh" | "en";
   lancedb_ann_enabled: boolean;
   lancedb_search_refine_factor: number;
@@ -877,4 +959,63 @@ export interface Capabilities {
   max_upload_mb: number;
   allowed_upload_exts?: string[];
   timezone: string;
+}
+
+
+export type CodeLlmExtractionMode = "off" | "comments" | "all";
+
+export interface SourceCodeConfig {
+  llm_extraction_mode: CodeLlmExtractionMode;
+}
+
+export type CodeFolderPlanStatus = "new" | "changed" | "unchanged" | "rejected";
+
+export interface CodeFolderPlanItem {
+  relative_path: string;
+  sha256: string;
+  size_bytes: number;
+  status: CodeFolderPlanStatus;
+  reason?: string;
+  document_id?: string | null;
+}
+
+export interface CodeFolderPlanResponse {
+  root_name: string;
+  items: CodeFolderPlanItem[];
+  counts: {
+    new: number;
+    changed: number;
+    unchanged: number;
+    rejected: number;
+  };
+}
+
+export interface CodeFolderUploadResult {
+  document_id: string;
+  job_id?: string | null;
+  relative_path: string;
+  content_sha256: string;
+  status: "created" | "unchanged" | "queued_replacement";
+}
+
+export type TreeSitterResourceState =
+  | "missing"
+  | "downloading"
+  | "paused"
+  | "ready"
+  | "error"
+  | "repairing";
+
+export interface TreeSitterResourceStatus {
+  state: TreeSitterResourceState | string;
+  version?: string | null;
+  installed_languages?: number;
+  total_languages?: number;
+  progress?: number | null;
+  downloaded_bytes?: number | null;
+  total_bytes?: number | null;
+  message?: string | null;
+  error?: string | null;
+  disk_bytes?: number | null;
+  disk_free_gb?: number | null;
 }

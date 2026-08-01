@@ -34,6 +34,23 @@ async def test_llm_rerank_reorders():
 
 
 @pytest.mark.asyncio
+async def test_llm_rerank_marks_only_the_completion_call():
+    from sag_api.core.llm_call_context import current_llm_call_scenario
+    from sag_api.services.retrieval_service import _llm_rerank
+
+    class ScopeLLM(_FakeLLM):
+        async def complete(self, messages):
+            self.scenario = current_llm_call_scenario()
+            return self.reply
+
+    llm = ScopeLLM("1,2")
+    assert current_llm_call_scenario() is None
+    await _llm_rerank("q", _sections(2), llm=llm, limit=2)
+    assert llm.scenario == "rerank"
+    assert current_llm_call_scenario() is None
+
+
+@pytest.mark.asyncio
 async def test_llm_rerank_fallback_on_error():
     from sag_api.services.retrieval_service import _llm_rerank
 
@@ -45,6 +62,59 @@ async def test_llm_rerank_fallback_on_error():
 
     result = await _llm_rerank("q", sections, llm=BoomLLM(""), limit=3)
     assert [s.chunk_id for s in result] == ["c0", "c1", "c2"]
+
+
+@pytest.mark.asyncio
+async def test_api_rerank_orders_scored_candidates_and_keeps_ties_stable():
+    from sag_api.services.retrieval_service import _api_rerank
+
+    class FakeAPI:
+        async def rank(self, query, documents, *, limit):
+            assert query == "q"
+            assert documents == ["content 0", "content 1", "content 2"]
+            assert limit == 3
+            return [0.2, 0.9, 0.2]
+
+    result = await _api_rerank("q", _sections(3), client=FakeAPI(), limit=3)
+    assert [section.chunk_id for section in result] == ["c1", "c0", "c2"]
+
+
+@pytest.mark.asyncio
+async def test_api_rerank_falls_back_to_existing_order_on_failure():
+    from sag_api.services.retrieval_service import _api_rerank
+
+    class BrokenAPI:
+        async def rank(self, *args, **kwargs):
+            raise RuntimeError("down")
+
+    result = await _api_rerank("q", _sections(3), client=BrokenAPI(), limit=3)
+    assert [section.chunk_id for section in result] == ["c0", "c1", "c2"]
+
+
+@pytest.mark.asyncio
+async def test_local_rerank_orders_native_scores_and_keeps_ties_stable():
+    from sag_api.services.retrieval_service import _local_rerank
+
+    class NativeReranker:
+        def rank(self, query, documents):
+            assert query == "q"
+            assert documents == ["content 0", "content 1", "content 2"]
+            return [0.4, 0.9, 0.4]
+
+    result = await _local_rerank("q", _sections(3), reranker=NativeReranker(), limit=3)
+    assert [section.chunk_id for section in result] == ["c1", "c0", "c2"]
+
+
+@pytest.mark.asyncio
+async def test_local_rerank_falls_back_to_fused_order_when_native_runtime_fails():
+    from sag_api.services.retrieval_service import _local_rerank
+
+    class BrokenReranker:
+        def rank(self, query, documents):
+            raise RuntimeError("runtime missing")
+
+    result = await _local_rerank("q", _sections(3), reranker=BrokenReranker(), limit=3)
+    assert [section.chunk_id for section in result] == ["c0", "c1", "c2"]
 
 
 @pytest.mark.asyncio

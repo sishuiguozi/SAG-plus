@@ -19,9 +19,10 @@ from sag_api.schemas.document import DocumentActivityResponse
 from sag_api.schemas.job import JobOut
 from sag_api.schemas.source import (
     ConnectorOut,
-    SourceDeleteRequest,
     IngestStatsOut,
+    SourceCodeConfig,
     SourceCreate,
+    SourceDeleteRequest,
     SourceOut,
     SourceUpdate,
     VectorBackfillOut,
@@ -31,11 +32,13 @@ from sag_api.services.source_service import (
     create_source,
     delete_source,
     get_source,
+    get_source_code_config,
     ingest_stats,
     list_sources,
     source_document_status_counts,
     sync_source,
     update_source,
+    update_source_code_config,
 )
 
 router = APIRouter(prefix="/sources", tags=["sources"])
@@ -127,6 +130,25 @@ async def get_(
         aux_vector_deferred_enabled=settings.aux_vector_deferred_enabled,
     )
     return _source_out(source, counts.get(source.id), backfills.get(source.sag_source_config_id))
+
+
+@router.get("/{source_id}/code-config", response_model=SourceCodeConfig)
+async def get_code_config(
+    source_id: str,
+    _user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> SourceCodeConfig:
+    return await get_source_code_config(session, source_id)
+
+
+@router.patch("/{source_id}/code-config", response_model=SourceCodeConfig)
+async def update_code_config(
+    source_id: str,
+    body: SourceCodeConfig,
+    _user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> SourceCodeConfig:
+    return await update_source_code_config(session, source_id, body)
 
 
 @router.patch("/{source_id}", response_model=SourceOut)

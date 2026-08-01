@@ -29,6 +29,12 @@ class SourceUpdate(BaseModel):
     status: SourceStatus | None = None
 
 
+class SourceCodeConfig(BaseModel):
+    """Per-knowledge-base policy for code entity/event extraction."""
+
+    llm_extraction_mode: Literal["off", "comments", "all"] = "comments"
+
+
 class VectorBackfillOut(BaseModel):
     """辅助向量索引补齐信号（SAG-OPT-107）。
 

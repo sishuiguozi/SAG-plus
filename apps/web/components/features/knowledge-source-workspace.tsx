@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeft, FileText, Plus, RefreshCw, RotateCw } from "lucide-react";
+import { ArrowLeft, FileText, Plus, RefreshCw, RotateCw, Settings2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "motion/react";
 
@@ -12,8 +12,17 @@ import { DocumentList } from "@/components/features/document-list";
 import { IngestActivityPanel } from "@/components/features/ingest-activity-panel";
 import { SyncPanel } from "@/components/features/sync-panel";
 import { UploadZone } from "@/components/features/upload-zone";
+import { CodeFolderImport } from "@/components/features/code-folder-import";
+import { SourceCodeConfigCard } from "@/components/features/source-code-config-card";
 import { useSourceContent } from "@/components/features/use-source-content";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type SourceScreen = "documents" | "add";
@@ -43,12 +52,16 @@ export function KnowledgeSourceWorkspace({
   } = useSourceContent(sourceId, active);
   const [screen, setScreen] = React.useState<SourceScreen>(initialScreen);
   const [documentId, setDocumentId] = React.useState<string | null>(null);
+  const [codeConfigOpen, setCodeConfigOpen] = React.useState(false);
 
   React.useEffect(() => {
     setScreen(initialScreen);
     setDocumentId(null);
+    setCodeConfigOpen(false);
   }, [initialScreen, sourceId]);
 
+  // Show for local file sources. Default true while source is loading so the
+  // button is visible immediately after opening a knowledge base.
   const isFileSource = !source || source.connector_kind === "file_upload";
   const screenKey = documentId ? `document:${documentId}` : screen;
 
@@ -87,8 +100,33 @@ export function KnowledgeSourceWorkspace({
     : screen === "add"
       ? source?.name || t("loading")
       : documents === null
-      ? t("syncing")
-      : t("documentsCount", { count: source?.document_count ?? documents.length });
+        ? t("syncing")
+        : t("documentsCount", { count: source?.document_count ?? documents.length });
+
+  const codeExtractionButton = isFileSource ? (
+    <Dialog open={codeConfigOpen} onOpenChange={setCodeConfigOpen}>
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 gap-1 px-2 text-[11px]"
+          disabled={!source}
+          aria-label={t("codeExtraction")}
+          title={t("codeExtractionTitle")}
+        >
+          <Settings2 className="size-3.5" />
+          {t("codeExtraction")}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("codeExtractionTitle")}</DialogTitle>
+        </DialogHeader>
+        <SourceCodeConfigCard sourceId={sourceId} />
+      </DialogContent>
+    </Dialog>
+  ) : null;
 
   return (
     <motion.div
@@ -113,36 +151,42 @@ export function KnowledgeSourceWorkspace({
           <p className="truncate text-xs font-medium">{title}</p>
           <p className="truncate text-[10px] text-muted-foreground">{subtitle}</p>
         </div>
-        {!documentId && screen === "documents" && (
+        {!documentId && (
           <>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-7"
-              onClick={() => setScreen("add")}
-              disabled={!source}
-              aria-label={isFileSource ? t("addDocument") : t("syncSource")}
-              title={isFileSource ? t("addDocument") : t("syncSource")}
-            >
-              {isFileSource ? (
-                <Plus className="size-3.5" />
-              ) : (
-                <RefreshCw className="size-3.5" />
-              )}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-7"
-              onClick={() => void refresh()}
-              disabled={refreshing}
-              aria-label={t("refreshDocuments")}
-              title={t("refreshDocuments")}
-            >
-              <RotateCw className={cn("size-3.5", refreshing && "animate-spin")} />
-            </Button>
+            {codeExtractionButton}
+            {screen === "documents" ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1 px-2 text-[11px]"
+                  onClick={() => setScreen("add")}
+                  disabled={!source}
+                  aria-label={isFileSource ? t("addDocument") : t("syncSource")}
+                  title={isFileSource ? t("addDocument") : t("syncSource")}
+                >
+                  {isFileSource ? (
+                    <Plus className="size-3.5" />
+                  ) : (
+                    <RefreshCw className="size-3.5" />
+                  )}
+                  {isFileSource ? t("addContent") : t("syncSource")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  onClick={() => void refresh()}
+                  disabled={refreshing}
+                  aria-label={t("refreshDocuments")}
+                  title={t("refreshDocuments")}
+                >
+                  <RotateCw className={cn("size-3.5", refreshing && "animate-spin")} />
+                </Button>
+              </>
+            ) : null}
           </>
         )}
       </div>
@@ -170,19 +214,24 @@ export function KnowledgeSourceWorkspace({
             className="min-h-0 flex-1 overflow-y-auto p-4"
           >
             <p className="mb-3 text-xs leading-5 text-muted-foreground">
-              {isFileSource
-                ? t("uploadDescription")
-                : t("syncDescription")}
+              {isFileSource ? t("uploadDescription") : t("syncDescription")}
             </p>
             {source &&
               (isFileSource ? (
-                <UploadZone
-                  sourceId={sourceId}
-                  onUploaded={() => void finishMutation()}
-                  maxMb={capabilities?.max_upload_mb ?? 25}
-                  allowedExts={capabilities?.allowed_upload_exts}
-                  compact
-                />
+                <div className="space-y-3">
+                  <SourceCodeConfigCard sourceId={sourceId} />
+                  <CodeFolderImport
+                    sourceId={sourceId}
+                    onImported={() => void finishMutation()}
+                  />
+                  <UploadZone
+                    sourceId={sourceId}
+                    onUploaded={() => void finishMutation()}
+                    maxMb={capabilities?.max_upload_mb ?? 25}
+                    allowedExts={capabilities?.allowed_upload_exts}
+                    compact
+                  />
+                </div>
               ) : (
                 <SyncPanel sourceId={sourceId} onSynced={() => void finishMutation()} />
               ))}
@@ -218,40 +267,66 @@ export function KnowledgeSourceWorkspace({
                   <Skeleton key={index} className="h-14 rounded-lg" />
                 ))}
               </div>
-            ) : documents.length === 0 ? (
-              <div className="flex min-h-56 shrink-0 flex-col items-center justify-center px-6 text-center">
-                <div className="grid size-10 place-items-center rounded-xl bg-muted text-muted-foreground">
-                  <FileText className="size-4" />
-                </div>
-                <p className="mt-3 text-sm font-medium">{t("emptyDocuments")}</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  {isFileSource ? t("emptyDocumentsUpload") : t("emptyDocumentsSync")}
-                </p>
-                <Button size="sm" className="mt-4" onClick={() => setScreen("add")}>
-                  {isFileSource ? (
-                    <Plus className="size-3.5" />
-                  ) : (
-                    <RefreshCw className="size-3.5" />
-                  )}
-                  {isFileSource ? t("addDocument") : t("syncSource")}
-                </Button>
-              </div>
             ) : (
-              <>
-                <div className="mb-2 shrink-0">
-                  <IngestActivityPanel sourceId={sourceId} active={active} />
-                </div>
-                <div className="min-h-0 flex-1">
-                  <DocumentList
-                    sourceId={sourceId}
-                    source={source}
-                    documents={documents}
-                    onChange={() => void handleDocumentsChanged()}
-                    variant="compact"
-                    onOpenDocument={(document) => setDocumentId(document.id)}
-                  />
-                </div>
-              </>
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                {isFileSource ? (
+                  <div className="shrink-0 space-y-3 border-b px-2 pb-3 pt-2">
+                    <SourceCodeConfigCard sourceId={sourceId} />
+                    <CodeFolderImport
+                      sourceId={sourceId}
+                      onImported={() => void handleDocumentsChanged()}
+                    />
+                  </div>
+                ) : null}
+
+                {documents.length === 0 ? (
+                  <div className="flex min-h-56 flex-1 flex-col items-center justify-center px-6 text-center">
+                    <div className="grid size-10 place-items-center rounded-xl bg-muted text-muted-foreground">
+                      <FileText className="size-4" />
+                    </div>
+                    <p className="mt-3 text-sm font-medium">{t("emptyDocuments")}</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {isFileSource ? t("emptyDocumentsUpload") : t("emptyDocumentsSync")}
+                    </p>
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                      {isFileSource ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setCodeConfigOpen(true)}
+                        >
+                          <Settings2 className="size-3.5" />
+                          {t("codeExtraction")}
+                        </Button>
+                      ) : null}
+                      <Button size="sm" onClick={() => setScreen("add")}>
+                        {isFileSource ? (
+                          <Plus className="size-3.5" />
+                        ) : (
+                          <RefreshCw className="size-3.5" />
+                        )}
+                        {isFileSource ? t("addDocument") : t("syncSource")}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-2 shrink-0 px-1 pt-2">
+                      <IngestActivityPanel sourceId={sourceId} active={active} />
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-hidden">
+                      <DocumentList
+                        sourceId={sourceId}
+                        source={source}
+                        documents={documents}
+                        onChange={() => void handleDocumentsChanged()}
+                        variant="compact"
+                        onOpenDocument={(document) => setDocumentId(document.id)}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </motion.div>
         )}

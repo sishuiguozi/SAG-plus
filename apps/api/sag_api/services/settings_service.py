@@ -39,6 +39,9 @@ _FIELDS = frozenset(
         "llm_context_window",
         "llm_timeout_ms",
         "llm_max_retries",
+        "llm_tool_choice_strategy",
+        "llm_reasoning_history_compat",
+        "llm_json_schema_compat",
         "embedding_provider",
         "embedding_local_model_file",
         "embedding_local_n_ctx",
@@ -64,6 +67,14 @@ _FIELDS = frozenset(
         "lancedb_fts_enabled",
         "search_llm_rerank_enabled",
         "search_llm_rerank_candidates",
+        "search_rerank_mode",
+        "search_rerank_candidates",
+        "search_local_rerank_model_file",
+        "search_rerank_api_url",
+        "search_rerank_api_key",
+        "search_rerank_api_model",
+        "search_rerank_api_instruction",
+        "search_rerank_api_timeout_ms",
         "sag_language",
         # 向量索引与写入（SAG-OPT-30x）
         "lancedb_ann_enabled",
@@ -128,8 +139,8 @@ _FIELDS = frozenset(
         "universe_planet_radius_scale",
     }
 )
-_SECRET_FIELDS = frozenset({"llm_api_key", "embedding_api_key", "mineru_api_key"})
-_NULLABLE_FIELDS = frozenset({"llm_base_url", "embedding_base_url", "embedding_dimensions", "mineru_base_url"})
+_SECRET_FIELDS = frozenset({"llm_api_key", "embedding_api_key", "mineru_api_key", "search_rerank_api_key"})
+_NULLABLE_FIELDS = frozenset({"llm_base_url", "embedding_base_url", "embedding_dimensions", "mineru_base_url", "search_rerank_api_url"})
 
 _OPENAI_COMPATIBLE = get_model_provider("openai")
 
@@ -259,6 +270,9 @@ def effective_model_config() -> dict:
         "llm_context_window": _settings.llm_context_window,
         "llm_timeout_ms": _settings.llm_timeout_ms,
         "llm_max_retries": _settings.llm_max_retries,
+        "llm_tool_choice_strategy": _settings.llm_tool_choice_strategy,
+        "llm_reasoning_history_compat": _settings.llm_reasoning_history_compat,
+        "llm_json_schema_compat": _settings.llm_json_schema_compat,
         "llm_api_key_set": bool(_settings.llm_api_key),
         "embedding_provider": _settings.embedding_provider,
         "embedding_local_model_file": _settings.embedding_local_model_file,
@@ -286,6 +300,14 @@ def effective_model_config() -> dict:
         "lancedb_fts_enabled": _settings.lancedb_fts_enabled,
         "search_llm_rerank_enabled": _settings.search_llm_rerank_enabled,
         "search_llm_rerank_candidates": _settings.search_llm_rerank_candidates,
+        "search_rerank_mode": _settings.effective_search_rerank_mode,
+        "search_rerank_candidates": _settings.search_rerank_candidates,
+        "search_local_rerank_model_file": _settings.search_local_rerank_model_file,
+        "search_rerank_api_url": _settings.search_rerank_api_url,
+        "search_rerank_api_key_set": bool(_settings.search_rerank_api_key),
+        "search_rerank_api_model": _settings.search_rerank_api_model,
+        "search_rerank_api_instruction": _settings.search_rerank_api_instruction,
+        "search_rerank_api_timeout_ms": _settings.search_rerank_api_timeout_ms,
         "sag_language": _settings.sag_language,
         # 向量索引与写入
         "lancedb_ann_enabled": _settings.lancedb_ann_enabled,
@@ -384,6 +406,8 @@ def env_only_config() -> dict:
             {
                 "key": "storage",
                 "items": [
+                    {"key": "data_root", "env": "SAG_DATA_ROOT", "value": _settings.data_root},
+                    {"key": "database_url", "env": "SAG_DATABASE_URL", "value": _settings.database_url},
                     {"key": "data_dir", "env": "SAG_DATA_DIR", "value": _settings.data_dir},
                     {"key": "upload_dir", "env": "SAG_UPLOAD_DIR", "value": _settings.upload_dir},
                     {"key": "max_upload_mb", "env": "SAG_MAX_UPLOAD_MB", "value": _settings.max_upload_mb},
@@ -457,6 +481,9 @@ async def save_model_config(session: AsyncSession, patch: dict) -> dict:
             continue
         stored[key] = value
 
+    if "search_rerank_mode" in patch:
+        stored["search_llm_rerank_enabled"] = patch["search_rerank_mode"] == "llm"
+
     stored = _normalize_overrides(stored)
 
     if row is None:
@@ -490,7 +517,7 @@ async def save_302_mineru_setup(session: AsyncSession) -> dict:
     """为已有 302 模型配置复用现有 Key，不把密钥回传给浏览器。"""
     candidates = (
         (_settings.llm_base_url, _settings.llm_api_key),
-        (_settings.effective_embedding_base_url, _settings.effective_embedding_api_key()),
+        (_settings.effective_embedding_base_url, _settings.effective_embedding_api_key),
     )
     for base_url, api_key in candidates:
         parsed = urlparse(base_url or "")

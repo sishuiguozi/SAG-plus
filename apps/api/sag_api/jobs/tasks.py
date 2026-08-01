@@ -33,6 +33,12 @@ async def process_document(
     session: AsyncSession, job: Job, *, engine_manager: EngineManager, job_queue=None
 ) -> None:
     """解析、入库并按 chunk 并发抽取；每个 chunk 完成即保存断点。"""
+    from sag_api.services.document_service import (
+        publish_code_replacement,
+        rollback_code_replacement,
+    )
+    from sag_api.services.source_service import _read_source_code_config
+
     document = await session.get(Document, job.document_id) if job.document_id else None
     if document is None:
         raise NotFoundError("文档不存在")
@@ -40,43 +46,70 @@ async def process_document(
     if source is None:
         raise NotFoundError("信源不存在")
     checkpoint = ProcessCheckpoint.from_payload(job.payload)
+    replacement = dict((job.payload or {}).get("code_replacement") or {})
+    process_storage_path = (
+        str(replacement.get("pending_path") or "") if replacement else document.storage_path
+    )
+    # While a code replacement is in flight, keep Document counters on the old
+    # authoritative revision. Checkpoint progress stays on the Job payload.
+    preserve_old_revision = bool(replacement)
 
     async def refresh_payload() -> dict:
         await session.refresh(job, attribute_names=["payload"])
         return dict(job.payload or {})
 
     async def on_stage(stage: str) -> None:
-        if stage == "loading":
-            document.status = DocumentStatus.LOADING
-            document.progress = max(document.progress, 5)
-            job.progress = document.progress / 100
-        elif stage == "extracting":
-            document.status = DocumentStatus.EXTRACTING
-            completed = len(checkpoint.processed_chunk_ids)
-            total = len(checkpoint.chunk_ids)
-            document.progress = 20 + round(80 * completed / total) if total else 20
-            job.progress = document.progress / 100
+        if not preserve_old_revision:
+            if stage == "loading":
+                document.status = DocumentStatus.LOADING
+                document.progress = max(document.progress, 5)
+                job.progress = document.progress / 100
+            elif stage == "extracting":
+                document.status = DocumentStatus.EXTRACTING
+                completed = len(checkpoint.processed_chunk_ids)
+                total = len(checkpoint.chunk_ids)
+                document.progress = 20 + round(80 * completed / total) if total else 20
+                job.progress = document.progress / 100
+        else:
+            # Keep Document READY/old until publish; only advance job progress.
+            if stage == "loading":
+                job.progress = max(job.progress or 0.0, 0.05)
+            elif stage == "extracting":
+                completed = len(checkpoint.processed_chunk_ids)
+                total = len(checkpoint.chunk_ids)
+                job.progress = 0.2 + (0.8 * completed / total if total else 0.0)
         await session.commit()
 
     async def on_parser_state(state: dict) -> None:
-        document.status = DocumentStatus.LOADING
-        document.progress = max(document.progress, 10)
-        job.progress = document.progress / 100
+        if not preserve_old_revision:
+            document.status = DocumentStatus.LOADING
+            document.progress = max(document.progress, 10)
+            job.progress = document.progress / 100
+        else:
+            job.progress = max(job.progress or 0.0, 0.1)
         job.payload = {**(await refresh_payload()), "document_parser": state}
         await session.commit()
 
     async def on_checkpoint(value: ProcessCheckpoint) -> None:
         nonlocal checkpoint
         checkpoint = value
-        job.payload = value.merge_payload(await refresh_payload())
-        document.chunk_count = len(value.chunk_ids)
-        document.event_count = value.event_count
-        document.sag_source_id = value.source_id
-        document.token_usage = value.token_usage
-        total = len(value.chunk_ids)
-        completed = len(value.processed_chunk_ids)
-        document.progress = 20 + round(80 * completed / total) if total else 20
-        job.progress = document.progress / 100
+        merged = value.merge_payload(await refresh_payload())
+        if replacement:
+            merged["code_replacement"] = replacement
+        job.payload = merged
+        if not preserve_old_revision:
+            document.chunk_count = len(value.chunk_ids)
+            document.event_count = value.event_count
+            document.sag_source_id = value.source_id
+            document.token_usage = value.token_usage
+            total = len(value.chunk_ids)
+            completed = len(value.processed_chunk_ids)
+            document.progress = 20 + round(80 * completed / total) if total else 20
+            job.progress = document.progress / 100
+        else:
+            total = len(value.chunk_ids)
+            completed = len(value.processed_chunk_ids)
+            job.progress = 0.2 + (0.8 * completed / total if total else 0.0)
         await session.commit()
 
     async def should_pause() -> bool:
@@ -90,10 +123,15 @@ async def process_document(
         prepared = None
         if not checkpoint.chunk_ids:
             prepared = await prepare_document(
-                document.storage_path,
+                process_storage_path,
                 settings,
                 state=(job.payload or {}).get("document_parser"),
                 on_state=on_parser_state,
+                relative_path=(
+                    replacement.get("relative_path")
+                    or getattr(document, "relative_path", None)
+                    or Path(document.filename).name
+                ),
             )
             if prepared.fallback_from:
                 log.warning(
@@ -105,9 +143,64 @@ async def process_document(
                     prepared.cached,
                     prepared.fallback_error,
                 )
+            if prepared.provider == "tree_sitter" and not preserve_old_revision:
+                document.relative_path = prepared.relative_path
+                document.content_sha256 = prepared.content_sha256
+                document.code_language = prepared.code_language
+                await session.commit()
+            elif prepared.provider == "tree_sitter" and preserve_old_revision:
+                # Stash intended metadata on the job only until publish.
+                payload = await refresh_payload()
+                payload["code_ingest"] = {
+                    "relative_path": prepared.relative_path,
+                    "content_sha256": prepared.content_sha256,
+                    "code_language": prepared.code_language,
+                }
+                if replacement:
+                    payload["code_replacement"] = replacement
+                job.payload = payload
+                await session.commit()
+        elif (
+            (getattr(document, "code_language", None) or (replacement.get("new_code_language") if replacement else None))
+            and (getattr(document, "content_sha256", None) or (replacement.get("new_content_sha256") if replacement else None))
+            and process_storage_path
+        ):
+            from sag_api.parsing.service import PreparedDocument
+
+            prepared = PreparedDocument(
+                path=process_storage_path,
+                provider="tree_sitter",
+                relative_path=(
+                    (replacement.get("relative_path") if replacement else None)
+                    or getattr(document, "relative_path", None)
+                    or Path(document.filename).name
+                ),
+                content_sha256=(
+                    (replacement.get("new_content_sha256") if replacement else None)
+                    or getattr(document, "content_sha256", None)
+                ),
+                code_language=(
+                    (replacement.get("new_code_language") if replacement else None)
+                    or getattr(document, "code_language", None)
+                ),
+            )
+        code_kwargs = (
+            {"prepared_document": prepared}
+            if prepared is not None and prepared.provider == "tree_sitter"
+            else {}
+        )
+        try:
+            code_kwargs["code_llm_extraction_mode"] = _read_source_code_config(source).llm_extraction_mode
+        except Exception:
+            code_kwargs["code_llm_extraction_mode"] = "comments"
+        process_path = None
+        if prepared is not None:
+            process_path = str(prepared.path)
+        elif not checkpoint.chunk_ids:
+            process_path = process_storage_path
         outcome = await engine_manager.process_document(
             source.sag_source_config_id,
-            str(prepared.path) if prepared is not None else None,
+            process_path,
             source=source,
             on_stage=on_stage,
             checkpoint=checkpoint,
@@ -115,19 +208,44 @@ async def process_document(
             should_pause=should_pause,
             max_concurrency=settings.document_extract_concurrency,
             document_title=Path(document.filename).stem.strip(),
+            **code_kwargs,
         )
         if outcome.paused:
-            document.status = DocumentStatus.PAUSED
-            document.error = None
+            if not preserve_old_revision:
+                document.status = DocumentStatus.PAUSED
+                document.error = None
             await session.commit()
             raise JobPaused()
     except JobPaused:
         raise
     except Exception as e:  # noqa: BLE001 - 记录到文档后再上抛给 worker
-        document.status = DocumentStatus.FAILED
-        document.error = getattr(e, "message", None) or str(e)
+        if replacement:
+            await rollback_code_replacement(document, replacement)
+            # Keep old revision searchable after failed replacement.
+            if document.status != DocumentStatus.READY:
+                document.status = DocumentStatus.READY
+            document.error = getattr(e, "message", None) or str(e)
+        else:
+            document.status = DocumentStatus.FAILED
+            document.error = getattr(e, "message", None) or str(e)
         await session.commit()
         raise
+
+    if replacement:
+        if job_queue is None:
+            raise RuntimeError("代码版本发布需要任务队列")
+        await publish_code_replacement(
+            session,
+            document,
+            source,
+            replacement=replacement,
+            outcome_source_id=outcome.source_id,
+            outcome_chunk_count=outcome.chunk_count,
+            outcome_event_count=outcome.event_count,
+            outcome_token_usage=outcome.token_usage,
+            job_queue=job_queue,
+        )
+        return
 
     document.status = DocumentStatus.READY
     document.chunk_count = outcome.chunk_count
@@ -147,23 +265,11 @@ async def process_document(
     )
     await session.commit()
     log.info(
-        "文档处理完成 doc=%s parser=%s cached=%s chunks=%d events=%d tokens=%d",
+        "文档处理完成 doc=%s chunks=%d events=%d",
         document.id,
-        prepared.provider if prepared is not None else "checkpoint",
-        prepared.cached if prepared is not None else True,
         outcome.chunk_count,
         outcome.event_count,
-        outcome.token_usage,
     )
-    if job_queue is not None:
-        from sag_api.services.universe_service import schedule_universe_refresh
-
-        await schedule_universe_refresh(
-            session,
-            job_queue,
-            source_id=source.id,
-            reason="document_processed",
-        )
 
 
 async def sync_source(session: AsyncSession, job: Job, *, engine_manager=None, job_queue=None) -> None:
@@ -227,8 +333,77 @@ async def index_universe(
     await session.commit()
 
 
+async def cleanup_document_revision(
+    session: AsyncSession, job: Job, *, engine_manager: EngineManager, job_queue=None
+) -> None:
+    """Delete an old code revision's derived sag data after a successful publish."""
+    payload = dict(job.payload or {})
+    document_id = str(payload.get("document_id") or job.document_id or "")
+    old_sag_source_id = str(payload.get("old_sag_source_id") or "")
+    new_hash = str(payload.get("new_content_sha256") or "")
+    source_id = str(payload.get("source_id") or job.source_id or "")
+    if not document_id or not old_sag_source_id or not new_hash:
+        raise NotFoundError("版本清理任务缺少必要参数")
+
+    document = await session.get(Document, document_id)
+    if document is None:
+        # Document gone: nothing authoritative to protect; still try cleanup once.
+        source = await session.get(Source, source_id) if source_id else None
+        if source is not None:
+            await engine_manager.delete_document_data(
+                source.sag_source_config_id,
+                old_sag_source_id,
+                source=source,
+            )
+        job.progress = 1.0
+        await session.commit()
+        return
+
+    if document.content_sha256 != new_hash:
+        # A newer revision may have been published or rolled back; skip delete.
+        log.warning(
+            "跳过版本清理 doc=%s expected_hash=%s actual_hash=%s old_sag=%s",
+            document_id,
+            new_hash,
+            document.content_sha256,
+            old_sag_source_id,
+        )
+        job.progress = 1.0
+        await session.commit()
+        return
+
+    if document.sag_source_id == old_sag_source_id:
+        # Safety: never delete the currently published revision.
+        log.warning(
+            "跳过版本清理：旧 sag_source 仍是当前版本 doc=%s sag=%s",
+            document_id,
+            old_sag_source_id,
+        )
+        job.progress = 1.0
+        await session.commit()
+        return
+
+    source = await session.get(Source, document.source_id)
+    if source is None:
+        raise NotFoundError("信源不存在")
+    await engine_manager.delete_document_data(
+        source.sag_source_config_id,
+        old_sag_source_id,
+        source=source,
+    )
+    job.progress = 1.0
+    await session.commit()
+    log.info(
+        "旧代码版本已清理 doc=%s old_sag=%s new_hash=%s",
+        document_id,
+        old_sag_source_id,
+        new_hash,
+    )
+
+
 TASK_HANDLERS: dict[JobType, TaskHandler] = {
     JobType.PROCESS_DOCUMENT: process_document,
     JobType.SYNC_SOURCE: sync_source,
     JobType.INDEX_UNIVERSE: index_universe,
+    JobType.CLEANUP_DOCUMENT_REVISION: cleanup_document_revision,
 }

@@ -18,6 +18,7 @@ os.environ["SAG_LLM_BASE_URL"] = ""
 os.environ["SAG_EMBEDDING_API_KEY"] = ""
 os.environ["SAG_MINERU_API_KEY"] = ""
 os.environ["SAG_MINERU_BASE_URL"] = ""
+os.environ["SAG_TREE_SITTER_AUTO_DOWNLOAD"] = "false"
 
 
 @pytest.fixture(autouse=True)

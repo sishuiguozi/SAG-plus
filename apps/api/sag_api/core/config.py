@@ -18,11 +18,16 @@ from pathlib import Path
 from typing import Annotated, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from sag_api.core.model_providers import ModelProviderId, get_model_provider
-from sag_api.enums import SearchStrategy, normalize_search_strategy
+from sag_api.enums import (
+    ReasoningHistoryCompat, JsonSchemaCompat,
+    SearchStrategy,
+    ToolChoiceStrategy,
+    normalize_search_strategy,
+)
 
 _DEFAULT_LLM_PROVIDER = get_model_provider("openai")
 
@@ -70,6 +75,9 @@ class Settings(BaseSettings):
     database_sqlite_temp_store: Literal["DEFAULT", "FILE", "MEMORY"] = "MEMORY"
 
     # ── 存储 ────────────────────────────────────────────────────────────
+    # 可选数据根目录：设置后统一派生 database_url / data_dir / upload_dir
+    # （models 位于 {data_root}/models）。适合桌面端切换知识库落盘位置。
+    data_root: str | None = None
     data_dir: str = "./.data/engine"  # zleap-sag data_dir（LanceDB + SQLite）
     upload_dir: str = "./.data/uploads"  # 上传原始文件落盘
     max_upload_mb: int = 25  # 单文件上传上限
@@ -101,6 +109,7 @@ class Settings(BaseSettings):
     # A4 父子分块：父块为目标大小的上下文块，子块继承 source_chunk_max_tokens 切分。
     parent_chunk_max_tokens: int = Field(default=1_024, ge=200, le=20_000)
     parent_chunk_vectorize: bool = True  # False 时父块仅入库、不生成向量
+    tree_sitter_auto_download: bool = True  # 后台下载全部语言解析器；测试环境显式关闭
     # 上传文档已有独立的知识型过滤要求；默认关闭上游基于标题/摘要的严格过滤，
     # 避免无摘要或标题缺失的书籍正文被误判为噪音。
     document_strict_filtering: bool = False
@@ -150,6 +159,11 @@ class Settings(BaseSettings):
     llm_context_window: int = _DEFAULT_LLM_PROVIDER.default_context_window
     llm_timeout_ms: int = Field(default=60_000, ge=1_000, le=600_000)
     llm_max_retries: int = Field(default=2, ge=0, le=10)
+    llm_tool_choice_strategy: ToolChoiceStrategy = "forced_no_thinking"
+    llm_reasoning_history_compat: ReasoningHistoryCompat = "auto"
+    # auto: only rewrite json_schema->json_object for known-incompatible routes
+    # (OpenCode/Console Go style). always/off force the rewrite for every provider.
+    llm_json_schema_compat: JsonSchemaCompat = "auto"
     # 透传给 chat/completions 的额外请求体（JSON），如 {"enable_thinking": false}；
     # 未配置时对 qwen 系模型通过 LiteLLM reasoning_effort=none 统一关闭思考。
     llm_extra_body: dict | None = None
@@ -192,6 +206,17 @@ class Settings(BaseSettings):
     # A3：LLM Rerank（默认关闭；开启后对候选做编号重排）
     search_llm_rerank_enabled: bool = False
     search_llm_rerank_candidates: int = Field(default=8, ge=3, le=20)
+    # Rerank 来源：off=仅融合排序；local/API=Cross-Encoder；llm=旧兼容编号重排。
+    search_rerank_mode: Literal["off", "local", "api", "llm"] = "off"
+    search_rerank_candidates: int = Field(default=8, ge=3, le=20)
+    search_local_rerank_model_file: str = "qwen3-reranker-0.6b-q8_0.gguf"
+    search_rerank_api_url: str | None = None
+    search_rerank_api_key: str | None = None
+    search_rerank_api_model: str | None = None
+    search_rerank_api_instruction: str | None = (
+        "Given a web search query, retrieve relevant passages that answer the query."
+    )
+    search_rerank_api_timeout_ms: int = Field(default=30_000, ge=1_000, le=120_000)
 
     # ── 知识宇宙 ──────────────────────────────────────────────────────────
     # 服务端统一下发景深门与场景预算，前端不再散落硬编码阈值。
@@ -264,8 +289,9 @@ class Settings(BaseSettings):
         """应用当前 provider 的采样能力约束。"""
         return get_model_provider(self.llm_provider).resolve_temperature(self.llm_temperature)
 
+    @property
     def effective_embedding_api_key(self) -> str | None:
-        """优先独立 embedding key；未配置时复用 LLM key（调用方带括号）。"""
+        """优先独立 embedding key；未配置时复用 LLM key。"""
         provider = get_model_provider(self.llm_provider)
         return self.embedding_api_key or (self.llm_api_key if provider.can_reuse_embedding_credentials else None)
 
@@ -273,6 +299,22 @@ class Settings(BaseSettings):
     def effective_embedding_base_url(self) -> str | None:
         provider = get_model_provider(self.llm_provider)
         return self.embedding_base_url or (self.llm_base_url if provider.can_reuse_embedding_credentials else None)
+
+    @model_validator(mode="after")
+    def apply_data_root(self) -> "Settings":
+        """When data_root is set, derive the SQLite/engine/upload layout under it."""
+        raw = (self.data_root or "").strip()
+        if not raw:
+            return self
+        root = Path(raw).expanduser().resolve()
+        db_path = (root / "sag.db").resolve()
+        # SQLAlchemy sqlite absolute URLs: sqlite+aiosqlite:///C:/path/db.sqlite
+        db_url = f"sqlite+aiosqlite:///{db_path.as_posix()}"
+        object.__setattr__(self, "data_root", str(root))
+        object.__setattr__(self, "database_url", db_url)
+        object.__setattr__(self, "data_dir", str(root / "engine"))
+        object.__setattr__(self, "upload_dir", str(root / "uploads"))
+        return self
 
     @property
     def mineru_configured(self) -> bool:
@@ -287,9 +329,19 @@ class Settings(BaseSettings):
         return "mineru" if self.mineru_configured else "markitdown"
 
     def embedding_local_model_path(self) -> str:
-        """程序内嵌 8-bit 量化模型（GGUF）路径：{data_dir 上级}/models/bge-m3/<model_file>。"""
+        """Return a new catalog path, while retaining the original BGE-M3 location."""
         engine_dir = Path(self.data_dir).resolve()
-        return str(engine_dir.parent / "models" / "bge-m3" / self.embedding_local_model_file)
+        root = engine_dir.parent / "models"
+        preferred = root / "embedding" / self.embedding_local_model_file
+        legacy = root / "bge-m3" / self.embedding_local_model_file
+        return str(legacy if legacy.is_file() else preferred)
+
+    @property
+    def effective_search_rerank_mode(self) -> Literal["off", "local", "api", "llm"]:
+        """Read legacy LLM rerank configs without overriding an explicit new mode."""
+        if self.search_rerank_mode == "off" and self.search_llm_rerank_enabled:
+            return "llm"
+        return self.search_rerank_mode
 
 
 @lru_cache

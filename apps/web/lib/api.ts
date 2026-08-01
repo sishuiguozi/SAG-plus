@@ -18,6 +18,10 @@ import type {
   MessagePage,
   ModelConfig,
   ModelConfigPatch,
+  LocalModelManagerStatus,
+  LocalEmbeddingTestRequest,
+  LocalEmbeddingTestResult,
+  LocalRerankerTestResult,
   ModelProviderSpec,
   ModelSetupStatus,
   KnowledgeMcpDescriptor,
@@ -462,6 +466,30 @@ export const api = {
 
   // 模型与检索配置
   getModelConfig: () => request<ModelConfig>("/api/v1/system/model-config"),
+  getLocalModelStatus: () => request<LocalModelManagerStatus>("/api/v1/system/local-models"),
+  installLocalModelBackend: () =>
+    request<LocalModelManagerStatus>("/api/v1/system/local-models/backend/install", {
+      method: "POST",
+    }),
+  installLocalRerankerBackend: () =>
+    request<LocalModelManagerStatus>("/api/v1/system/local-models/reranker-backend/install", {
+      method: "POST",
+    }),
+  downloadLocalModels: (files: string[]) =>
+    request<LocalModelManagerStatus>("/api/v1/system/local-models/download", {
+      method: "POST",
+      body: JSON.stringify({ files }),
+    }),
+  testLocalEmbedding: (body: LocalEmbeddingTestRequest) =>
+    request<LocalEmbeddingTestResult>("/api/v1/system/local-models/test", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  testLocalReranker: (body: LocalEmbeddingTestRequest) =>
+    request<LocalRerankerTestResult>("/api/v1/system/local-models/reranker/test", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   getModelProviders: () =>
     request<ModelProviderSpec[]>("/api/v1/system/model-providers"),
   modelSetupStatus: () =>
@@ -516,6 +544,65 @@ export const api = {
     }),
   syncSource: (id: string) =>
     request<{ id: string; type: string }>(`/api/v1/sources/${id}/sync`, {
+      method: "POST",
+    }),
+
+  getSourceCodeConfig: (id: string) =>
+    request<import("./types").SourceCodeConfig>(`/api/v1/sources/${id}/code-config`),
+  updateSourceCodeConfig: (
+    id: string,
+    body: import("./types").SourceCodeConfig,
+  ) =>
+    request<import("./types").SourceCodeConfig>(`/api/v1/sources/${id}/code-config`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  planCodeFolder: (
+    sid: string,
+    body: {
+      root_name: string;
+      items: Array<{ relative_path: string; sha256: string; size_bytes: number }>;
+    },
+  ) =>
+    request<import("./types").CodeFolderPlanResponse>(
+      `/api/v1/sources/${sid}/code-folder/plan`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  uploadCodeFolderFile: (
+    sid: string,
+    payload: {
+      file: File;
+      relative_path: string;
+      root_name: string;
+      sha256: string;
+    },
+  ) => {
+    const fd = new FormData();
+    fd.append("file", payload.file);
+    fd.append("relative_path", payload.relative_path);
+    fd.append("root_name", payload.root_name);
+    fd.append("sha256", payload.sha256);
+    return request<import("./types").CodeFolderUploadResult>(
+      `/api/v1/sources/${sid}/code-folder/upload`,
+      { method: "POST", body: fd },
+    );
+  },
+  getTreeSitterStatus: () =>
+    request<import("./types").TreeSitterResourceStatus>("/api/v1/system/tree-sitter"),
+  downloadTreeSitter: () =>
+    request<import("./types").TreeSitterResourceStatus>("/api/v1/system/tree-sitter/download", {
+      method: "POST",
+    }),
+  pauseTreeSitter: () =>
+    request<import("./types").TreeSitterResourceStatus>("/api/v1/system/tree-sitter/pause", {
+      method: "POST",
+    }),
+  resumeTreeSitter: () =>
+    request<import("./types").TreeSitterResourceStatus>("/api/v1/system/tree-sitter/resume", {
+      method: "POST",
+    }),
+  repairTreeSitter: () =>
+    request<import("./types").TreeSitterResourceStatus>("/api/v1/system/tree-sitter/repair", {
       method: "POST",
     }),
 

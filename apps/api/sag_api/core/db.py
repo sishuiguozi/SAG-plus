@@ -80,6 +80,9 @@ _COLUMN_UPGRADES: dict[str, dict[str, str]] = {
     "documents": {
         "progress": "INTEGER NOT NULL DEFAULT 0",
         "token_usage": "BIGINT NOT NULL DEFAULT 0",
+        "relative_path": "VARCHAR(1024)",
+        "content_sha256": "VARCHAR(64)",
+        "code_language": "VARCHAR(64)",
     },
     "threads": {"archived": "BOOLEAN NOT NULL DEFAULT 0"},
     "messages": {
@@ -105,7 +108,10 @@ _INDEX_UPGRADES = (
     "CREATE INDEX IF NOT EXISTS ix_messages_thread_created_id ON messages (thread_id, created_at, id)",
     "CREATE INDEX IF NOT EXISTS ix_documents_source_sag_source ON documents (source_id, sag_source_id)",
     "CREATE INDEX IF NOT EXISTS ix_documents_source_status ON documents (source_id, status)",
-    "CREATE INDEX IF NOT EXISTS ix_documents_source_graph_sample ON documents (source_id, event_count, sag_source_id, status, created_at, id)",
+    "CREATE INDEX IF NOT EXISTS ix_documents_source_relative_path ON documents (source_id, relative_path)",
+    "CREATE INDEX IF NOT EXISTS ix_documents_source_code_language ON documents (source_id, code_language)",
+    "CREATE INDEX IF NOT EXISTS ix_documents_source_graph_sample "
+    "ON documents (source_id, event_count, sag_source_id, status, created_at, id)",
     "CREATE INDEX IF NOT EXISTS ix_source_graph_cache_source_revision ON source_graph_caches (source_id, revision)",
     "CREATE INDEX IF NOT EXISTS ix_source_graph_cache_source_key ON source_graph_caches (source_id, cache_key)",
     "CREATE INDEX IF NOT EXISTS ix_universe_graph_cache_source_revision ON universe_graph_caches (source_id, revision)",
@@ -117,7 +123,9 @@ _INDEX_UPGRADES = (
     "CREATE INDEX IF NOT EXISTS ix_vector_write_embedding_status ON vector_write_jobs (embedding_version, status)",
     # Queue V2 record-level detail table (created by create_all as a new table;
     # the DDL below is an idempotent safety net for pre-existing databases).
-    "CREATE UNIQUE INDEX IF NOT EXISTS uq_vector_write_items_active ON vector_write_items (table_name, record_id, embedding_version) WHERE status IN ('queued','embedding','ready_to_write','writing','retry')",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_vector_write_items_active "
+    "ON vector_write_items (table_name, record_id, embedding_version) "
+    "WHERE status IN ('queued','embedding','ready_to_write','writing','retry')",
     "CREATE INDEX IF NOT EXISTS ix_vector_write_items_job_status ON vector_write_items (job_id, status)",
     "CREATE INDEX IF NOT EXISTS ix_vector_write_items_table_status ON vector_write_items (table_name, status)",
     "CREATE INDEX IF NOT EXISTS ix_vector_write_items_source_status ON vector_write_items (source_config_id, status)",

@@ -7,6 +7,14 @@ from typing import Literal
 
 SearchStrategy = Literal["vector", "multi"]
 SEARCH_STRATEGIES = frozenset({"vector", "multi"})
+ToolChoiceStrategy = Literal[
+    "forced_no_thinking",
+    "forced_with_thinking",
+    "auto",
+    "all_no_thinking",
+]
+ReasoningHistoryCompat = Literal["auto", "always", "off"]
+JsonSchemaCompat = Literal["auto", "always", "off"]
 
 
 def normalize_search_strategy(value: str) -> str:
@@ -53,6 +61,7 @@ class JobType(StrEnum):
     PROCESS_DOCUMENT = "process_document"
     SYNC_SOURCE = "sync_source"
     INDEX_UNIVERSE = "index_universe"
+    CLEANUP_DOCUMENT_REVISION = "cleanup_document_revision"
 
 
 class JobStatus(StrEnum):

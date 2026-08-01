@@ -20,6 +20,230 @@ from sag_api.db.models import Document, Job, Source
 from sag_api.enums import DocumentStatus, JobStatus, JobType
 from sag_api.jobs import JobQueue
 from sag_api.sag import EngineManager
+import hashlib
+
+
+def _sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _code_pending_path(storage_path: str, content_sha256: str) -> str:
+    base_dir = os.path.dirname(storage_path)
+    name = os.path.basename(storage_path)
+    return os.path.join(base_dir, f".pending_{content_sha256[:16]}_{name}")
+
+
+async def find_document_by_relative_path(
+    session: AsyncSession,
+    source_id: str,
+    relative_path: str,
+) -> Document | None:
+    return await session.scalar(
+        select(Document).where(
+            Document.source_id == source_id,
+            Document.relative_path == relative_path,
+        )
+    )
+
+
+async def stage_code_document_upload(
+    session: AsyncSession,
+    source: Source,
+    *,
+    filename: str,
+    content_type: str,
+    data: bytes,
+    upload_dir: str,
+    job_queue: JobQueue,
+    relative_path: str,
+    code_language: str | None = None,
+) -> tuple[Document, Job]:
+    """Create or stage a code-file revision without publishing over the live file yet."""
+    _ensure_ingest_disk()
+    safe_name = os.path.basename(filename) or "upload"
+    rel = (relative_path or safe_name).replace("\\", "/").lstrip("/")
+    digest = _sha256_bytes(data)
+    existing = await find_document_by_relative_path(session, source.id, rel)
+
+    if existing is None:
+        document, job = await create_document_from_upload(
+            session,
+            source,
+            filename=safe_name,
+            content_type=content_type,
+            data=data,
+            upload_dir=upload_dir,
+            job_queue=job_queue,
+        )
+        # Reload and stamp code metadata for first version.
+        document = await session.get(Document, document.id)
+        assert document is not None
+        document.relative_path = rel
+        document.content_sha256 = digest
+        document.code_language = code_language
+        job = await session.get(Job, job.id)
+        assert job is not None
+        payload = dict(job.payload or {})
+        payload["code_ingest"] = {
+            "relative_path": rel,
+            "content_sha256": digest,
+            "code_language": code_language,
+        }
+        job.payload = payload
+        await session.commit()
+        await session.refresh(document)
+        await session.refresh(job)
+        return document, job
+
+    if existing.content_sha256 == digest and existing.status == DocumentStatus.READY:
+        raise ConflictError("代码文件内容未变化，无需重新入库")
+
+    # Stage replacement against an existing authoritative document.
+    pending_path = _code_pending_path(existing.storage_path, digest)
+    os.makedirs(os.path.dirname(pending_path), exist_ok=True)
+    with open(pending_path, "wb") as f:
+        f.write(data)
+
+    old_snapshot = {
+        "storage_path": existing.storage_path,
+        "content_sha256": existing.content_sha256,
+        "code_language": existing.code_language,
+        "size_bytes": existing.size_bytes,
+        "chunk_count": existing.chunk_count,
+        "event_count": existing.event_count,
+        "sag_source_id": existing.sag_source_id,
+        "status": existing.status.value if existing.status else None,
+        "filename": existing.filename,
+        "token_usage": existing.token_usage,
+    }
+    # Keep Document pointing at old authoritative version while processing.
+    existing.status = DocumentStatus.PENDING
+    existing.error = None
+    existing.progress = 0
+    job = Job(
+        type=JobType.PROCESS_DOCUMENT,
+        source_id=source.id,
+        document_id=existing.id,
+        status=JobStatus.QUEUED,
+        payload={
+            "code_replacement": {
+                "pending_path": pending_path,
+                "new_content_sha256": digest,
+                "new_code_language": code_language or existing.code_language,
+                "new_size_bytes": len(data),
+                "relative_path": rel,
+                "old": old_snapshot,
+            }
+        },
+    )
+    session.add(job)
+    await session.commit()
+    await session.refresh(existing)
+    await session.refresh(job)
+    await job_queue.enqueue(job.id)
+    return existing, job
+
+
+async def publish_code_replacement(
+    session: AsyncSession,
+    document: Document,
+    source: Source,
+    *,
+    replacement: dict,
+    outcome_source_id: str | None,
+    outcome_chunk_count: int,
+    outcome_event_count: int,
+    outcome_token_usage: int,
+    job_queue: JobQueue,
+) -> Job | None:
+    """Atomically publish a staged code revision and enqueue old-version cleanup."""
+    pending_path = str(replacement.get("pending_path") or "")
+    new_hash = str(replacement.get("new_content_sha256") or "")
+    old = dict(replacement.get("old") or {})
+    if not pending_path or not new_hash:
+        raise ValidationError("代码版本发布信息不完整")
+    if not os.path.exists(pending_path):
+        raise ValidationError("待发布代码文件不存在")
+
+    live_path = str(old.get("storage_path") or document.storage_path)
+    os.makedirs(os.path.dirname(live_path), exist_ok=True)
+    os.replace(pending_path, live_path)
+
+    old_chunk = int(old.get("chunk_count") or 0)
+    old_event = int(old.get("event_count") or 0)
+    document.storage_path = live_path
+    document.content_sha256 = new_hash
+    document.code_language = replacement.get("new_code_language") or document.code_language
+    document.relative_path = replacement.get("relative_path") or document.relative_path
+    document.size_bytes = int(replacement.get("new_size_bytes") or document.size_bytes or 0)
+    document.sag_source_id = outcome_source_id
+    document.chunk_count = outcome_chunk_count
+    document.event_count = outcome_event_count
+    document.token_usage = outcome_token_usage
+    document.status = DocumentStatus.READY
+    document.progress = 100
+    document.error = None
+
+    await session.execute(
+        update(Source)
+        .where(Source.id == source.id)
+        .values(
+            chunk_count=Source.chunk_count - old_chunk + outcome_chunk_count,
+            event_count=Source.event_count - old_event + outcome_event_count,
+        )
+    )
+
+    cleanup_job = None
+    old_sag = old.get("sag_source_id")
+    if old_sag and old_sag != outcome_source_id:
+        cleanup_job = Job(
+            type=JobType.CLEANUP_DOCUMENT_REVISION,
+            source_id=source.id,
+            document_id=document.id,
+            status=JobStatus.QUEUED,
+            payload={
+                "source_id": source.id,
+                "document_id": document.id,
+                "old_sag_source_id": old_sag,
+                "new_content_sha256": new_hash,
+            },
+        )
+        session.add(cleanup_job)
+    await session.commit()
+    if cleanup_job is not None:
+        await session.refresh(cleanup_job)
+        await job_queue.enqueue(cleanup_job.id)
+    return cleanup_job
+
+
+async def rollback_code_replacement(document: Document, replacement: dict) -> None:
+    """Drop pending file and restore authoritative document fields after failure."""
+    pending_path = str(replacement.get("pending_path") or "")
+    old = dict(replacement.get("old") or {})
+    if pending_path and os.path.exists(pending_path):
+        try:
+            os.remove(pending_path)
+        except OSError:
+            pass
+    if not old:
+        return
+    document.storage_path = str(old.get("storage_path") or document.storage_path)
+    document.content_sha256 = old.get("content_sha256")
+    document.code_language = old.get("code_language")
+    document.size_bytes = int(old.get("size_bytes") or document.size_bytes or 0)
+    document.chunk_count = int(old.get("chunk_count") or 0)
+    document.event_count = int(old.get("event_count") or 0)
+    document.sag_source_id = old.get("sag_source_id")
+    document.token_usage = int(old.get("token_usage") or 0)
+    document.filename = str(old.get("filename") or document.filename)
+    status_raw = old.get("status") or DocumentStatus.READY.value
+    try:
+        document.status = DocumentStatus(status_raw)
+    except Exception:  # noqa: BLE001
+        document.status = DocumentStatus.READY
+    document.progress = 100 if document.status == DocumentStatus.READY else document.progress
+    document.error = None
+
 
 # SAG-OPT-802：磁盘分级保护（<5GB 暂停新文档解析）
 _ingest_disk_guard = DiskGuard(settings.data_dir, settings)

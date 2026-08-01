@@ -1,5 +1,8 @@
 """本地 embedding 后端补丁：api/local 切换与恢复、schema 校验。"""
 
+import sys
+import types
+
 import pytest
 
 from sag_api.schemas.system import ModelConfigUpdate
@@ -60,3 +63,21 @@ def test_model_config_patch_accepts_provider():
     assert ModelConfigUpdate(embedding_provider="api").embedding_provider == "api"
     with pytest.raises(ValueError):
         ModelConfigUpdate(embedding_provider="remote")
+
+
+def test_local_embedding_enables_current_llama_cpp_embeddings_mode(tmp_path, monkeypatch):
+    from sag_api.sag.embedding_backend import LocalEmbeddingClient
+
+    model = tmp_path / "bge-m3-Q8_0.gguf"
+    model.write_bytes(b"model")
+    received = {}
+
+    class FakeLlama:
+        def __init__(self, **kwargs):
+            received.update(kwargs)
+
+    monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=FakeLlama))
+
+    LocalEmbeddingClient(str(model))._ensure_loaded()
+
+    assert received["embeddings"] is True

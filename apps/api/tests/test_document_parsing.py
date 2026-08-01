@@ -18,8 +18,8 @@ from sag_api.core.errors import (
     ServiceUnavailableError,
     UpstreamError,
 )
-from sag_api.parsing import service
 from sag_api.parsing import mineru as mineru_module
+from sag_api.parsing import service
 from sag_api.parsing.mineru import MinerUClient, _assert_public_host, _interpret_poll_payload
 from sag_api.parsing.service import PreparedDocument
 from sag_api.sag.dto import ProcessCheckpoint, ProcessOutcome
@@ -84,19 +84,33 @@ async def test_legacy_gb18030_text_is_normalized_without_markitdown(tmp_path, mo
 
 @pytest.mark.parametrize(
     "suffix",
-    [".cpp", ".py", ".java", ".cs", ".fxw", ".ag", ".imesh", ".earth", ".bat", ".ini"],
+    [".cpp", ".py", ".java", ".cs", ".bat", ".ini"],
 )
 @pytest.mark.asyncio
-async def test_source_code_files_use_plain_text_path(tmp_path, monkeypatch, suffix):
-    """源码 / AFSIM 文件走纯文本直读，不经过 MarkItDown。"""
+async def test_recognized_source_files_use_tree_sitter_path(tmp_path, suffix):
+    """明确识别的源码与配置文件保留原文件，交给 Tree-sitter。"""
     body = "alpha\nbeta\n"
     source = tmp_path / f"sample{suffix}"
-    # write_bytes 而非 write_text：避免 Windows 文本模式把 \n 翻译成 \r\n，
-    # 进而在缓存写入/读取的文本模式往返中被双倍化（\r\n -> \n\n）。
+    source.write_bytes(body.encode("utf-8"))
+
+    parsed = await service.prepare_document(str(source), _settings())
+
+    assert parsed.provider == "tree_sitter"
+    assert parsed.path == str(source)
+    assert parsed.code_language
+    assert parsed.content_sha256
+
+
+@pytest.mark.parametrize("suffix", [".fxw", ".ag", ".imesh", ".earth"])
+@pytest.mark.asyncio
+async def test_afsim_custom_files_use_plain_text_path(tmp_path, monkeypatch, suffix):
+    """无 Tree-sitter grammar 的 AFSIM 文件继续走纯文本直读。"""
+    body = "alpha\nbeta\n"
+    source = tmp_path / f"sample{suffix}"
     source.write_bytes(body.encode("utf-8"))
 
     def should_not_run(_path: str) -> str:
-        raise AssertionError("源码文件应走纯文本解码器，不应调用 MarkItDown")
+        raise AssertionError("AFSIM 文件应走纯文本解码器，不应调用 MarkItDown")
 
     monkeypatch.setattr(service, "_markitdown_sync", should_not_run)
     parsed = await service.prepare_document(str(source), _settings())
@@ -461,7 +475,7 @@ async def test_document_job_sends_parsed_markdown_to_engine(monkeypatch):
 
     prepared_calls: list[str] = []
 
-    async def fake_prepare(path, settings, *, state=None, on_state=None):
+    async def fake_prepare(path, settings, *, state=None, on_state=None, relative_path=None, ingest_context="single"):
         prepared_calls.append(path)
         return PreparedDocument("/uploads/original.pdf.parsed.markitdown.md", "markitdown")
 
@@ -480,6 +494,7 @@ async def test_document_job_sends_parsed_markdown_to_engine(monkeypatch):
             should_pause,
             max_concurrency,
             document_title,
+            **kwargs,
         ):
             self.seen_path = path
             assert max_concurrency == tasks.settings.document_extract_concurrency

@@ -48,3 +48,6 @@ apps/api/dist/desktop/
 
 # skill installer output (npx skills add)
 .agents/
+
+# Local Git worktrees used for isolated feature development
+.worktrees/

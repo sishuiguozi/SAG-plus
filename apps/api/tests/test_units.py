@@ -76,7 +76,7 @@ def test_extraction_engine_uses_one_litellm_transport(provider, model, expected_
 @pytest.mark.parametrize(
     ("extra_body", "expected_reasoning", "expect_extra_body"),
     [
-        (None, "none", False),
+        (None, None, False),
         ({"enable_thinking": False}, "none", True),
         ({"chat_template_kwargs": {"enable_thinking": False}}, "none", True),
         ({"enable_thinking": True}, None, True),
@@ -128,7 +128,7 @@ async def test_installed_litellm_policy_covers_dependency_owned_calls():
             {"model": "openai/qwen3.6-flash", "messages": []},
             SimpleNamespace(value="acompletion"),
         )
-        assert request["reasoning_effort"] == "none"
+        assert "reasoning_effort" not in request
         assert callback in litellm.callbacks
     finally:
         uninstall_litellm_policy(callback)
@@ -178,6 +178,7 @@ async def test_llm_timeout_and_retries_reach_unified_client(monkeypatch):
     configured = Settings(
         _env_file=None,
         llm_api_key="provider-key",
+        llm_model="qwen3.6-flash",
         llm_timeout_ms=45_000,
         llm_max_retries=3,
     )
@@ -187,8 +188,8 @@ async def test_llm_timeout_and_retries_reach_unified_client(monkeypatch):
     assert seen["model"] == "openai/qwen3.6-flash"
     assert seen["timeout"] == 45
     assert seen["num_retries"] == 3
-    assert seen["reasoning_effort"] == "none"
-    assert "reasoning_effort" in seen["allowed_openai_params"]
+    assert "reasoning_effort" not in seen
+    assert "allowed_openai_params" not in seen
     assert "extra_body" not in seen
 
     engine = build_engine_config(configured)

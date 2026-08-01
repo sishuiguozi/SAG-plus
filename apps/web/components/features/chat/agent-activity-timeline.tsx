@@ -5,7 +5,7 @@ import { Check, ChevronDown, ChevronRight, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import type { MessageStep } from "@/lib/types";
-import { toolScope } from "@/lib/agent-run-activity";
+import { hasFailedAgentRunStep, toolScope } from "@/lib/agent-run-activity";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -164,16 +164,17 @@ export function AgentActivityTimeline({
   }, [active]);
 
   const toolRuns = steps.filter((step) => step.kind === "tool");
-  const failedRuns = toolRuns.filter(
+  const failedSteps = steps.filter(
     (step) => step.status === "error" || Boolean(step.error),
   );
+  const hasFailure = hasFailedAgentRunStep(steps);
   if (steps.length === 0) return null;
 
   const totalDuration = steps.reduce((total, step) => total + elapsedFor(step, now), 0);
   const actionLabel = active
     ? t("processing")
-    : failedRuns.length
-      ? t("incomplete", { count: failedRuns.length })
+    : hasFailure
+      ? t("incomplete", { count: failedSteps.length })
       : toolRuns.length
         ? t("toolsCompleted", { count: toolRuns.length })
         : t("completed");
@@ -209,7 +210,7 @@ export function AgentActivityTimeline({
       >
         {active ? (
           <Spinner className="size-2.5 shrink-0" />
-        ) : failedRuns.length ? (
+        ) : hasFailure ? (
           <X className="size-2.5 shrink-0 text-destructive" />
         ) : (
           <Check className="size-2.5 shrink-0" />

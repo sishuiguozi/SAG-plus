@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import os
 from pathlib import Path
+from time import perf_counter
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
@@ -11,21 +13,75 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sag_api.core.config import settings
 from sag_api.core.db import SessionLocal, get_session
 from sag_api.core.deps import get_current_user
-from sag_api.core.errors import ApiError, ConflictError, ForbiddenError
+from sag_api.core.errors import ApiError, ConflictError, ForbiddenError, ValidationError
 from sag_api.core.logging import get_logger
 from sag_api.core.model_providers import model_provider_catalog
 from sag_api.db.models import Source, User
 from sag_api.generation import LLMClient
 from sag_api.mcp.server import MCP_TOOL_DETAILS, MCP_TOOL_NAMES
+from sag_api.sag.local_model_catalog import ModelKind, get_model_spec
+from sag_api.sag.local_model_manager import MODEL_CATALOG
 from sag_api.schemas.system import (
+    LocalModelDownloadRequest,
+    LocalModelTestRequest,
     ModelConfigUpdate,
     QuickModelSetupRequest,
+    RerankAPITestRequest,
     SystemPreferencesUpdate,
 )
 from sag_api.services import settings_service
 
 router = APIRouter(prefix="/system", tags=["system"])
 log = get_logger("system")
+_local_model_manager = None
+_local_embedding_test_lock = asyncio.Lock()
+_local_reranker_test_lock = asyncio.Lock()
+
+
+def _get_local_model_manager():
+    """Keep download state in-process while following a changed data directory."""
+    from sag_api.sag.local_model_manager import LocalModelManager
+
+    global _local_model_manager
+    model_dir = Path(settings.data_dir).resolve().parent / "models"
+    if _local_model_manager is None or _local_model_manager.model_dir != model_dir:
+        _local_model_manager = LocalModelManager(model_dir)
+    return _local_model_manager
+
+
+async def _generate_local_embedding_test(
+    model_path: str,
+    *,
+    n_ctx: int,
+    n_threads: int | None,
+) -> list[float]:
+    """Generate with a temporary local client, serializing model residency."""
+    from sag_api.sag.embedding_backend import LocalEmbeddingClient
+
+    async with _local_embedding_test_lock:
+        client = LocalEmbeddingClient(model_path, n_ctx=n_ctx, n_threads=n_threads)
+        try:
+            return await client.generate("SAG-plus local embedding health check")
+        finally:
+            await client.close()
+
+
+async def _generate_local_reranker_test(
+    model_path: str,
+    *,
+    n_ctx: int,
+    n_threads: int | None,
+) -> list[float]:
+    """Run an unsaved native cross-encoder health check with serialized residency."""
+    from sag_api.sag.local_reranker import LocalReranker
+
+    async with _local_reranker_test_lock:
+        reranker = LocalReranker(model_path, n_ctx=n_ctx, n_threads=n_threads)
+        return await asyncio.to_thread(
+            reranker.rank,
+            "SAG-plus local reranker health check",
+            ["A relevant knowledge search passage", "An unrelated weather note"],
+        )
 
 
 def _capabilities() -> dict:
@@ -202,6 +258,147 @@ async def get_model_config(
 ) -> dict:
     """当前生效的模型与检索配置（密钥脱敏为 *_set 布尔）。"""
     return settings_service.effective_model_config()
+
+
+@router.get("/local-models")
+async def get_local_model_status(
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Local embedding model and llama-cpp-python installation status."""
+    return _get_local_model_manager().status()
+
+
+@router.post("/local-models/backend/install")
+async def install_local_model_backend(
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Install llama-cpp-python into this API's virtual environment in the background."""
+    return await _get_local_model_manager().install_backend()
+
+
+@router.post("/local-models/reranker-backend/install")
+async def install_local_reranker_backend(
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Install the optional native GGUF cross-encoder runtime in the background."""
+    return await _get_local_model_manager().install_reranker_backend()
+
+
+@router.post("/local-models/download")
+async def download_local_models(
+    body: LocalModelDownloadRequest,
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Start downloads for selected BGE-M3 GGUF variants; status is polled separately."""
+    try:
+        return await _get_local_model_manager().download(body.files)
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
+
+
+@router.post("/local-models/test")
+async def test_local_embedding(
+    body: LocalModelTestRequest,
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Validate an unsaved local embedding configuration without persisting it."""
+    if body.model_file not in MODEL_CATALOG:
+        raise ValidationError("Unsupported local embedding model")
+
+    manager_status = _get_local_model_manager().status()
+    backend = manager_status["backend"]
+    if backend["status"] != "ready":
+        return {"ok": False, "message": backend["error"] or "请先下载本地推理后端"}
+
+    active_model = next(
+        (
+            model
+            for model in manager_status["models"]
+            if model["file_name"] == body.model_file
+        ),
+        None,
+    )
+    if active_model is None:
+        raise ValidationError("Unsupported local embedding model")
+    if active_model["status"] != "ready":
+        return {"ok": False, "message": "请先下载当前选择的本地模型"}
+
+    started = perf_counter()
+    try:
+        vector = await _generate_local_embedding_test(
+            active_model["model_path"],
+            n_ctx=body.n_ctx,
+            n_threads=body.n_threads or None,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "message": str(exc)}
+    return {
+        "ok": True,
+        "model_file": body.model_file,
+        "dimensions": len(vector),
+        "elapsed_ms": round((perf_counter() - started) * 1000),
+    }
+
+
+@router.post("/reranker-api/test")
+async def test_reranker_api(
+    body: RerankAPITestRequest,
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Test unsaved rerank API credentials without persisting or returning them."""
+    from sag_api.sag.rerank_api_client import RerankAPIClient
+
+    started = perf_counter()
+    try:
+        scores = await RerankAPIClient(
+            url=body.url,
+            api_key=body.api_key,
+            model=body.model,
+            instruction=body.instruction,
+            timeout_ms=body.timeout_ms,
+        ).rank("SAG-plus reranker connection test", ["Relevant search passage", "Unrelated weather note"], limit=2)
+    except Exception as exc:  # noqa: BLE001 - only expose sanitized client failures
+        return {"ok": False, "message": str(exc).replace(body.api_key, "***")}
+    return {"ok": True, "score_count": len(scores), "elapsed_ms": round((perf_counter() - started) * 1000)}
+
+
+@router.post("/local-models/reranker/test")
+async def test_local_reranker(
+    body: LocalModelTestRequest,
+    _user: User = Depends(get_current_user),
+) -> dict:
+    """Validate an unsaved local cross-encoder configuration without persistence."""
+    spec = get_model_spec(body.model_file)
+    if spec is None or spec.kind is not ModelKind.RERANKER:
+        raise ValidationError("Unsupported local reranker model")
+
+    manager_status = _get_local_model_manager().status()
+    reranker_status = manager_status.get("reranker", {})
+    backend = reranker_status.get("backends", {}).get(spec.runtime, {})
+    if backend.get("status") != "ready":
+        return {"ok": False, "message": backend.get("error") or "请先安装本地重排运行时"}
+    active_model = next(
+        (model for model in reranker_status.get("models", []) if model["file_name"] == body.model_file),
+        None,
+    )
+    if active_model is None or active_model.get("status") != "ready":
+        return {"ok": False, "message": "请先下载当前选择的本地重排模型"}
+
+    started = perf_counter()
+    try:
+        scores = await _generate_local_reranker_test(
+            active_model["model_path"],
+            n_ctx=body.n_ctx,
+            n_threads=body.n_threads or None,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "message": str(exc)}
+    return {
+        "ok": True,
+        "model_file": body.model_file,
+        "score_count": len(scores),
+        "elapsed_ms": round((perf_counter() - started) * 1000),
+    }
 
 
 @router.get("/model-providers")

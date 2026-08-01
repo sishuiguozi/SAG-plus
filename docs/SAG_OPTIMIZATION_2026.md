@@ -1,6 +1,12 @@
 # SAG 全面优化分析 v2（2026-08，基于全量代码扫描）
 
+> 运行入口：本分析不是部署或启动指南；启动 SAG-plus 请在 `apps/desktop` 运行 `npm run dev`。
+>
+> 2026-08-01 增量：Tree-sitter 代码入库、符号级父子分块、代码文件夹增量同步、三档代码抽取与检索版本过滤已落地。
+> 2026-08-02 复核：资源卡并入“解析模型”；ready 后下载/修复 no-op；Windows DLL 锁 promote 修复；Console Go `json_schema` 兼容可配置。详见 `docs/guides/CODE_FOLDER_INGESTION.md`。
+
 > 分析范围：apps/api/sag_api 全部 107 个 .py + apps/web 全部 182 个非测试 .ts/.tsx + apps/desktop + zleap-sag 依赖。
+> `SAG-plus` 维护说明：本文记录本分支的实现状态；性能数字来自当时的本地基线，迁移到其他数据目录前必须重新评估。
 > 本文档每个优化点均标注代码依据。优先级：P0=本次迭代实施，P1=下阶段，P2=可选/长期。
 
 ## 1. 现状基线（扫描确认）
@@ -11,9 +17,9 @@
 - **混合检索已有基础**：`services/retrieval_service.py` 的 `rerank_sections`（语义+词法融合、相关性门控）、`_lexical_sections`（词法通道）、`query_terms`（去噪）
 - 向量写入：`vector_write_queue.py` 队列化、批处理、租约、幂等（SAG-OPT-103/105/106）
 - 图谱/宇宙：`universe_service.py`(1487L) + `engine_manager` 的 universe_* 方法（singleflight + 缓存）
-- 本地嵌入：`embedding_backend.py`（llama-cpp bge-m3 Q8_0，CPU）
+- 本地嵌入：`embedding_backend.py`（llama-cpp bge-m3，CPU）；设置页按需安装 CPU 后端并下载 Q4/Q5/Q6/Q8/FP16 GGUF，启动时不下载权重
 - 结构感知分块：`chunking_compat.py`（代码块/表格保持完整，已完成）
-- 应用层补丁 8 处：compat / chunking_compat / embedding_backend / lancedb_search / lancedb_write / vector_write×2 / litellm_policy
+- 应用层补丁共 9 个模块，详见 `docs/ARCHITECTURE_PATCHES.md`；升级上游依赖前先运行该表所列回归测试。
 
 ### 前端（Next.js + React + Three.js）
 - 巨型单文件：`universe-scene-engine.ts`(7500L) `knowledge-universe.tsx`(4037L) `pet.tsx`(1628L) `pet-mini-workspace.tsx`(1493L) `orbital-graph-3d.tsx`(1466L) `conversation-runtime.ts`(1242L) `universe-timeline-window.ts`(1179L) `source-graph.tsx`(1069L) `detail-panel.tsx`(895L) `model-config-form.tsx`(863L)
@@ -31,10 +37,10 @@
 | # | 优化点 | 代码依据/现状 | 方案 | 优先级 |
 |---|---|---|---|---|
 | A1 | ~~检索结果 TTL 缓存~~ **已完成** | `engine_manager` 新增 `_search_cache_*`，search/search_many 缓存 SearchOutcome，TTL 30s 可配（设置→知识库），深拷贝隔离 | — |
-| A2 | ~~BM25 独立召回~~ **已完成** | 新增 `sag/lancedb_fts.py`：LanceDB FTS（tantivy）独立 BM25 召回 + 源过滤 + 索引自动维护（46k 行 2.5s 建索引）；词法通道优先 FTS、失败回退 grep；设置页可开关（`lancedb_fts_enabled`） | — | — |
-| A3 | ~~LLM Rerank~~ **已完成（默认关）** | `_llm_rerank`（候选编号重排+失败回退）；`search_llm_rerank_enabled/candidates` 设置项 | — | — |
+| A2 | ~~BM25 独立召回~~ **已完成** | 新增 `sag/lancedb_fts.py`：LanceDB FTS（tantivy）独立 BM25 召回 + 源过滤 + 索引自动维护；词法通道优先 FTS、失败回退 grep，且同步 FTS 操作转入 worker thread；设置页可开关（`lancedb_fts_enabled`） | — | — |
+| A3 | ~~Rerank~~ **已完成（默认关）** | 统一 `search_rerank_mode=off/local/api/llm`：本地 BGE/Qwen Q8 Cross-Encoder、完整 URL 的兼容 API（Qwen/vLLM）和 LLM 编号重排均可选；失败回退融合排序。入库抽取与 LLM 重排带独立调用标记，可关闭模型思考且不影响聊天。 | — | — |
 | A4 | ~~父子分块~~ **已完成（增量启用）** | `chunking_compat` 只保证结构完整；无 parent_id 关联 | 新 `document_chunk_mode=parent_child`：父块聚合上下文 + 子块精确检索，`extra_data.parent_id` 关联（复用现有 JSON 字段，无 migration）；入库回填 + 检索父上下文（`sag_api/sag/parent_child.py`）；旧数据无标记自动跳过（无需重灌，仅新文档生效） | — |
-| A5 | ~~检索评估集~~ **已完成** | `scripts/eval_retrieval.py`（内置用例+命中率统计，实测 75%） | — | — |
+| A5 | ~~检索评估集~~ **已完成** | `scripts/eval_retrieval.py`（内置用例、逐条延迟与命中率统计；当前 4 条基线为 3/4=75%） | — | — |
 | A6 | ~~Regex 分块~~ **已完成** | `document_chunk_regex`（Python re）+ 设置页正则输入；代码块/表格仍受保护 | — | — |
 | A7 | 图片/表格 VLM 理解 | 无多模态描述 | **已规划**：需 VLM 模型/API，属产品级改造 | P2 |
 
@@ -53,8 +59,8 @@
 |---|---|---|---|---|
 | C1 | 后端大文件拆分 | 同上 | **已规划**：拆 engine/lifecycle/search/universe 子模块（重构风险高，需独立排期） | P1 |
 | C2 | 前端巨型组件拆分 | `universe-scene-engine.ts`(7500L) 等 10 个 800L+ 文件 | **已规划**：按引擎/渲染/交互拆分（需独立排期） | P1 |
-| C3 | ~~补丁治理~~ **已完成** | `docs/ARCHITECTURE_PATCHES.md` 集中登记 8 处补丁+回归测试+治理约定 | — | — |
-| C4 | **ONNX 模型缓存清理** | `E:\sag\.data\models\embedding-cache` 约 4GB（Xenova 下载未用，走 llama-cpp） | 确认后删除，释放磁盘 | **P0** |
+| C3 | ~~补丁治理~~ **已完成** | `docs/ARCHITECTURE_PATCHES.md` 集中登记 9 处补丁、回归测试和治理约定 | — | — |
+| C4 | ~~ONNX 模型缓存清理~~ **已完成** | 已清理未使用的 Xenova 缓存，释放约 5.5GB；当前使用 llama-cpp 本地嵌入后端 | — | — |
 | C5 | ~~检索延迟监控~~ **已完成** | engine 检索耗时计入 `performance_ring`，`/system/performance-metrics` 聚合 | — | — |
 | C6 | 前端 bundle 继续瘦身 | 已修 three/webgpu | 分析 pet/echarts 等大依赖 | P2 |
 
@@ -64,8 +70,9 @@
 |---|---|---|---|---|
 | D1 | 测试覆盖 | 后端 ~60 用例 | 补检索缓存/分块/向量队列基准 | P1 |
 | D2 | ~~备份自动化~~ **已完成** | `scripts/backup_data.py`（快照+保留 N 份+跳过可重建缓存） | — | — |
-| D3 | ~~模型版本化~~ **已完成** | `local_embedding_status` 增加 `model_file`/`model_fingerprint`（size+mtime） | — | — |
+| D3 | ~~模型版本化与按需下载~~ **已完成** | `local_embedding_status` 增加 `model_file`/`model_fingerprint`；`local_model_manager.py` 维护五种固定 bge-m3 GGUF、后台安装 llama-cpp-python、临时文件校验与原子提交 | — | — |
 | D4 | 崩溃自愈报告 | 队列恢复有 | **基本已有**（启动自检+恢复日志），UI 报告已规划 | P2 |
+| D5 | ~~工具调用思考策略与历史兼容~~ **已完成** | `llm_tool_choice_strategy` 提供工具轮关闭思考（默认）、全程保留、自动工具和全程关闭四档；`llm_reasoning_history_compat` 提供自动（默认）、始终启用和关闭三档后台设置。DeepSeek 恢复思考时会以不可变方式补齐历史 assistant 消息的 `reasoning_content`，模型别名可手动启用。Console Go 已真实验证指定 `search_context` 后恢复思考并成功生成正文。 | — | — |
 
 ### E. UX 与功能
 

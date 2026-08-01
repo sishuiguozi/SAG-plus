@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 from contextlib import AsyncExitStack, asynccontextmanager, suppress
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +16,7 @@ from sag_agent import AgentRuntime
 from sag_api import __version__
 from sag_api.api.v1 import api_router
 from sag_api.branding import PRODUCT_NAME
+from sag_api.code_ingest import TreeSitterResourceManager
 from sag_api.core.config import settings
 from sag_api.core.db import SessionLocal, dispose_db, init_db
 from sag_api.core.errors import ApiError
@@ -23,13 +25,13 @@ from sag_api.core.logging import RequestContextMiddleware, configure_logging, ge
 from sag_api.generation import LLMClient
 from sag_api.jobs import InProcessAsyncQueue
 from sag_api.sag import EngineManager
+from sag_api.sag.chunking_compat import install_structural_chunking_patch
 from sag_api.sag.compat import (
     install_zleap_sag_async_sqlite_reset_compat,
     install_zleap_sag_extract_compat,
     install_zleap_sag_sqlite_integer_compat,
     install_zleap_sag_sqlite_pool_compat,
 )
-from sag_api.sag.chunking_compat import install_structural_chunking_patch
 from sag_api.sag.embedding_backend import install_embedding_backend
 from sag_api.sag.lancedb_search_compat import install_zleap_sag_lancedb_ann_search_patch
 from sag_api.sag.lancedb_write_compat import install_zleap_sag_lancedb_append_vs_merge_patch
@@ -107,6 +109,12 @@ async def lifespan(app: FastAPI):
     )
     await app.state.job_queue.start()
 
+    tree_sitter_manager = TreeSitterResourceManager(Path(settings.data_dir) / "tree-sitter")
+    app.state.tree_sitter_manager = tree_sitter_manager
+    tree_sitter_manager.activate_if_ready()
+    if settings.tree_sitter_auto_download:
+        await tree_sitter_manager.start_download()
+
     # 后台预热最近使用的信源引擎（不阻塞启动；失败不影响服务）
     warmup_task = asyncio.create_task(_warmup_engines(app.state.engine_manager))
 
@@ -135,6 +143,7 @@ async def lifespan(app: FastAPI):
             await app.state.agent_runtime.stop()
             await app.state.job_queue.stop()
             await app.state.vector_write_queue.stop()
+            await tree_sitter_manager.close()
             await app.state.engine_manager.aclose_all()
             await dispose_db()
         finally:
@@ -249,4 +258,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-

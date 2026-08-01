@@ -7,8 +7,10 @@ import { toast } from "sonner";
 
 import { useApp } from "@/components/features/app-shell";
 import { SettingsRow, SettingsSection } from "@/components/features/settings-section";
+import { TreeSitterResourceCard } from "@/components/features/tree-sitter-resource-card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,9 +24,25 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { Spinner } from "@/components/ui/spinner";
 import { api, ApiError } from "@/lib/api";
+import {
+  isLocalEmbeddingTestDisabled,
+  isLocalRerankerTestDisabled,
+  isLocalEmbeddingTestResponseCurrent,
+  isLocalModelDownloadDisabled,
+  localEmbeddingTestDraftKey,
+  toggleLocalModelSelection,
+  type LocalModelAction,
+} from "@/lib/local-model-manager";
+import {
+  isLlmJsonSchemaCompat,
+  isLlmReasoningHistoryCompat,
+  isLlmToolChoiceStrategy,
+} from "@/lib/tool-choice-strategy";
 import type {
   ModelConfig,
   ModelConfigPatch,
+  LocalEmbeddingTestResult,
+  LocalModelManagerStatus,
   ModelProviderId,
   ModelProviderSpec,
 } from "@/lib/types";
@@ -61,7 +79,7 @@ export function ModelConfigForm() {
     (key) => t(key as never),
     [t],
   );
-  const { capabilities, refreshCapabilities } = useApp();
+  const { refreshCapabilities } = useApp();
   const [cfg, setCfg] = React.useState<ModelConfig | null>(null);
   const [providers, setProviders] = React.useState<ModelProviderSpec[]>([]);
   const [loadError, setLoadError] = React.useState<string | null>(null);
@@ -77,6 +95,15 @@ export function ModelConfigForm() {
   const [maxTokens, setMaxTokens] = React.useState(20_000);
   const [timeoutMs, setTimeoutMs] = React.useState(60_000);
   const [maxRetries, setMaxRetries] = React.useState(2);
+  const [toolChoiceStrategy, setToolChoiceStrategy] = React.useState<
+    ModelConfig["llm_tool_choice_strategy"]
+  >("forced_no_thinking");
+  const [reasoningHistoryCompat, setReasoningHistoryCompat] = React.useState<
+    ModelConfig["llm_reasoning_history_compat"]
+  >("auto");
+  const [jsonSchemaCompat, setJsonSchemaCompat] = React.useState<
+    ModelConfig["llm_json_schema_compat"]
+  >("auto");
   const [ctxWindow, setCtxWindow] = React.useState(128000);
   const [embProvider, setEmbProvider] = React.useState<"api" | "local">("api");
   const [embLocalModelFile, setEmbLocalModelFile] = React.useState("bge-m3-Q8_0.gguf");
@@ -88,13 +115,51 @@ export function ModelConfigForm() {
   const [embDims, setEmbDims] = React.useState("");
   const [documentParser, setDocumentParser] =
     React.useState<ModelConfig["document_parser"]>("auto");
+  const [effectiveDocumentParser, setEffectiveDocumentParser] = React.useState<
+    ModelConfig["effective_document_parser"]
+  >("markitdown");
   const [mineruBaseUrl, setMineruBaseUrl] = React.useState("");
   const [mineruVersion, setMineruVersion] =
     React.useState<ModelConfig["mineru_version"]>("2.5");
   const [mineruKey, setMineruKey] = React.useState("");
+  const [rerankMode, setRerankMode] = React.useState<ModelConfig["search_rerank_mode"]>("off");
+  const [rerankCandidates, setRerankCandidates] = React.useState(8);
+  const [localRerankModelFile, setLocalRerankModelFile] = React.useState("qwen3-reranker-0.6b-q8_0.gguf");
+  const [rerankApiUrl, setRerankApiUrl] = React.useState("");
+  const [rerankApiKey, setRerankApiKey] = React.useState("");
+  const [rerankApiModel, setRerankApiModel] = React.useState("");
+  const [rerankApiInstruction, setRerankApiInstruction] = React.useState("");
+  const [rerankApiTimeoutMs, setRerankApiTimeoutMs] = React.useState(30_000);
   const [recommended, setRecommended] = React.useState<
     Record<string, number | boolean | string | null | undefined>
   >({});
+  const [localModels, setLocalModels] = React.useState<LocalModelManagerStatus | null>(null);
+  const [selectedLocalModels, setSelectedLocalModels] = React.useState<string[]>([
+    "bge-m3-Q8_0.gguf",
+  ]);
+  const [localModelAction, setLocalModelAction] = React.useState<LocalModelAction>(null);
+  const [testingLocalEmbedding, setTestingLocalEmbedding] = React.useState(false);
+  const [localEmbeddingTestResult, setLocalEmbeddingTestResult] =
+    React.useState<LocalEmbeddingTestResult | null>(null);
+  const [testingLocalReranker, setTestingLocalReranker] = React.useState(false);
+  const [localRerankerTestResult, setLocalRerankerTestResult] = React.useState<{
+    ok: boolean;
+    message?: string;
+    score_count?: number;
+    elapsed_ms?: number;
+  } | null>(null);
+  const localEmbeddingDraftKey = localEmbeddingTestDraftKey(
+    embProvider,
+    embLocalModelFile,
+    embLocalNCtx,
+    embLocalNThreads,
+  );
+  const localEmbeddingDraftKeyRef = React.useRef(localEmbeddingDraftKey);
+  localEmbeddingDraftKeyRef.current = localEmbeddingDraftKey;
+
+  React.useEffect(() => {
+    setLocalEmbeddingTestResult(null);
+  }, [localEmbeddingDraftKey]);
 
   const hydrate = React.useCallback((config: ModelConfig) => {
     setCfg(config);
@@ -105,6 +170,9 @@ export function ModelConfigForm() {
     setMaxTokens(config.llm_max_tokens);
     setTimeoutMs(config.llm_timeout_ms ?? 60_000);
     setMaxRetries(config.llm_max_retries ?? 2);
+    setToolChoiceStrategy(config.llm_tool_choice_strategy);
+    setReasoningHistoryCompat(config.llm_reasoning_history_compat);
+    setJsonSchemaCompat(config.llm_json_schema_compat ?? "auto");
     setCtxWindow(config.llm_context_window ?? 128000);
     setEmbProvider(config.embedding_provider);
     setEmbLocalModelFile(config.embedding_local_model_file);
@@ -113,26 +181,38 @@ export function ModelConfigForm() {
     setEmbModel(config.embedding_model);
     setEmbBaseUrl(config.embedding_base_url ?? "");
     setEmbDims(config.embedding_dimensions != null ? String(config.embedding_dimensions) : "");
-    setDocumentParser(config.document_parser);
+    setDocumentParser(config.document_parser ?? "auto");
+    setEffectiveDocumentParser(config.effective_document_parser ?? "markitdown");
     setMineruBaseUrl(config.mineru_base_url ?? "");
-    setMineruVersion(config.mineru_version);
+    setMineruVersion(config.mineru_version ?? "2.5");
+    setRerankMode(config.search_rerank_mode);
+    setRerankCandidates(config.search_rerank_candidates);
+    setLocalRerankModelFile(config.search_local_rerank_model_file);
+    setRerankApiUrl(config.search_rerank_api_url ?? "");
+    setRerankApiModel(config.search_rerank_api_model ?? "");
+    setRerankApiInstruction(config.search_rerank_api_instruction ?? "");
+    setRerankApiTimeoutMs(config.search_rerank_api_timeout_ms);
     setLlmKey("");
     setEmbKey("");
     setMineruKey("");
+    setRerankApiKey("");
     setRecommended(config.recommended ?? {});
+    setLocalEmbeddingTestResult(null);
   }, []);
 
   const load = React.useCallback(async () => {
     setLoadError(null);
     try {
-      const [config, providerCatalog] = await Promise.all([
+      const [config, providerCatalog, modelStatus] = await Promise.all([
         api.getModelConfig(),
         api.getModelProviders(),
+        api.getLocalModelStatus(),
       ]);
       if (!providerCatalog.some((provider) => provider.id === config.llm_provider)) {
         throw new Error("Configured model provider is missing from the provider catalog");
       }
       setProviders(providerCatalog);
+      setLocalModels(modelStatus);
       hydrate(config);
     } catch (error) {
       setLoadError(error instanceof ApiError ? error.message : t("loadFailed"));
@@ -143,6 +223,25 @@ export function ModelConfigForm() {
     void load();
   }, [load]);
 
+  const refreshLocalModels = React.useCallback(async () => {
+    try {
+      setLocalModels(await api.getLocalModelStatus());
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t("localModelStatusFailed"));
+    }
+  }, [t]);
+
+  React.useEffect(() => {
+    const updating =
+      localModels?.backend.status === "installing" ||
+      localModels?.models.some((model) => model.status === "downloading") ||
+      localModels?.reranker?.backends.llama_cpp_rank?.status === "installing" ||
+      localModels?.reranker?.models.some((model) => model.status === "downloading");
+    if (!updating) return;
+    const timer = window.setInterval(() => void refreshLocalModels(), 1500);
+    return () => window.clearInterval(timer);
+  }, [localModels, refreshLocalModels]);
+
   function currentPatch(): ModelConfigPatch {
     const patch: ModelConfigPatch = {
       llm_provider: llmProvider,
@@ -152,6 +251,9 @@ export function ModelConfigForm() {
       llm_max_tokens: maxTokens,
       llm_timeout_ms: timeoutMs,
       llm_max_retries: maxRetries,
+      llm_tool_choice_strategy: toolChoiceStrategy,
+      llm_reasoning_history_compat: reasoningHistoryCompat,
+      llm_json_schema_compat: jsonSchemaCompat,
       llm_context_window: ctxWindow,
       embedding_provider: embProvider,
       embedding_local_model_file: embLocalModelFile.trim(),
@@ -163,10 +265,18 @@ export function ModelConfigForm() {
       document_parser: documentParser,
       mineru_base_url: mineruBaseUrl.trim() || null,
       mineru_version: mineruVersion,
+      search_rerank_mode: rerankMode,
+      search_rerank_candidates: rerankCandidates,
+      search_local_rerank_model_file: localRerankModelFile.trim(),
+      search_rerank_api_url: rerankApiUrl.trim() || null,
+      search_rerank_api_model: rerankApiModel.trim(),
+      search_rerank_api_instruction: rerankApiInstruction.trim() || null,
+      search_rerank_api_timeout_ms: rerankApiTimeoutMs,
     };
     if (llmKey.trim()) patch.llm_api_key = llmKey.trim();
     if (embKey.trim()) patch.embedding_api_key = embKey.trim();
     if (mineruKey.trim()) patch.mineru_api_key = mineruKey.trim();
+    if (rerankApiKey.trim()) patch.search_rerank_api_key = rerankApiKey.trim();
     return patch;
   }
 
@@ -207,6 +317,15 @@ export function ModelConfigForm() {
     if (typeof rec.llm_max_tokens === "number") setMaxTokens(rec.llm_max_tokens);
     if (typeof rec.llm_timeout_ms === "number") setTimeoutMs(rec.llm_timeout_ms);
     if (typeof rec.llm_max_retries === "number") setMaxRetries(rec.llm_max_retries);
+    if (isLlmToolChoiceStrategy(rec.llm_tool_choice_strategy)) {
+      setToolChoiceStrategy(rec.llm_tool_choice_strategy);
+    }
+    if (isLlmReasoningHistoryCompat(rec.llm_reasoning_history_compat)) {
+      setReasoningHistoryCompat(rec.llm_reasoning_history_compat);
+    }
+    if (isLlmJsonSchemaCompat(rec.llm_json_schema_compat)) {
+      setJsonSchemaCompat(rec.llm_json_schema_compat);
+    }
     if (typeof rec.llm_context_window === "number") setCtxWindow(rec.llm_context_window);
     if (rec.embedding_provider === "api" || rec.embedding_provider === "local") {
       setEmbProvider(rec.embedding_provider);
@@ -230,6 +349,15 @@ export function ModelConfigForm() {
       setDocumentParser(parser);
     }
     if (typeof rec.mineru_base_url === "string") setMineruBaseUrl(rec.mineru_base_url);
+    if (rec.search_rerank_mode === "off" || rec.search_rerank_mode === "local" || rec.search_rerank_mode === "api" || rec.search_rerank_mode === "llm") {
+      setRerankMode(rec.search_rerank_mode);
+    }
+    if (typeof rec.search_rerank_candidates === "number") setRerankCandidates(rec.search_rerank_candidates);
+    if (typeof rec.search_local_rerank_model_file === "string") setLocalRerankModelFile(rec.search_local_rerank_model_file);
+    if (typeof rec.search_rerank_api_url === "string") setRerankApiUrl(rec.search_rerank_api_url);
+    if (typeof rec.search_rerank_api_model === "string") setRerankApiModel(rec.search_rerank_api_model);
+    if (typeof rec.search_rerank_api_instruction === "string") setRerankApiInstruction(rec.search_rerank_api_instruction);
+    if (typeof rec.search_rerank_api_timeout_ms === "number") setRerankApiTimeoutMs(rec.search_rerank_api_timeout_ms);
     const mineruVersion = rec.mineru_version;
     if (mineruVersion === "2.0" || mineruVersion === "2.5") {
       setMineruVersion(mineruVersion);
@@ -237,6 +365,7 @@ export function ModelConfigForm() {
     setLlmKey("");
     setEmbKey("");
     setMineruKey("");
+    setRerankApiKey("");
     setTestResult(null);
     toast.success(t("resetApplied"));
   }
@@ -299,6 +428,101 @@ export function ModelConfigForm() {
       toast.error(error instanceof ApiError ? error.message : t("mineruFailed"));
     } finally {
       setSaving(false);
+    }
+  }
+
+  function toggleLocalModel(fileName: string, checked: boolean) {
+    setSelectedLocalModels((selected) => toggleLocalModelSelection(selected, fileName, checked));
+  }
+
+  async function installLocalBackend() {
+    setLocalModelAction("backend");
+    try {
+      setLocalModels(await api.installLocalModelBackend());
+      toast.success(t("localBackendInstallStarted"));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t("localBackendInstallFailed"));
+    } finally {
+      setLocalModelAction(null);
+    }
+  }
+
+  async function downloadSelectedLocalModels() {
+    if (selectedLocalModels.length === 0) {
+      toast.error(t("localModelSelectRequired"));
+      return;
+    }
+    setLocalModelAction("download");
+    try {
+      setLocalModels(await api.downloadLocalModels(selectedLocalModels));
+      toast.success(t("localModelDownloadStarted"));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t("localModelDownloadFailed"));
+    } finally {
+      setLocalModelAction(null);
+    }
+  }
+
+  async function testLocalEmbedding() {
+    const requestDraftKey = localEmbeddingDraftKey;
+    setTestingLocalEmbedding(true);
+    setLocalEmbeddingTestResult(null);
+    try {
+      const result = await api.testLocalEmbedding({
+        model_file: embLocalModelFile.trim(),
+        n_ctx: embLocalNCtx,
+        n_threads: embLocalNThreads,
+      });
+      if (!isLocalEmbeddingTestResponseCurrent(requestDraftKey, localEmbeddingDraftKeyRef.current)) {
+        return;
+      }
+      setLocalEmbeddingTestResult(result);
+      if (result.ok) {
+        toast.success(t("localModelTestSucceeded"));
+      }
+    } catch (error) {
+      if (!isLocalEmbeddingTestResponseCurrent(requestDraftKey, localEmbeddingDraftKeyRef.current)) {
+        return;
+      }
+      setLocalEmbeddingTestResult({
+        ok: false,
+        message: error instanceof ApiError ? error.message : t("localModelTestFailed"),
+      });
+    } finally {
+      setTestingLocalEmbedding(false);
+    }
+  }
+
+  async function installLocalRerankerBackend() {
+    setLocalModelAction("rerankerBackend");
+    try {
+      setLocalModels(await api.installLocalRerankerBackend());
+      toast.success(t("localRerankerRuntimeInstallStarted"));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t("localRerankerRuntimeInstallFailed"));
+    } finally {
+      setLocalModelAction(null);
+    }
+  }
+
+  async function testLocalReranker() {
+    setTestingLocalReranker(true);
+    setLocalRerankerTestResult(null);
+    try {
+      const result = await api.testLocalReranker({
+        model_file: localRerankModelFile.trim(),
+        n_ctx: embLocalNCtx,
+        n_threads: embLocalNThreads,
+      });
+      setLocalRerankerTestResult(result);
+      if (result.ok) toast.success(t("localRerankerTestSucceeded"));
+    } catch (error) {
+      setLocalRerankerTestResult({
+        ok: false,
+        message: error instanceof ApiError ? error.message : t("localRerankerTestFailed"),
+      });
+    } finally {
+      setTestingLocalReranker(false);
     }
   }
 
@@ -522,6 +746,99 @@ export function ModelConfigForm() {
               />
               <FieldDescription>{t("retriesDescription")}</FieldDescription>
             </Field>
+            <Field className="sm:col-span-2">
+              <FieldLabel htmlFor="llm-tool-choice-strategy">
+                {t("toolChoiceStrategy")}
+                <RecommendedBadge t={translate} value={recommended.llm_tool_choice_strategy} />
+              </FieldLabel>
+              <Select
+                value={toolChoiceStrategy}
+                onValueChange={(value) =>
+                  setToolChoiceStrategy(value as ModelConfig["llm_tool_choice_strategy"])
+                }
+              >
+                <SelectTrigger id="llm-tool-choice-strategy">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="forced_no_thinking">
+                    {t("toolStrategyForcedNoThinking")}
+                  </SelectItem>
+                  <SelectItem value="forced_with_thinking">
+                    {t("toolStrategyForcedWithThinking")}
+                  </SelectItem>
+                  <SelectItem value="auto">{t("toolStrategyAuto")}</SelectItem>
+                  <SelectItem value="all_no_thinking">
+                    {t("toolStrategyAllNoThinking")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                {t(`toolStrategyDescription.${toolChoiceStrategy}`)}
+              </FieldDescription>
+            </Field>
+            <Field className="sm:col-span-2">
+              <FieldLabel htmlFor="llm-reasoning-history-compat">
+                {t("reasoningHistoryCompat")}
+                <RecommendedBadge
+                  t={translate}
+                  value={recommended.llm_reasoning_history_compat}
+                />
+              </FieldLabel>
+              <Select
+                value={reasoningHistoryCompat}
+                onValueChange={(value) =>
+                  setReasoningHistoryCompat(
+                    value as ModelConfig["llm_reasoning_history_compat"],
+                  )
+                }
+              >
+                <SelectTrigger id="llm-reasoning-history-compat">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">{t("reasoningHistoryCompatAuto")}</SelectItem>
+                  <SelectItem value="always">
+                    {t("reasoningHistoryCompatAlways")}
+                  </SelectItem>
+                  <SelectItem value="off">{t("reasoningHistoryCompatOff")}</SelectItem>
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                {t(`reasoningHistoryCompatDescription.${reasoningHistoryCompat}`)}
+              </FieldDescription>
+            </Field>
+            <Field className="sm:col-span-2">
+              <FieldLabel htmlFor="llm-json-schema-compat">
+                {t("jsonSchemaCompat")}
+                <RecommendedBadge
+                  t={translate}
+                  value={recommended.llm_json_schema_compat}
+                />
+              </FieldLabel>
+              <Select
+                value={jsonSchemaCompat}
+                onValueChange={(value) =>
+                  setJsonSchemaCompat(
+                    value as ModelConfig["llm_json_schema_compat"],
+                  )
+                }
+              >
+                <SelectTrigger id="llm-json-schema-compat">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">{t("jsonSchemaCompatAuto")}</SelectItem>
+                  <SelectItem value="always">
+                    {t("jsonSchemaCompatAlways")}
+                  </SelectItem>
+                  <SelectItem value="off">{t("jsonSchemaCompatOff")}</SelectItem>
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                {t(`jsonSchemaCompatDescription.${jsonSchemaCompat}`)}
+              </FieldDescription>
+            </Field>
           </div>
         </SettingsRow>
       </SettingsSection>
@@ -564,49 +881,110 @@ export function ModelConfigForm() {
           <>
           <SettingsRow title={t("localModelTitle")} description={t("localModelDescription")}>
             <div className="grid gap-3">
-              {(() => {
-                const local = capabilities?.local_embedding;
-                if (!local) {
-                  return (
-                    <Alert>
-                      <AlertTitle>{t("localModelUnknown")}</AlertTitle>
-                      <AlertDescription>{t("localModelUnknownHint")}</AlertDescription>
-                    </Alert>
-                  );
-                }
-                return (
-                  <>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                      <span className="font-medium text-foreground">
-                        {t("localModel")}: bge-m3 (Q8_0)
-                      </span>
-                      {local.model_size_mb != null && (
-                        <span className="text-muted-foreground">
-                          {t("localModelSize", { size: local.model_size_mb })}
-                        </span>
+              {!localModels ? (
+                <Alert>
+                  <AlertTitle>{t("localModelUnknown")}</AlertTitle>
+                  <AlertDescription>{t("localModelUnknownHint")}</AlertDescription>
+                </Alert>
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+                    <div>
+                      <p className="font-medium">{t("localBackendTitle")}</p>
+                      <p className="text-sm text-muted-foreground">{t("localBackendDescription")}</p>
+                      {localModels.backend.error && (
+                        <p className="mt-1 text-sm text-destructive">{localModels.backend.error}</p>
                       )}
-                      <span
-                        className={
-                          local.ready
-                            ? "rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400"
-                            : "rounded bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400"
-                        }
-                      >
-                        {local.ready ? t("localModelReady") : t("localModelNotReady")}
-                      </span>
                     </div>
-                    <p className="break-all rounded-md bg-muted/50 px-3 py-2 font-mono text-xs text-muted-foreground">
-                      {local.model_path}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={localModels.backend.status === "ready" || localModelAction !== null}
+                      onClick={() => void installLocalBackend()}
+                    >
+                      {localModelAction === "backend" || localModels.backend.status === "installing" ? <Spinner /> : <Plug />}
+                      {localModels.backend.status === "ready" ? t("localBackendReady") : t("localBackendInstall")}
+                    </Button>
+                  </div>
+                  <div className="grid gap-2">
+                    {localModels.models.map((model) => {
+                      const downloading = model.status === "downloading";
+                      const ready = model.status === "ready";
+                      return (
+                        <label key={model.file_name} className="grid gap-1 rounded-md border p-3 sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-3">
+                          <Checkbox
+                            checked={selectedLocalModels.includes(model.file_name)}
+                            onCheckedChange={(checked) => toggleLocalModel(model.file_name, checked === true)}
+                            aria-label={model.file_name}
+                          />
+                          <span className="min-w-0">
+                            <span className="block font-medium">{model.label}</span>
+                            <span className="block text-sm text-muted-foreground">{model.file_name}</span>
+                            {downloading && (
+                              <span className="mt-1 block h-1.5 overflow-hidden rounded bg-muted">
+                                <span className="block h-full bg-primary" style={{ width: `${model.progress}%` }} />
+                              </span>
+                            )}
+                            {model.error && <span className="block text-sm text-destructive">{model.error}</span>}
+                          </span>
+                          <span className={ready ? "text-sm text-emerald-600 dark:text-emerald-400" : "text-sm text-muted-foreground"}>
+                            {ready ? t("localModelReady") : downloading ? `${model.progress}%` : t("localModelNotReady")}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isLocalModelDownloadDisabled(localModels, selectedLocalModels, localModelAction)}
+                      onClick={() => void downloadSelectedLocalModels()}
+                    >
+                      {localModelAction === "download" ? <Spinner /> : <Save />}
+                      {t("localModelDownload")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isLocalEmbeddingTestDisabled(
+                        embProvider,
+                        embLocalModelFile,
+                        localModels,
+                        localModelAction,
+                        testingLocalEmbedding,
+                      )}
+                      onClick={() => void testLocalEmbedding()}
+                    >
+                      {testingLocalEmbedding ? <Spinner /> : <Check />}
+                      {testingLocalEmbedding ? t("localModelTesting") : t("localModelTest")}
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => void refreshLocalModels()}>
+                      <RotateCw />
+                      {t("localModelRefresh")}
+                    </Button>
+                  </div>
+                  {localEmbeddingTestResult && (
+                    <p
+                      className={cn(
+                        "text-sm",
+                        localEmbeddingTestResult.ok ? "text-success" : "text-destructive",
+                      )}
+                    >
+                      {localEmbeddingTestResult.ok
+                        ? t("localModelTestResult", {
+                            model: localEmbeddingTestResult.model_file ?? embLocalModelFile,
+                            dimensions: localEmbeddingTestResult.dimensions ?? 0,
+                            elapsed: localEmbeddingTestResult.elapsed_ms ?? 0,
+                          })
+                        : localEmbeddingTestResult.message ?? t("localModelTestFailed")}
                     </p>
-                    {local.error && (
-                      <Alert variant="destructive">
-                        <AlertTitle>{t("localModelError")}</AlertTitle>
-                        <AlertDescription>{local.error}</AlertDescription>
-                      </Alert>
-                    )}
-                  </>
-                );
-              })()}
+                  )}
+                </>
+              )}
             </div>
           </SettingsRow>
           <SettingsRow title={t("localParamsTitle")} description={t("localParamsDescription")}>
@@ -616,12 +994,19 @@ export function ModelConfigForm() {
                   {t("localModelFile")}
                   <RecommendedBadge t={translate} value={recommended.embedding_local_model_file} />
                 </FieldLabel>
-                <Input
-                  id="emb-local-file"
-                  value={embLocalModelFile}
-                  onChange={(event) => setEmbLocalModelFile(event.target.value)}
-                  placeholder="bge-m3-Q8_0.gguf"
-                />
+                <Select value={embLocalModelFile} onValueChange={setEmbLocalModelFile}>
+                  <SelectTrigger id="emb-local-file"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(localModels?.models ?? []).map((model) => (
+                      <SelectItem key={model.file_name} value={model.file_name}>
+                        {model.file_name}
+                      </SelectItem>
+                    ))}
+                    {!localModels?.models.some((model) => model.file_name === embLocalModelFile) && (
+                      <SelectItem value={embLocalModelFile}>{embLocalModelFile}</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
                 <FieldDescription>{t("localModelFileHint")}</FieldDescription>
               </Field>
               <Field>
@@ -661,6 +1046,14 @@ export function ModelConfigForm() {
               </Field>
             </div>
           </SettingsRow>
+          {cfg.embedding_local_model_file !== embLocalModelFile && (
+            <SettingsRow title={t("embeddingModelChangeTitle")} description={t("embeddingModelChangeDescription")}>
+              <Alert>
+                <AlertTitle>{t("embeddingModelChangeWarning")}</AlertTitle>
+                <AlertDescription>{t("embeddingModelChangeHint")}</AlertDescription>
+              </Alert>
+            </SettingsRow>
+          )}
           </>
         ) : (
           <SettingsRow
@@ -730,25 +1123,158 @@ export function ModelConfigForm() {
         )}
       </SettingsSection>
 
+      <SettingsSection title={t("rerankerTitle")} description={t("rerankerDescription")}>
+        <SettingsRow title={t("rerankerSourceTitle")} description={t(`rerankerModeDescription.${rerankMode}`)}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="rerank-mode">
+                {t("rerankerSource")}
+                <RecommendedBadge t={translate} value={recommended.search_rerank_mode} />
+              </FieldLabel>
+              <Select value={rerankMode} onValueChange={(value) => setRerankMode(value as ModelConfig["search_rerank_mode"])}>
+                <SelectTrigger id="rerank-mode"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="off">{t("rerankerModeOff")}</SelectItem>
+                  <SelectItem value="local">{t("rerankerModeLocal")}</SelectItem>
+                  <SelectItem value="api">{t("rerankerModeApi")}</SelectItem>
+                  <SelectItem value="llm">{t("rerankerModeLlm")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="rerank-candidates">
+                {t("rerankerCandidates")}
+                <RecommendedBadge t={translate} value={recommended.search_rerank_candidates} />
+              </FieldLabel>
+              <Input
+                id="rerank-candidates"
+                type="number"
+                min={3}
+                max={20}
+                value={rerankCandidates}
+                onChange={(event) => setRerankCandidates(Math.min(20, Math.max(3, Number(event.target.value) || 8)))}
+              />
+              <FieldDescription>{t("rerankerCandidatesHint")}</FieldDescription>
+            </Field>
+          </div>
+        </SettingsRow>
+
+        {rerankMode === "local" && (
+          <SettingsRow title={t("localRerankerTitle")} description={t("localRerankerDescription")}>
+            <div className="grid gap-3">
+              {!localModels?.reranker ? (
+                <Alert><AlertTitle>{t("localModelUnknown")}</AlertTitle><AlertDescription>{t("localModelUnknownHint")}</AlertDescription></Alert>
+              ) : (
+                <>
+                  <div className="rounded-md border p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="font-medium">{t("localRerankerRuntimeTitle")}</p>
+                        <p className="text-sm text-muted-foreground">{t("localRerankerRuntimeDescription")}</p>
+                        {localModels.reranker.backends.llama_cpp_rank?.error && (
+                          <p className="mt-1 text-sm text-destructive">{localModels.reranker.backends.llama_cpp_rank.error}</p>
+                        )}
+                      </div>
+                      <Button type="button" variant="outline" size="sm" disabled={localModels.reranker.backends.llama_cpp_rank?.status === "ready" || localModelAction !== null} onClick={() => void installLocalRerankerBackend()}>
+                        {localModelAction === "rerankerBackend" || localModels.reranker.backends.llama_cpp_rank?.status === "installing" ? <Spinner /> : <Plug />}
+                        {localModels.reranker.backends.llama_cpp_rank?.status === "ready" ? t("localRerankerRuntimeReady") : t("localRerankerRuntimeInstall")}
+                      </Button>
+                    </div>
+                  </div>
+                  <Field>
+                    <FieldLabel htmlFor="local-rerank-file">{t("localRerankerModelFile")}</FieldLabel>
+                    <Select value={localRerankModelFile} onValueChange={setLocalRerankModelFile}>
+                      <SelectTrigger id="local-rerank-file"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {localModels.reranker.models.map((model) => (
+                          <SelectItem key={model.file_name} value={model.file_name}>{model.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <div className="grid gap-2">
+                    {localModels.reranker.models.map((model) => {
+                      const ready = model.status === "ready";
+                      const downloading = model.status === "downloading";
+                      return (
+                        <label key={model.file_name} className="grid gap-1 rounded-md border p-3 sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-3">
+                          <Checkbox checked={selectedLocalModels.includes(model.file_name)} onCheckedChange={(checked) => toggleLocalModel(model.file_name, checked === true)} aria-label={model.file_name} />
+                          <span><span className="block font-medium">{model.label}</span><span className="block text-sm text-muted-foreground">{model.file_name}</span>{downloading && <span className="mt-1 block h-1.5 overflow-hidden rounded bg-muted"><span className="block h-full bg-primary" style={{ width: `${model.progress}%` }} /></span>}{model.error && <span className="block text-sm text-destructive">{model.error}</span>}</span>
+                          <span className={ready ? "text-sm text-emerald-600 dark:text-emerald-400" : "text-sm text-muted-foreground"}>{ready ? t("localModelReady") : downloading ? `${model.progress}%` : t("localModelNotReady")}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button type="button" variant="outline" size="sm" disabled={isLocalModelDownloadDisabled(localModels, selectedLocalModels, localModelAction)} onClick={() => void downloadSelectedLocalModels()}>
+                      {localModelAction === "download" ? <Spinner /> : <Save />}{t("localModelDownload")}
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" disabled={isLocalRerankerTestDisabled(localRerankModelFile, localModels, localModelAction, testingLocalReranker)} onClick={() => void testLocalReranker()}>
+                      {testingLocalReranker ? <Spinner /> : <Check />}{testingLocalReranker ? t("localModelTesting") : t("localRerankerTest")}
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => void refreshLocalModels()}><RotateCw />{t("localModelRefresh")}</Button>
+                  </div>
+                  {localRerankerTestResult && <p className={cn("text-sm", localRerankerTestResult.ok ? "text-success" : "text-destructive")}>{localRerankerTestResult.ok ? t("localRerankerTestResult", { scoreCount: localRerankerTestResult.score_count ?? 0, elapsed: localRerankerTestResult.elapsed_ms ?? 0 }) : localRerankerTestResult.message ?? t("localRerankerTestFailed")}</p>}
+                </>
+              )}
+            </div>
+          </SettingsRow>
+        )}
+
+        {rerankMode === "api" && (
+          <SettingsRow title={t("rerankerApiTitle")} description={t("rerankerApiDescription")}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field><FieldLabel htmlFor="rerank-api-url">{t("rerankerApiUrl")}</FieldLabel><Input id="rerank-api-url" value={rerankApiUrl} onChange={(event) => setRerankApiUrl(event.target.value)} placeholder="https://dashscope-intl.aliyuncs.com/compatible-api/v1/reranks" /></Field>
+              <Field><FieldLabel htmlFor="rerank-api-model">{t("model")}</FieldLabel><Input id="rerank-api-model" value={rerankApiModel} onChange={(event) => setRerankApiModel(event.target.value)} placeholder="qwen3-rerank" /></Field>
+              <Field><FieldLabel htmlFor="rerank-api-key">{t("optionalApiKey")}</FieldLabel><Input id="rerank-api-key" type="password" autoComplete="off" value={rerankApiKey} onChange={(event) => setRerankApiKey(event.target.value)} placeholder={cfg.search_rerank_api_key_set ? t("keyConfigured") : "sk-…"} /></Field>
+              <Field><FieldLabel htmlFor="rerank-api-timeout">{t("timeout")}</FieldLabel><Input id="rerank-api-timeout" type="number" min={1000} max={120000} value={rerankApiTimeoutMs} onChange={(event) => setRerankApiTimeoutMs(Math.min(120000, Math.max(1000, Number(event.target.value) || 30000)))} /></Field>
+              <Field className="sm:col-span-2"><FieldLabel htmlFor="rerank-api-instruction">{t("rerankerApiInstruction")}</FieldLabel><Input id="rerank-api-instruction" value={rerankApiInstruction} onChange={(event) => setRerankApiInstruction(event.target.value)} /></Field>
+            </div>
+          </SettingsRow>
+        )}
+      </SettingsSection>
+
       <SettingsSection
         title={t("parserTitle")}
         description={t("parserDescription")}
       >
         <SettingsRow title={t("parserEngine")} description={t("parserEngineDescription")}>
           <div className="grid gap-4 sm:grid-cols-2">
+            <Field className="sm:col-span-2">
+              <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                <div className="font-medium">{t("parserActiveLabel")}</div>
+                <div className="mt-1 text-muted-foreground">
+                  {documentParser === "auto"
+                    ? t("parserActiveAuto", {
+                        engine:
+                          effectiveDocumentParser === "mineru"
+                            ? `MinerU ${mineruVersion}`
+                            : "MarkItDown",
+                      })
+                    : documentParser === "mineru"
+                      ? t("parserActiveMineru", { version: mineruVersion })
+                      : t("parserActiveMarkitdown")}
+                </div>
+                {documentParser !== "markitdown" && !cfg.mineru_api_key_set && !mineruKey.trim() && (
+                  <div className="mt-1 text-amber-600 dark:text-amber-400">
+                    {t("parserMineruKeyMissing")}
+                  </div>
+                )}
+              </div>
+            </Field>
             <Field>
               <FieldLabel htmlFor="document-parser">
                   {t("parserMethod")}
                   <RecommendedBadge t={translate} value={recommended.document_parser} />
                 </FieldLabel>
               <Select
-                value={documentParser}
+                value={documentParser || "auto"}
                 onValueChange={(value) =>
                   setDocumentParser(value as ModelConfig["document_parser"])
                 }
               >
                 <SelectTrigger id="document-parser">
-                  <SelectValue />
+                  <SelectValue placeholder={t("autoRecommended")} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="auto">{t("autoRecommended")}</SelectItem>
@@ -820,6 +1346,13 @@ export function ModelConfigForm() {
               <FieldDescription>{t("secretDescription")}</FieldDescription>
             </Field>
           </div>
+        </SettingsRow>
+
+        <SettingsRow
+          title={t("codeParserTitle")}
+          description={t("codeParserDescription")}
+        >
+          <TreeSitterResourceCard embedded />
         </SettingsRow>
       </SettingsSection>
 

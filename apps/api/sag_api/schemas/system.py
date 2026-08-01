@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, Field, field_validator
 
 from sag_api.core.model_providers import ModelProviderId
-from sag_api.enums import SearchStrategy
+from sag_api.enums import JsonSchemaCompat, ReasoningHistoryCompat, SearchStrategy, ToolChoiceStrategy
 
 
 class QuickModelSetupRequest(BaseModel):
@@ -19,6 +19,28 @@ class QuickModelSetupRequest(BaseModel):
         if not value:
             raise ValueError("API Key 不能为空")
         return value
+
+
+class LocalModelDownloadRequest(BaseModel):
+    """A user-selected subset of the supported local embedding files."""
+
+    files: list[str] = Field(min_length=1, max_length=5)
+
+
+class LocalModelTestRequest(BaseModel):
+    """An unsaved local embedding configuration to validate."""
+
+    model_file: str = Field(min_length=1, max_length=200)
+    n_ctx: int = Field(ge=256, le=8192)
+    n_threads: int = Field(ge=0, le=128)
+
+
+class RerankAPITestRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=500)
+    api_key: str = Field(min_length=1, max_length=500)
+    model: str = Field(min_length=1, max_length=200)
+    instruction: str | None = Field(default=None, max_length=1000)
+    timeout_ms: int = Field(default=30_000, ge=1_000, le=120_000)
 
 
 class SystemPreferencesUpdate(BaseModel):
@@ -50,6 +72,9 @@ class ModelConfigUpdate(BaseModel):
     llm_context_window: int | None = Field(default=None, ge=1024, le=2_000_000)
     llm_timeout_ms: int | None = Field(default=None, ge=1_000, le=600_000)
     llm_max_retries: int | None = Field(default=None, ge=0, le=10)
+    llm_tool_choice_strategy: ToolChoiceStrategy | None = None
+    llm_reasoning_history_compat: ReasoningHistoryCompat | None = None
+    llm_json_schema_compat: JsonSchemaCompat | None = None
 
     embedding_provider: Literal["api", "local"] | None = None
     embedding_local_model_file: str | None = Field(default=None, min_length=1, max_length=200)
@@ -78,6 +103,15 @@ class ModelConfigUpdate(BaseModel):
     lancedb_fts_enabled: bool | None = None
     search_llm_rerank_enabled: bool | None = None
     search_llm_rerank_candidates: int | None = Field(default=None, ge=3, le=20)
+    search_rerank_mode: Literal["off", "local", "api", "llm"] | None = None
+    search_rerank_candidates: int | None = Field(default=None, ge=3, le=20)
+    search_local_rerank_model_file: str | None = Field(default=None, min_length=1, max_length=200)
+    search_rerank_api_url: str | None = Field(default=None, max_length=500)
+    search_rerank_api_key: str | None = Field(default=None, max_length=500)
+    # API 重排未启用时，设置页会提交空字符串；它不应阻止本地/关闭模式保存。
+    search_rerank_api_model: str | None = Field(default=None, max_length=200)
+    search_rerank_api_instruction: str | None = Field(default=None, max_length=1000)
+    search_rerank_api_timeout_ms: int | None = Field(default=None, ge=1_000, le=120_000)
     sag_language: Literal["zh", "en"] | None = None
     # ── 向量索引与写入（SAG-OPT-30x，保存后对后续写入/检索即时生效）──
     lancedb_ann_enabled: bool | None = None
@@ -156,7 +190,9 @@ class ModelConfigUpdate(BaseModel):
             raise ValueError("解析器与 MinerU 版本不能为 null")
         return value
 
-    @field_validator("job_concurrency", "document_extract_concurrency", "document_chunk_max_tokens", "parent_chunk_max_tokens")
+    @field_validator(
+        "job_concurrency", "document_extract_concurrency", "document_chunk_max_tokens", "parent_chunk_max_tokens"
+    )
     @classmethod
     def reject_null_document_numbers(cls, value: int | None) -> int:
         if value is None:
