@@ -22,7 +22,7 @@ from sag_api.core.logging import get_logger
 
 log = get_logger("sag.embedding_local")
 
-_local_singleton: "LocalEmbeddingClient | None" = None
+_local_singleton: LocalEmbeddingClient | None = None
 _local_lock = asyncio.Lock()
 _init_thread_lock = threading.Lock()
 # 保存原始实现，便于卸载/恢复
@@ -64,6 +64,9 @@ class LocalEmbeddingClient:
         log.info("加载本地 embedding 模型：%s", self.model_path)
         kwargs: dict[str, Any] = {
             "model_path": self.model_path,
+            # JamePeng's native rank/CUDA runtime uses the current plural
+            # parameter; older llama-cpp-python releases use the singular one.
+            "embeddings": True,
             "embedding": True,
             "n_ctx": self.n_ctx,
             "verbose": False,
