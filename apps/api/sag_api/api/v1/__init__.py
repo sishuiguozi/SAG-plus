@@ -5,6 +5,7 @@ from sag_api.api.v1 import (
     agents,
     attachments,
     auth,
+    code_folder,
     documents,
     insights,
     jobs,
@@ -33,6 +34,7 @@ for _module in (
     tree_sitter,
     translate,
     universe,
+    code_folder,
 ):
     api_router.include_router(_module.router)
 api_router.include_router(search.global_router)
