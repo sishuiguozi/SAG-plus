@@ -15,7 +15,7 @@
 - 每次维护写 ``--reports-dir/auto-maintenance-<ts>.json``，保留最近 30 份。
 
 用法：
-  python scripts/auto_maintenance.py --metadata-db E:/sag/.data/sag.db --data-dir E:/sag/.data/engine
+  python scripts/auto_maintenance.py --metadata-db <SAG_DATA_ROOT>/sag.db --data-dir <SAG_DATA_ROOT>/engine
   # 确认备份可打开后再允许删除旧版本：
   python scripts/auto_maintenance.py ... --delete-unverified
   # 只评估不执行：
@@ -32,10 +32,11 @@ from pathlib import Path
 from typing import Any
 
 from sag_api.maintenance.audit_sag_storage import _lancedb_summary
+from sag_api.maintenance.paths import default_data_root
 from sag_api.maintenance.sag_maintenance_guard import maintenance_guard
 
-STATE_DEFAULT = "E:/sag/.data/maintenance/auto-maintenance-state.json"
-REPORTS_DEFAULT = "E:/sag/.data/reports"
+STATE_DEFAULT = str(default_data_root() / "maintenance" / "auto-maintenance-state.json")
+REPORTS_DEFAULT = str(default_data_root() / "reports")
 KEEP_REPORTS = 30
 
 _VECTOR_ACTIVE = ("queued", "running", "writing", "retry")

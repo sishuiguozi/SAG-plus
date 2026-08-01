@@ -13,15 +13,16 @@
   打印警告并置非零退出码；``SCAN 表 USING INDEX`` 是正常的索引扫描。
 
 用法示例：
-  python scripts/migrate_redundant_indexes.py --db "E:/sag/.data/engine/sag.db" --apply --tier1
-  python scripts/migrate_redundant_indexes.py --db "E:/sag/.data/engine/sag.db" --apply --tier2
-  python scripts/migrate_redundant_indexes.py --db "E:/sag/.data/engine/sag.db" --rollback E:/sag/.data/rollback/xxx.sql
+  python scripts/migrate_redundant_indexes.py --db "<SAG_DATA_ROOT>/engine/sag.db" --apply --tier1
+  python scripts/migrate_redundant_indexes.py --db "<SAG_DATA_ROOT>/engine/sag.db" --apply --tier2
+  python scripts/migrate_redundant_indexes.py --rollback "<SAG_DATA_ROOT>/rollback/xxx.sql"
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sqlite3
 import sys
@@ -29,7 +30,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-DEFAULT_DB = "E:/sag/.data/engine/sag.db"
+
+def _default_data_root() -> Path:
+    """数据根目录：优先 SAG_DATA_ROOT 环境变量，否则 ~/.sag/.data。"""
+    env = os.environ.get("SAG_DATA_ROOT")
+    if env:
+        return Path(env).expanduser()
+    return Path.home() / ".sag" / ".data"
+
+
+DEFAULT_DB = str(_default_data_root() / "engine" / "sag.db")
 
 HOT_QUERY_SQLS: list[str] = [
     "SELECT * FROM article WHERE source_config_id = 1 ORDER BY id DESC LIMIT 50",
@@ -221,7 +231,7 @@ def main() -> int:
     parser.add_argument("--tier1", action="store_true", help="删除完全重复索引")
     parser.add_argument("--tier2", action="store_true", help="删除左前缀冗余索引")
     parser.add_argument("--apply", action="store_true", help="实际写库（默认 dry-run）")
-    parser.add_argument("--rollback-dir", default="E:/sag/.data/rollback", help="回滚 DDL 输出目录")
+    parser.add_argument("--rollback-dir", default=str(_default_data_root() / "rollback"), help="回滚 DDL 输出目录")
     parser.add_argument("--rollback", help="执行指定回滚 DDL 文件后退出")
     parser.add_argument("--verify", action="store_true", help="删除后复跑热查询 EXPLAIN 验证")
     parser.add_argument("--skip-analyze", action="store_true", help="不自动 ANALYZE")

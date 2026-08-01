@@ -33,7 +33,7 @@ def main() -> int:
 
     from sag_api.core.config import settings
 
-    data_parent = Path(settings.data_dir).resolve().parent  # 例如 E:\sag\.data
+    data_parent = Path(settings.data_dir).resolve().parent  # 数据根目录（settings.data_dir 的父级）
     target_root = Path(args.target or data_parent / "backups").resolve()
     stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     dest = target_root / f"sag-backup-{stamp}"

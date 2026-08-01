@@ -8,7 +8,8 @@
 - 生成回滚 DDL 文件（重建被删索引），保证删除操作可回滚。
 
 用法示例：
-  python scripts/sqlite_index_audit.py --db "E:/sag/.data/engine/sag.db" --report index_audit.json --rollback rollback_indexes.sql
+  python scripts/sqlite_index_audit.py --db <SAG_DATA_ROOT>/engine/sag.db \
+      --report index_audit.json --rollback rollback_indexes.sql
 只读：连接使用 mode=ro，不做任何写操作。
 """
 
@@ -16,13 +17,23 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-DEFAULT_DB = "E:/sag/.data/engine/sag.db"
+
+def _default_data_root() -> Path:
+    """数据根目录：优先 SAG_DATA_ROOT 环境变量，否则 ~/.sag/.data。"""
+    env = os.environ.get("SAG_DATA_ROOT")
+    if env:
+        return Path(env).expanduser()
+    return Path.home() / ".sag" / ".data"
+
+
+DEFAULT_DB = str(_default_data_root() / "engine" / "sag.db")
 
 # SAG-OPT-403 首批重点查询（与计划清单一致）
 HOT_QUERIES: list[tuple[str, str]] = [

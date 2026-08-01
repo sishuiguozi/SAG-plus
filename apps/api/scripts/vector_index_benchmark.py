@@ -9,18 +9,19 @@
 - scalar-index：为 source_config_id 等标量列创建 BTree 标量索引，验证过滤检索结果与延迟。
 
 用法示例：
-  python scripts/vector_index_benchmark.py baseline --uri "E:/sag/.data/engine/lancedb" \
-      --out "E:/sag/.data/vector-benchmark/benchmark-v1.json"
-  python scripts/vector_index_benchmark.py experiment --uri "E:/sag/.data/engine/lancedb" \
-      --fixture "E:/sag/.data/vector-benchmark/benchmark-v1.json" --config hnsw_sq \
-      --report "E:/sag/.data/vector-benchmark/report-hnsw-sq.json"
-  python scripts/vector_index_benchmark.py scalar-index --uri "E:/sag/.data/engine/lancedb"
+  python scripts/vector_index_benchmark.py baseline --uri "<SAG_DATA_ROOT>/engine/lancedb" \
+      --out "<SAG_DATA_ROOT>/vector-benchmark/benchmark-v1.json"
+  python scripts/vector_index_benchmark.py experiment --uri "<SAG_DATA_ROOT>/engine/lancedb" \
+      --fixture "<SAG_DATA_ROOT>/vector-benchmark/benchmark-v1.json" --config hnsw_sq \
+      --report "<SAG_DATA_ROOT>/vector-benchmark/report-hnsw-sq.json"
+  python scripts/vector_index_benchmark.py scalar-index --uri "<SAG_DATA_ROOT>/engine/lancedb"
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import statistics
 import sys
 import time
@@ -31,7 +32,17 @@ from typing import Any
 import lancedb
 from lancedb.index import HnswSq, IvfHnswSq, HnswFlat
 
-URI_DEFAULT = "E:/sag/.data/engine/lancedb"
+
+def _default_data_root() -> Path:
+    """数据根目录：优先 SAG_DATA_ROOT 环境变量，否则 ~/.sag/.data。"""
+    env = os.environ.get("SAG_DATA_ROOT")
+    if env:
+        return Path(env).expanduser()
+    return Path.home() / ".sag" / ".data"
+
+
+URI_DEFAULT = str(_default_data_root() / "engine" / "lancedb")
+BENCHMARK_DIR = _default_data_root() / "vector-benchmark"
 
 # (表, 向量列, 优先级, 采样数, id列, 过滤列)
 SPECS: list[dict[str, Any]] = [
@@ -429,14 +440,14 @@ def main() -> int:
 
     pb = sub.add_parser("baseline", help="采集基准并计算 exact Top-K")
     pb.add_argument("--uri", default=URI_DEFAULT)
-    pb.add_argument("--out", default="E:/sag/.data/vector-benchmark/benchmark-v1.json")
+    pb.add_argument("--out", default=str(BENCHMARK_DIR / "benchmark-v1.json"))
     pb.add_argument("--priority", choices=["P0", "P1"], default=None)
     pb.set_defaults(func=cmd_baseline)
 
     pe = sub.add_parser("experiment", help="ANN 索引实验")
     pe.add_argument("--uri", default=URI_DEFAULT)
-    pe.add_argument("--fixture", default="E:/sag/.data/vector-benchmark/benchmark-v1.json")
-    pe.add_argument("--report", default="E:/sag/.data/vector-benchmark/report.json")
+    pe.add_argument("--fixture", default=str(BENCHMARK_DIR / "benchmark-v1.json"))
+    pe.add_argument("--report", default=str(BENCHMARK_DIR / "report.json"))
     pe.add_argument("--config", choices=["hnsw_sq", "hnsw_flat", "ivf_hnsw_sq"], default="hnsw_sq")
     pe.add_argument("--priority", choices=["P0", "P1"], default=None)
     pe.add_argument("--no-create", action="store_true", help="不创建索引，只测量已有索引")
@@ -445,8 +456,8 @@ def main() -> int:
 
     pv = sub.add_parser("verify-app", help="用应用补丁后的检索路径验证")
     pv.add_argument("--uri", default=URI_DEFAULT)
-    pv.add_argument("--fixture", default="E:/sag/.data/vector-benchmark/benchmark-v1.json")
-    pv.add_argument("--report", default="E:/sag/.data/vector-benchmark/verify-app.json")
+    pv.add_argument("--fixture", default=str(BENCHMARK_DIR / "benchmark-v1.json"))
+    pv.add_argument("--report", default=str(BENCHMARK_DIR / "verify-app.json"))
     pv.add_argument("--priority", choices=["P0", "P1"], default=None)
     pv.set_defaults(func=cmd_verify_app)
 

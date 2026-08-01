@@ -16,20 +16,30 @@
 - 变更后自动 ANALYZE，并复跑 13 条热查询 EXPLAIN 验证（纯表扫描会失败）。
 
 用法：
-  python scripts/reindex_article_hot_queries.py --db "E:/sag/.data/engine/sag.db"
-  python scripts/reindex_article_hot_queries.py --db "E:/sag/.data/engine/sag.db" --apply
+  python scripts/reindex_article_hot_queries.py --db "<SAG_DATA_ROOT>/engine/sag.db"
+  python scripts/reindex_article_hot_queries.py --db "<SAG_DATA_ROOT>/engine/sag.db" --apply
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sqlite3
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-DEFAULT_DB = "E:/sag/.data/engine/sag.db"
+
+def _default_data_root() -> Path:
+    """数据根目录：优先 SAG_DATA_ROOT 环境变量，否则 ~/.sag/.data。"""
+    env = os.environ.get("SAG_DATA_ROOT")
+    if env:
+        return Path(env).expanduser()
+    return Path.home() / ".sag" / ".data"
+
+
+DEFAULT_DB = str(_default_data_root() / "engine" / "sag.db")
 
 HOT_QUERY_SQLS: list[str] = [
     "SELECT * FROM article WHERE source_config_id = 1 ORDER BY id DESC LIMIT 50",
@@ -142,7 +152,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", default=DEFAULT_DB)
     parser.add_argument("--apply", action="store_true", help="实际写库（默认 dry-run）")
-    parser.add_argument("--rollback-dir", default="E:/sag/.data/rollback")
+    parser.add_argument("--rollback-dir", default=str(_default_data_root() / "rollback"))
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
 

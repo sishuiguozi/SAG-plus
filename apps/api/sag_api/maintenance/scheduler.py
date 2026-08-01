@@ -28,7 +28,7 @@ log = logging.getLogger("sag.maintenance.scheduler")
 
 
 def data_root_of(data_dir: str | Path) -> Path:
-    """数据根目录 = engine 目录的父级（默认 E:/sag/.data）。"""
+    """数据根目录 = engine 目录的父级（数据位置由设置/环境变量决定）。"""
     return Path(data_dir).resolve().parent
 
 
