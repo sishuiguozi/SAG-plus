@@ -13,6 +13,8 @@ class Document(IDMixin, TimestampMixin, Base):
     __table_args__ = (
         Index("ix_documents_source_sag_source", "source_id", "sag_source_id"),
         Index("ix_documents_source_status", "source_id", "status"),
+        Index("ix_documents_source_relative_path", "source_id", "relative_path"),
+        Index("ix_documents_source_code_language", "source_id", "code_language"),
     )
 
     source_id: Mapped[str] = mapped_column(
@@ -32,3 +34,7 @@ class Document(IDMixin, TimestampMixin, Base):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     # zleap-sag ingest 返回的 source_id（用于溯源）
     sag_source_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # 代码文件夹入库元数据；普通文档保持 NULL。
+    relative_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    content_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    code_language: Mapped[str | None] = mapped_column(String(64), nullable=True)

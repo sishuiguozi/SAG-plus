@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import os
 import shutil
-
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +26,7 @@ from sag_api.enums import (
 )
 from sag_api.jobs import JobQueue
 from sag_api.sag import EngineManager
-from sag_api.schemas.source import IngestStatsOut, SourceCreate, SourceUpdate
+from sag_api.schemas.source import IngestStatsOut, SourceCodeConfig, SourceCreate, SourceUpdate
 
 log = get_logger("services.source")
 
@@ -78,9 +78,7 @@ async def source_document_status_counts(
 
 def _engine_db_path() -> Path | None:
     """引擎库路径（data_dir/sag.db）；不存在返回 None。"""
-    from pathlib import Path as _Path
-
-    path = _Path(settings.data_dir) / "sag.db"
+    path = Path(settings.data_dir) / "sag.db"
     return path if path.exists() else None
 
 
@@ -312,6 +310,34 @@ async def get_source(session: AsyncSession, source_id: str) -> Source:
     if source is None:
         raise NotFoundError("信源不存在")
     return source
+
+
+def _read_source_code_config(source: Source) -> SourceCodeConfig:
+    raw = source.config if isinstance(source.config, dict) else {}
+    code_ingest = raw.get("code_ingest")
+    if not isinstance(code_ingest, dict):
+        return SourceCodeConfig()
+    return SourceCodeConfig.model_validate(code_ingest)
+
+
+async def get_source_code_config(
+    session: AsyncSession, source_id: str
+) -> SourceCodeConfig:
+    return _read_source_code_config(await get_source(session, source_id))
+
+
+async def update_source_code_config(
+    session: AsyncSession,
+    source_id: str,
+    data: SourceCodeConfig,
+) -> SourceCodeConfig:
+    source = await get_source(session, source_id)
+    config = dict(source.config) if isinstance(source.config, dict) else {}
+    config["code_ingest"] = data.model_dump()
+    source.config = config
+    await session.commit()
+    await session.refresh(source)
+    return _read_source_code_config(source)
 
 
 async def create_source(
